@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=My Product
+Comment=Unified team productivity dashboard
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/team-ado-tool %u
+Terminal=false
+Type=Application
+Icon=team-ado-tool
+Categories=Utility;
+StartupWMClass=team-ado-tool
+
+ 

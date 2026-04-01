@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<MsixPackagingToolTemplate
+    xmlns="http://schemas.microsoft.com/msix/packaging/msixpackagingtool/template/2022">
+    <Settings
+        AllowTelemetry="false"
+        ApplyACLsToPackageFiles="true"
+        GenerateCommandLineFile="true"
+        AllowPromptForPassword="false">
+    </Settings>
+    <Installer
+        Path="team-ado-tool"
+        Arguments=""
+        InstallLocation="C:\Program Files\Xbox Services\My Product">
+    </Installer>
+    <PackageInformation
+        PackageName="My Product"
+        PackageDisplayName="My Product"
+        PublisherName="CN=Xbox Services"
+        PublisherDisplayName="Xbox Services"
+        Version="0.1.0.0"
+        PackageDescription="Unified team productivity dashboard">
+        <Capabilities>
+            <Capability Name="runFullTrust" />
+            
+        </Capabilities>
+        <Applications>
+            <Application
+                Id="com.xboxservices.teamadotool"
+                Description="Unified team productivity dashboard"
+                DisplayName="My Product"
+                ExecutableName="team-ado-tool"
+                EntryPoint="Windows.FullTrustApplication">
+                
+            </Application>
+        </Applications>
+        <Resources>
+            <Resource Language="en-us" />
+        </Resources>
+        <Dependencies>
+            <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0" />
+        </Dependencies>
+        <Properties>
+            <Framework>false</Framework>
+            <DisplayName>My Product</DisplayName>
+            <PublisherDisplayName>Xbox Services</PublisherDisplayName>
+            <Description>Unified team productivity dashboard</Description>
+            <Logo>Assets\AppIcon.png</Logo>
+        </Properties>
+    </PackageInformation>
+    <SaveLocation PackagePath="team-ado-tool.msix" />
+    <PackageIntegrity>
+        <CertificatePath></CertificatePath>
+    </PackageIntegrity>
+</MsixPackagingToolTemplate>
