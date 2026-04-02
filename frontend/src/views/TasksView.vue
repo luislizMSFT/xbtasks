@@ -102,107 +102,87 @@ onMounted(() => {
     <!-- Task list -->
     <div class="flex-1 flex flex-col min-w-0">
       <!-- Header -->
-      <div class="flex items-center justify-between px-5 py-3 border-b border-border-default">
+      <div class="flex items-center justify-between px-5 py-3 border-b border-border">
         <div class="flex items-center gap-1">
-          <h1 class="text-lg font-semibold text-text-primary mr-4">Tasks</h1>
-          <!-- Status tabs (pill style) -->
-          <div class="flex items-center gap-0.5 bg-surface-tertiary rounded-lg p-0.5">
-            <button
-              v-for="tab in tabs"
-              :key="tab.id"
-              @click="taskStore.filterStatus = tab.id"
-              class="px-3 py-1 rounded-md text-xs font-medium transition-colors duration-150"
-              :class="[
-                taskStore.filterStatus === tab.id
-                  ? 'bg-surface-primary text-text-primary shadow-sm'
-                  : 'text-text-secondary hover:text-text-primary'
-              ]"
-            >
-              {{ tab.label }}
-            </button>
-          </div>
+          <h1 class="text-lg font-semibold text-foreground mr-4">Tasks</h1>
+          <!-- Status tabs -->
+          <Tabs :default-value="taskStore.filterStatus" @update:model-value="(v) => { if (v) taskStore.filterStatus = String(v) }">
+            <TabsList>
+              <TabsTrigger v-for="tab in tabs" :key="tab.id" :value="tab.id">
+                {{ tab.label }}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
         <div class="flex items-center gap-2">
-          <button class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-text-secondary hover:text-text-primary hover:bg-surface-tertiary transition-colors">
+          <Button variant="ghost" size="sm" class="gap-1.5 text-xs">
             <Filter :size="14" />
             Filter
-          </button>
-          <button class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-text-secondary hover:text-text-primary hover:bg-surface-tertiary transition-colors">
+          </Button>
+          <Button variant="ghost" size="sm" class="gap-1.5 text-xs">
             <ArrowUpDown :size="14" />
             Sort
-          </button>
-          <button
-            @click="startInlineCreate"
-            class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-accent text-white hover:bg-accent/90 transition-colors"
-          >
+          </Button>
+          <Button size="sm" class="gap-1.5 text-xs" @click="startInlineCreate">
             <Plus :size="14" />
             New Task
-          </button>
+          </Button>
         </div>
       </div>
 
       <!-- Task list body -->
-      <div class="flex-1 overflow-y-auto">
+      <ScrollArea class="flex-1">
         <!-- Loading -->
         <div v-if="taskStore.loading" class="flex items-center justify-center py-20">
-          <div class="w-5 h-5 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+          <div class="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
         </div>
 
         <!-- Empty state -->
         <div v-else-if="!hasAnyTasks" class="flex flex-col items-center justify-center py-20 gap-3">
-          <div class="w-12 h-12 rounded-full bg-surface-tertiary flex items-center justify-center">
-            <Plus :size="24" class="text-text-secondary" />
+          <div class="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+            <Plus :size="24" class="text-muted-foreground" />
           </div>
-          <p class="text-sm font-medium text-text-primary">No tasks yet</p>
-          <p class="text-xs text-text-secondary">Create your first task to get started</p>
-          <button
-            @click="startInlineCreate"
-            class="mt-2 px-4 py-2 rounded-md text-sm font-medium bg-accent text-white hover:bg-accent/90 transition-colors"
-          >
+          <p class="text-sm font-medium text-foreground">No tasks yet</p>
+          <p class="text-xs text-muted-foreground">Create your first task to get started</p>
+          <Button class="mt-2" @click="startInlineCreate">
             Create Task
-          </button>
+          </Button>
         </div>
 
         <!-- Inline create -->
-        <div v-if="showNewTask" class="px-4 py-2 border-b border-border-default bg-surface-secondary/50">
+        <div v-if="showNewTask" class="px-4 py-2 border-b border-border bg-card/50">
           <div class="flex items-center gap-3">
             <div class="w-5 h-5 rounded-full border-2 border-zinc-300 dark:border-zinc-600" />
-            <input
+            <Input
               ref="newTaskInput"
               v-model="newTaskTitle"
               @keydown.enter="createTask"
               @keydown.esc="showNewTask = false"
-              class="flex-1 text-sm bg-transparent border-none outline-none text-text-primary placeholder-text-secondary"
+              class="flex-1 border-none shadow-none focus-visible:ring-0 text-sm bg-transparent"
               placeholder="What needs to be done?"
             />
-            <button
-              @click="createTask"
-              class="px-2.5 py-1 rounded-md text-xs font-medium bg-accent text-white hover:bg-accent/90 transition-colors"
-            >
+            <Button size="sm" class="text-xs" @click="createTask">
               Add
-            </button>
-            <button
-              @click="showNewTask = false"
-              class="px-2.5 py-1 rounded-md text-xs text-text-secondary hover:text-text-primary hover:bg-surface-tertiary transition-colors"
-            >
+            </Button>
+            <Button variant="ghost" size="sm" class="text-xs" @click="showNewTask = false">
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
 
         <!-- Grouped sections (Things 3 style) -->
         <div v-if="hasAnyTasks && !taskStore.loading">
-          <div v-for="section in visibleSections" :key="section" class="border-b border-border-default/50 last:border-b-0">
+          <div v-for="section in visibleSections" :key="section" class="border-b border-border/50 last:border-b-0">
             <!-- Section header -->
             <button
               @click="toggleSection(section)"
-              class="flex items-center gap-2 w-full px-5 py-2 text-left hover:bg-surface-tertiary/30 transition-colors"
+              class="flex items-center gap-2 w-full px-5 py-2 text-left hover:bg-muted/30 transition-colors"
             >
               <component
                 :is="isCollapsed(section) ? ChevronRight : ChevronDown"
                 :size="14"
-                class="text-text-secondary"
+                class="text-muted-foreground"
               />
               <span
                 class="text-[12px] font-semibold uppercase tracking-wider"
@@ -210,7 +190,7 @@ onMounted(() => {
               >
                 {{ sectionLabels[section] }}
               </span>
-              <span class="text-[11px] text-text-secondary">
+              <span class="text-[11px] text-muted-foreground">
                 {{ taskStore.grouped[section]?.length ?? 0 }}
               </span>
             </button>
@@ -237,7 +217,7 @@ onMounted(() => {
             </TransitionGroup>
           </div>
         </div>
-      </div>
+      </ScrollArea>
     </div>
 
     <!-- Detail panel -->
