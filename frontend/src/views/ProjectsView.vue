@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useProjectStore } from '../stores/projects'
+import { useProjectStore } from '@/stores/projects'
+import { Button } from '@/components/ui/button'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { Plus, Folder, X } from 'lucide-vue-next'
 
 const projectStore = useProjectStore()
@@ -32,21 +37,18 @@ const statusColors: Record<string, string> = {
 </script>
 
 <template>
-  <div class="flex-1 overflow-y-auto">
+  <ScrollArea class="flex-1">
     <div class="max-w-4xl mx-auto px-6 py-6 space-y-6">
       <!-- Header -->
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-xl font-semibold text-text-primary">Projects</h1>
-          <p class="text-sm text-text-secondary mt-0.5">Organize tasks by project</p>
+          <h1 class="text-xl font-semibold text-foreground">Projects</h1>
+          <p class="text-sm text-muted-foreground mt-0.5">Organize tasks by project</p>
         </div>
-        <button
-          @click="showCreate = true"
-          class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium bg-accent text-white hover:bg-accent/90 transition-colors"
-        >
+        <Button size="sm" @click="showCreate = true">
           <Plus :size="14" />
           New Project
-        </button>
+        </Button>
       </div>
 
       <!-- Create form -->
@@ -58,86 +60,82 @@ const statusColors: Record<string, string> = {
         leave-from-class="opacity-100"
         leave-to-class="opacity-0"
       >
-        <div v-if="showCreate" class="rounded-xl border border-border-default bg-surface-secondary p-4 space-y-3">
-          <div class="flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-text-primary">New Project</h3>
-            <button @click="showCreate = false" class="text-text-secondary hover:text-text-primary">
-              <X :size="16" />
-            </button>
-          </div>
-          <input
-            v-model="newName"
-            @keydown.enter="createProject"
-            class="w-full px-3 py-2 rounded-md text-sm bg-surface-tertiary border border-border-default text-text-primary placeholder-text-secondary outline-none focus:ring-1 focus:ring-accent"
-            placeholder="Project name"
-            autofocus
-          />
-          <textarea
-            v-model="newDescription"
-            rows="2"
-            class="w-full px-3 py-2 rounded-md text-sm bg-surface-tertiary border border-border-default text-text-primary placeholder-text-secondary outline-none focus:ring-1 focus:ring-accent resize-none"
-            placeholder="Description (optional)"
-          />
-          <div class="flex justify-end gap-2">
-            <button
-              @click="showCreate = false"
-              class="px-3 py-1.5 rounded-md text-xs text-text-secondary hover:text-text-primary hover:bg-surface-tertiary transition-colors"
-            >
+        <Card v-if="showCreate">
+          <CardHeader class="p-4 pb-0">
+            <div class="flex items-center justify-between">
+              <CardTitle class="text-sm">New Project</CardTitle>
+              <Button variant="ghost" size="icon-sm" @click="showCreate = false">
+                <X :size="16" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent class="p-4 space-y-3">
+            <Input
+              v-model="newName"
+              @keydown.enter="createProject"
+              placeholder="Project name"
+              autofocus
+            />
+            <Textarea
+              v-model="newDescription"
+              :rows="2"
+              class="resize-none"
+              placeholder="Description (optional)"
+            />
+          </CardContent>
+          <CardFooter class="px-4 pb-4 pt-0 flex justify-end gap-2">
+            <Button variant="ghost" size="sm" @click="showCreate = false">
               Cancel
-            </button>
-            <button
-              @click="createProject"
-              class="px-3 py-1.5 rounded-md text-xs font-medium bg-accent text-white hover:bg-accent/90 transition-colors"
-            >
+            </Button>
+            <Button size="sm" @click="createProject">
               Create
-            </button>
-          </div>
-        </div>
+            </Button>
+          </CardFooter>
+        </Card>
       </Transition>
 
       <!-- Project grid -->
       <div v-if="projectStore.projects.length > 0" class="grid grid-cols-2 gap-4">
-        <div
+        <Card
           v-for="project in projectStore.projects"
           :key="project.id"
-          class="rounded-xl border border-border-default bg-surface-secondary p-4 hover:border-accent/30 cursor-pointer transition-colors group"
+          class="hover:border-primary/30 cursor-pointer transition-colors group"
         >
-          <div class="flex items-start gap-3">
-            <div class="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
-              <Folder :size="18" class="text-accent" />
-            </div>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2">
-                <h3 class="text-sm font-semibold text-text-primary truncate">{{ project.name }}</h3>
-                <span
-                  class="w-2 h-2 rounded-full flex-shrink-0"
-                  :class="statusColors[project.status] || 'bg-zinc-400'"
-                />
+          <CardContent class="p-4">
+            <div class="flex items-start gap-3">
+              <div class="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Folder :size="18" class="text-primary" />
               </div>
-              <p class="text-xs text-text-secondary mt-1 line-clamp-2">{{ project.description || 'No description' }}</p>
-              <div class="flex items-center gap-3 mt-2 text-[11px] text-text-secondary">
-                <span>{{ project.taskCount ?? 0 }} tasks</span>
-                <span class="capitalize">{{ project.status }}</span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <h3 class="text-sm font-semibold text-foreground truncate">{{ project.name }}</h3>
+                  <span
+                    class="w-2 h-2 rounded-full flex-shrink-0"
+                    :class="statusColors[project.status] || 'bg-zinc-400'"
+                  />
+                </div>
+                <p class="text-xs text-muted-foreground mt-1 line-clamp-2">{{ project.description || 'No description' }}</p>
+                <div class="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
+                  <span>{{ project.taskCount ?? 0 }} tasks</span>
+                  <span class="capitalize">{{ project.status }}</span>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
       <!-- Empty state -->
       <div v-else-if="!projectStore.loading" class="text-center py-16">
-        <div class="w-12 h-12 rounded-full bg-surface-tertiary flex items-center justify-center mx-auto mb-3">
-          <Folder :size="24" class="text-text-secondary" />
+        <div class="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
+          <Folder :size="24" class="text-muted-foreground" />
         </div>
-        <p class="text-sm font-medium text-text-primary">No projects yet</p>
-        <p class="text-xs text-text-secondary mt-1">Create a project to organize your tasks</p>
-        <button
-          @click="showCreate = true"
-          class="mt-3 px-4 py-2 rounded-md text-sm font-medium bg-accent text-white hover:bg-accent/90 transition-colors"
-        >
+        <p class="text-sm font-medium text-foreground">No projects yet</p>
+        <p class="text-xs text-muted-foreground mt-1">Create a project to organize your tasks</p>
+        <Button class="mt-3" @click="showCreate = true">
           Create Project
-        </button>
+        </Button>
       </div>
     </div>
-  </div>
+  </ScrollArea>
 </template>
