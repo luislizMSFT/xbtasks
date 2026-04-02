@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Plus, Folder, X } from 'lucide-vue-next'
+import PageHeader from '@/components/PageHeader.vue'
 
 const projectStore = useProjectStore()
 
@@ -37,19 +38,21 @@ const statusColors: Record<string, string> = {
 </script>
 
 <template>
-  <ScrollArea class="flex-1 h-full">
-    <div class="max-w-4xl mx-auto px-6 py-6 space-y-6">
-      <!-- Header -->
-      <div class="flex items-center justify-between">
-        <div>
-          <h1 class="text-xl font-semibold text-foreground">Projects</h1>
-          <p class="text-sm text-muted-foreground mt-0.5">Organize tasks by project</p>
-        </div>
-        <Button size="sm" @click="showCreate = true">
-          <Plus :size="14" />
+  <div class="flex-1 flex flex-col overflow-hidden">
+    <PageHeader>
+      <template #left>
+        <span class="text-xs text-muted-foreground">{{ projectStore.projects.length }} projects</span>
+      </template>
+      <template #right>
+        <Button size="sm" class="h-7 text-xs gap-1" @click="showCreate = true">
+          <Plus :size="13" />
           New Project
         </Button>
-      </div>
+      </template>
+    </PageHeader>
+
+    <ScrollArea class="flex-1 h-full">
+      <div class="max-w-4xl mx-auto px-6 py-4 space-y-4">
 
       <!-- Create form -->
       <Transition
@@ -138,4 +141,5 @@ const statusColors: Record<string, string> = {
       </div>
     </div>
   </ScrollArea>
+  </div>
 </template>

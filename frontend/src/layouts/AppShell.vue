@@ -87,14 +87,6 @@ function openSearch() {
 
         <!-- Actions (not draggable) -->
         <div v-if="showActions" class="flex items-center gap-1 titlebar-no-drag">
-          <Button
-            variant="ghost" size="icon"
-            class="h-7 w-7 text-muted-foreground"
-            @click="activityOpen = !activityOpen"
-            :title="activityOpen ? 'Hide activity' : 'Show activity'"
-          >
-            <Clock :size="14" />
-          </Button>
           <Button variant="ghost" size="sm" class="h-7 px-2 text-xs text-muted-foreground gap-1" @click="openSearch">
             <Search :size="13" />
             <kbd class="text-[9px] bg-muted px-1 rounded font-mono">⌘K</kbd>
@@ -102,6 +94,14 @@ function openSearch() {
           <Button size="sm" class="h-7 px-2.5 text-xs gap-1" @click="router.push('/tasks')">
             <Plus :size="13" />
             New
+          </Button>
+          <Button
+            variant="ghost" size="icon"
+            class="h-7 w-7 text-muted-foreground"
+            @click="activityOpen = !activityOpen"
+            :title="activityOpen ? 'Hide activity' : 'Show activity'"
+          >
+            <Clock :size="14" />
           </Button>
         </div>
       </div>
