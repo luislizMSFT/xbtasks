@@ -18,23 +18,23 @@ import (
 	"github.com/zalando/go-keyring"
 	"golang.org/x/oauth2"
 
-	"dev.azure.com/microsoft/Xbox/xb-tasks/internal/db"
-	"dev.azure.com/microsoft/Xbox/xb-tasks/pkg/models"
+	"dev.azure.com/xbox/xb-tasks/internal/db"
+	"dev.azure.com/xbox/xb-tasks/domain"
 )
 
 const (
-	serviceName      = "team-ado-tool"
-	defaultTenantID  = "YOUR_TENANT_ID"
-	defaultClientID  = "YOUR_CLIENT_ID"
-	callbackTimeout  = 5 * time.Minute
-	graphMeEndpoint  = "https://graph.microsoft.com/v1.0/me"
-	graphPhotoURL    = "https://graph.microsoft.com/v1.0/me/photo/$value"
+	serviceName     = "team-ado-tool"
+	defaultTenantID = "YOUR_TENANT_ID"
+	defaultClientID = "YOUR_CLIENT_ID"
+	callbackTimeout = 5 * time.Minute
+	graphMeEndpoint = "https://graph.microsoft.com/v1.0/me"
+	graphPhotoURL   = "https://graph.microsoft.com/v1.0/me/photo/$value"
 )
 
 type AuthService struct {
 	db          *db.DB
 	oauthConfig *oauth2.Config
-	currentUser *models.User
+	currentUser *domain.User
 	app         *application.App
 }
 
@@ -63,7 +63,7 @@ func NewAuthService(database *db.DB, app *application.App) *AuthService {
 }
 
 // SignIn starts the OAuth2 PKCE flow, opens the browser, and returns the authenticated user.
-func (s *AuthService) SignIn() (*models.User, error) {
+func (s *AuthService) SignIn() (*domain.User, error) {
 	verifier := generateCodeVerifier()
 	challenge := generateCodeChallenge(verifier)
 
@@ -138,7 +138,7 @@ func (s *AuthService) SignIn() (*models.User, error) {
 	}
 
 	s.currentUser = user
-	s.app.EmitEvent("auth:state-changed", map[string]any{"authenticated": true})
+	s.app.Event.Emit("auth:state-changed", map[string]any{"authenticated": true})
 	return user, nil
 }
 
@@ -149,13 +149,13 @@ func (s *AuthService) SignOut() error {
 	_ = keyring.Delete(serviceName, "token_expiry")
 	_ = keyring.Delete(serviceName, "pat")
 	s.currentUser = nil
-	s.app.EmitEvent("auth:state-changed", map[string]any{"authenticated": false})
+	s.app.Event.Emit("auth:state-changed", map[string]any{"authenticated": false})
 	return nil
 }
 
 // TryRestoreSession attempts to restore a previous session using stored refresh token.
 // Returns (nil, nil) if no session exists.
-func (s *AuthService) TryRestoreSession() (*models.User, error) {
+func (s *AuthService) TryRestoreSession() (*domain.User, error) {
 	refreshToken, err := keyring.Get(serviceName, "refresh_token")
 	if err != nil {
 		// Check for PAT session
@@ -197,7 +197,7 @@ func (s *AuthService) TryRestoreSession() (*models.User, error) {
 }
 
 // GetCurrentUser returns the currently authenticated user, or nil if not signed in.
-func (s *AuthService) GetCurrentUser() *models.User {
+func (s *AuthService) GetCurrentUser() *domain.User {
 	return s.currentUser
 }
 
@@ -207,7 +207,7 @@ func (s *AuthService) IsAuthenticated() bool {
 }
 
 // SignInWithPAT authenticates using a personal access token for development.
-func (s *AuthService) SignInWithPAT(pat string) (*models.User, error) {
+func (s *AuthService) SignInWithPAT(pat string) (*domain.User, error) {
 	if pat == "" {
 		return nil, fmt.Errorf("PAT cannot be empty")
 	}
@@ -216,7 +216,7 @@ func (s *AuthService) SignInWithPAT(pat string) (*models.User, error) {
 		return nil, fmt.Errorf("store PAT: %w", err)
 	}
 
-	user := &models.User{
+	user := &domain.User{
 		ID:          "pat-user",
 		DisplayName: "PAT User",
 		Email:       "",
@@ -228,13 +228,13 @@ func (s *AuthService) SignInWithPAT(pat string) (*models.User, error) {
 	}
 
 	s.currentUser = user
-	s.app.EmitEvent("auth:state-changed", map[string]any{"authenticated": true})
+	s.app.Event.Emit("auth:state-changed", map[string]any{"authenticated": true})
 	return user, nil
 }
 
-func (s *AuthService) restoreFromPAT(pat string) (*models.User, error) {
+func (s *AuthService) restoreFromPAT(pat string) (*domain.User, error) {
 	_ = pat // PAT is stored; presence confirms session
-	user := &models.User{
+	user := &domain.User{
 		ID:          "pat-user",
 		DisplayName: "PAT User",
 		Email:       "",
@@ -281,7 +281,7 @@ type graphMeResponse struct {
 	UserPrincipalName string `json:"userPrincipalName"`
 }
 
-func fetchUserProfile(accessToken string) (*models.User, error) {
+func fetchUserProfile(accessToken string) (*domain.User, error) {
 	req, err := http.NewRequest("GET", graphMeEndpoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
@@ -309,7 +309,7 @@ func fetchUserProfile(accessToken string) (*models.User, error) {
 		email = profile.UserPrincipalName
 	}
 
-	return &models.User{
+	return &domain.User{
 		ID:          profile.ID,
 		DisplayName: profile.DisplayName,
 		Email:       email,
@@ -317,7 +317,7 @@ func fetchUserProfile(accessToken string) (*models.User, error) {
 	}, nil
 }
 
-func (s *AuthService) upsertUser(user *models.User) error {
+func (s *AuthService) upsertUser(user *domain.User) error {
 	_, err := s.db.Exec(
 		`INSERT OR REPLACE INTO users (id, display_name, email, avatar_url) VALUES (?, ?, ?, ?)`,
 		user.ID, user.DisplayName, user.Email, user.AvatarURL,

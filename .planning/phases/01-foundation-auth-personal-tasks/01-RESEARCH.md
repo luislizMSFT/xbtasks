@@ -153,8 +153,8 @@ wailsApp := application.New(application.Options{
 The Wails CLI generates TypeScript bindings automatically. Each exported method on a bound struct becomes a callable function in the frontend:
 
 ```typescript
-// Generated: frontend/bindings/dev.azure.com/microsoft/Xbox/xb-tasks/internal/app/taskservice.ts
-import * as TaskService from '../bindings/dev.azure.com/microsoft/Xbox/xb-tasks/internal/app/taskservice'
+// Generated: frontend/bindings/dev.azure.com/xbox/xb-tasks/internal/app/taskservice.ts
+import * as TaskService from '../bindings/dev.azure.com/xbox/xb-tasks/internal/app/taskservice'
 const tasks = await TaskService.List("")
 ```
 
@@ -717,8 +717,8 @@ import (
     "github.com/zalando/go-keyring"
     "golang.org/x/oauth2"
     
-    "dev.azure.com/microsoft/Xbox/xb-tasks/internal/db"
-    "dev.azure.com/microsoft/Xbox/xb-tasks/pkg/models"
+    "dev.azure.com/xbox/xb-tasks/internal/db"
+    "dev.azure.com/xbox/xb-tasks/pkg/models"
 )
 
 const (
