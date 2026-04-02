@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Task } from '../../stores/tasks'
-import PriorityBadge from '../ui/PriorityBadge.vue'
-import TagChip from '../ui/TagChip.vue'
-import AdoBadge from '../ui/AdoBadge.vue'
+import type { Task } from '../stores/tasks'
+import PriorityBadge from './ui/PriorityBadge.vue'
+import TagChip from './ui/TagChip.vue'
+import AdoBadge from './ui/AdoBadge.vue'
 import {
   Circle,
   CircleDot,
