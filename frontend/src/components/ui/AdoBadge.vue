@@ -15,7 +15,7 @@ const display = computed(() => {
   <Badge
     v-if="adoId"
     variant="outline"
-    class="border-transparent gap-1 text-[11px] font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 cursor-pointer hover:bg-blue-500/20 transition-colors"
+    class="gap-1 text-[11px] font-medium bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/20 cursor-pointer hover:bg-blue-500/25 transition-colors"
   >
     <Link :size="10" :stroke-width="2.5" />
     {{ display }}
