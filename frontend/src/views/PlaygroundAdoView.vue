@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, type Component } from 'vue'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -39,6 +39,13 @@ import {
   Filter,
   FileCode,
   MessageSquare,
+  Zap,
+  Bell,
+  RefreshCw,
+  X,
+  CircleDot,
+  Link2Off,
+  Square,
 } from 'lucide-vue-next'
 
 // ---------------------------------------------------------------------------
@@ -93,6 +100,16 @@ interface Pipeline {
   status: 'succeeded' | 'running' | 'failed'
   duration: string
   trigger: string
+}
+
+interface QueuedOperation {
+  id: number
+  type: 'link' | 'unlink' | 'status-change' | 'follow-up' | 'sync'
+  description: string
+  target: string
+  icon: Component
+  color: string
+  targetId?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -396,6 +413,17 @@ const expandedNodes = ref<Record<number, boolean>>({
 })
 const expandedPrs = ref<Record<number, boolean>>({})
 
+// Operations queue (GParted-style queue & confirm)
+const operationQueue = ref<QueuedOperation[]>([
+  { id: 1, type: 'link', description: 'Link to local task', target: '"Fix auth redirect loop" \u2192 ADO Bug #48291', icon: Link2, color: 'text-blue-500', targetId: 48291 },
+  { id: 2, type: 'status-change', description: 'Change state to Resolved', target: 'Bug #48292 "Token expiry timing"', icon: CircleDot, color: 'text-emerald-500', targetId: 48292 },
+  { id: 3, type: 'follow-up', description: 'Set reminder', target: 'Task #48400 "Add rate limiting"', icon: Bell, color: 'text-amber-500', targetId: 48400 },
+  { id: 4, type: 'sync', description: 'Pull latest comments', target: 'ADO #48350 "Build new dashboard layout"', icon: RefreshCw, color: 'text-violet-500', targetId: 48350 },
+])
+const showQueueReview = ref(false)
+const checkedOperations = ref<Record<number, boolean>>({})
+let nextOpId = 5
+
 // ---------------------------------------------------------------------------
 // Computed
 // ---------------------------------------------------------------------------
@@ -493,6 +521,87 @@ function getPipelineIcon(status: string) {
     default: return { icon: Circle, color: 'text-muted-foreground' }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Operations queue helpers
+// ---------------------------------------------------------------------------
+
+const pendingItemIds = computed(() => {
+  const ids = new Set<number>()
+  for (const op of operationQueue.value) {
+    if (op.targetId != null) ids.add(op.targetId)
+  }
+  return ids
+})
+
+const checkedCount = computed(() =>
+  operationQueue.value.filter(op => checkedOperations.value[op.id] !== false).length,
+)
+
+function initChecked() {
+  const c: Record<number, boolean> = {}
+  for (const op of operationQueue.value) c[op.id] = true
+  checkedOperations.value = c
+}
+
+function queueLink(item: WorkItem) {
+  if (pendingItemIds.value.has(item.id)) return
+  const info = getTypeInfo(item.type)
+  operationQueue.value.push({
+    id: nextOpId++,
+    type: 'link',
+    description: 'Link to local task',
+    target: `"${item.title}" \u2192 ADO ${info.label} #${item.id}`,
+    icon: Link2,
+    color: 'text-blue-500',
+    targetId: item.id,
+  })
+}
+
+function queueUnlink(item: WorkItem) {
+  if (pendingItemIds.value.has(item.id)) return
+  const info = getTypeInfo(item.type)
+  operationQueue.value.push({
+    id: nextOpId++,
+    type: 'unlink',
+    description: 'Remove link',
+    target: `${info.label} #${item.id} "${item.title}"`,
+    icon: Link2Off,
+    color: 'text-red-500',
+    targetId: item.id,
+  })
+}
+
+function removeOperation(id: number) {
+  operationQueue.value = operationQueue.value.filter(op => op.id !== id)
+  delete checkedOperations.value[id]
+}
+
+function discardAll() {
+  operationQueue.value = []
+  checkedOperations.value = {}
+  showQueueReview.value = false
+}
+
+function applyAll() {
+  operationQueue.value = operationQueue.value.filter(op => checkedOperations.value[op.id] === false)
+  checkedOperations.value = {}
+  showQueueReview.value = false
+}
+
+function openReview() {
+  initChecked()
+  showQueueReview.value = true
+}
+
+function toggleOpChecked(id: number) {
+  checkedOperations.value[id] = !(checkedOperations.value[id] !== false)
+}
+
+function getPendingTooltip(itemId: number): string {
+  const ops = operationQueue.value.filter(op => op.targetId === itemId)
+  return ops.map(op => `Pending: ${op.description}`).join(', ')
+}
 </script>
 
 <template>
@@ -563,6 +672,7 @@ function getPipelineIcon(status: string) {
                       :class="cn(
                         'w-full flex items-center gap-1.5 px-3 py-1.5 text-left hover:bg-muted/50 transition-colors text-sm',
                         selectedItem?.id === node.item.id && 'bg-muted',
+                        pendingItemIds.has(node.item.id) && 'border-l-2 border-dashed border-amber-500',
                       )"
                       :style="{ paddingLeft: `${node.depth * 20 + 12}px` }"
                       @click="selectItem(node.item)"
@@ -613,21 +723,33 @@ function getPipelineIcon(status: string) {
                         <TooltipTrigger as-child>
                           <span
                             v-if="node.item.linked"
-                            class="w-4 h-4 flex items-center justify-center shrink-0 text-blue-500"
+                            class="w-4 h-4 flex items-center justify-center shrink-0 text-blue-500 cursor-pointer"
+                            @click.stop="queueUnlink(node.item)"
                           >
                             <Check :size="12" />
                           </span>
                           <span
                             v-else
-                            class="w-4 h-4 flex items-center justify-center shrink-0 text-muted-foreground/50 hover:text-blue-500 transition-colors"
+                            class="w-4 h-4 flex items-center justify-center shrink-0 text-muted-foreground/50 hover:text-blue-500 transition-colors cursor-pointer"
+                            @click.stop="queueLink(node.item)"
                           >
                             <Circle :size="12" />
                           </span>
                         </TooltipTrigger>
                         <TooltipContent>
-                          {{ node.item.linked ? 'Linked to local task' : 'Link to local task' }}
+                          <template v-if="pendingItemIds.has(node.item.id)">
+                            {{ getPendingTooltip(node.item.id) }}
+                          </template>
+                          <template v-else>
+                            {{ node.item.linked ? 'Linked to local task' : 'Click to queue link' }}
+                          </template>
                         </TooltipContent>
                       </Tooltip>
+                      <!-- Pending operation indicator -->
+                      <span
+                        v-if="node.item.children.length === 0 && pendingItemIds.has(node.item.id)"
+                        class="w-2 h-2 rounded-full bg-amber-500 shrink-0 animate-pulse"
+                      />
                     </button>
                   </div>
                 </ScrollArea>
@@ -732,17 +854,42 @@ function getPipelineIcon(status: string) {
                             <span class="text-xs text-foreground truncate">
                               Linked to local task
                             </span>
-                            <Badge variant="outline" class="text-[10px] h-4 px-1.5 ml-auto bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/25">
+                            <Badge
+                              v-if="pendingItemIds.has(selectedItem.id)"
+                              variant="outline"
+                              class="text-[10px] h-4 px-1.5 ml-auto bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/25"
+                            >
+                              Pending
+                            </Badge>
+                            <Badge
+                              v-else
+                              variant="outline"
+                              class="text-[10px] h-4 px-1.5 ml-auto bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/25"
+                            >
                               Synced
                             </Badge>
+                            <Button
+                              v-if="!pendingItemIds.has(selectedItem.id)"
+                              variant="ghost"
+                              size="sm"
+                              class="h-5 w-5 p-0 text-muted-foreground hover:text-red-500"
+                              @click="queueUnlink(selectedItem)"
+                            >
+                              <Link2Off :size="10" />
+                            </Button>
                           </CardContent>
                         </Card>
                         <div v-else class="flex items-center gap-2 text-xs text-muted-foreground">
                           <Circle :size="13" />
                           <span>Not linked</span>
-                          <Button variant="ghost" size="sm" class="h-5 text-[10px] ml-auto gap-1 text-blue-500 hover:text-blue-600">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            class="h-5 text-[10px] ml-auto gap-1 text-blue-500 hover:text-blue-600"
+                            @click="queueLink(selectedItem!)"
+                          >
                             <Link2 :size="10" />
-                            Link
+                            {{ pendingItemIds.has(selectedItem!.id) ? 'Queued' : 'Link' }}
                           </Button>
                         </div>
                       </div>
@@ -767,11 +914,81 @@ function getPipelineIcon(status: string) {
                   </div>
                 </div>
               </div>
-            </TabsContent>
 
-            <!-- ============================================================ -->
-            <!-- TAB 2 — DevOps (PRs + Pipelines)                             -->
-            <!-- ============================================================ -->
+              <!-- Operations queue bottom bar -->
+              <Transition
+                enter-active-class="transition-all duration-300 ease-out"
+                leave-active-class="transition-all duration-200 ease-in"
+                enter-from-class="translate-y-full opacity-0"
+                enter-to-class="translate-y-0 opacity-100"
+                leave-from-class="translate-y-0 opacity-100"
+                leave-to-class="translate-y-full opacity-0"
+              >
+                <div v-if="operationQueue.length > 0" class="shrink-0 bg-card border-t border-border">
+                  <!-- Review panel (expanded) -->
+                  <div v-if="showQueueReview" class="border-b border-border">
+                    <div class="px-4 py-2 flex items-center gap-2">
+                      <span class="text-xs font-semibold text-foreground">Review Pending Operations</span>
+                    </div>
+                    <ScrollArea class="max-h-[200px]">
+                      <div class="px-4 pb-2 space-y-1">
+                        <div
+                          v-for="op in operationQueue"
+                          :key="op.id"
+                          :class="cn(
+                            'flex items-center gap-2 px-2 py-1.5 rounded-md text-sm hover:bg-muted/50 transition-colors',
+                            checkedOperations[op.id] === false && 'opacity-40',
+                          )"
+                        >
+                          <button
+                            class="w-4 h-4 flex items-center justify-center shrink-0 text-foreground"
+                            @click="toggleOpChecked(op.id)"
+                          >
+                            <CheckSquare v-if="checkedOperations[op.id] !== false" :size="14" />
+                            <Square v-else :size="14" />
+                          </button>
+                          <component :is="op.icon" :size="14" :class="['shrink-0', op.color]" />
+                          <span class="text-xs text-foreground truncate">
+                            {{ op.description }}: {{ op.target }}
+                          </span>
+                          <button
+                            class="w-5 h-5 flex items-center justify-center shrink-0 ml-auto text-muted-foreground hover:text-red-500 transition-colors rounded"
+                            @click="removeOperation(op.id)"
+                          >
+                            <X :size="12" />
+                          </button>
+                        </div>
+                      </div>
+                    </ScrollArea>
+                    <div class="px-4 py-2 flex items-center justify-end gap-2 border-t border-border">
+                      <Button variant="ghost" size="sm" class="h-7 text-xs" @click="showQueueReview = false">
+                        Cancel
+                      </Button>
+                      <Button size="sm" class="h-7 text-xs gap-1.5" @click="applyAll">
+                        <Check :size="12" />
+                        Apply All ({{ checkedCount }})
+                      </Button>
+                    </div>
+                  </div>
+
+                  <!-- Collapsed bar -->
+                  <div v-if="!showQueueReview" class="h-11 px-4 flex items-center gap-3">
+                    <div class="flex items-center gap-2 text-sm text-foreground">
+                      <Zap :size="14" class="text-amber-500" />
+                      <span class="text-xs font-medium">{{ operationQueue.length }} pending operation{{ operationQueue.length !== 1 ? 's' : '' }}</span>
+                    </div>
+                    <div class="flex items-center gap-2 ml-auto">
+                      <Button size="sm" class="h-7 text-xs gap-1.5" @click="openReview">
+                        Review &amp; Apply
+                      </Button>
+                      <Button variant="ghost" size="sm" class="h-7 text-xs text-destructive hover:text-destructive" @click="discardAll">
+                        Discard All
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </Transition>
+            </TabsContent>
             <TabsContent value="devops" class="flex-1 min-h-0 mt-0">
               <ScrollArea class="h-full">
                 <div class="p-4 space-y-6">
