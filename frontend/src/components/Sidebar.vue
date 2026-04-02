@@ -105,7 +105,13 @@ const isDark = computed(() => mode.value === 'dark')
             <Button
               variant="ghost"
               size="icon"
-              class="w-10 h-10 text-muted-foreground hover:text-foreground"
+              @click="navigate('/settings')"
+              :class="[
+                'w-10 h-10',
+                isActive('/settings')
+                  ? 'bg-primary/15 text-primary hover:bg-primary/20 hover:text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              ]"
             >
               <Settings :size="18" :stroke-width="1.75" />
             </Button>

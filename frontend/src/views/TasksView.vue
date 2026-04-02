@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { useTaskStore } from '../stores/tasks'
-import TaskRow from '../components/TaskRow.vue'
-import TaskDetail from '../components/TaskDetail.vue'
+import { useTaskStore } from '@/stores/tasks'
+import TaskRow from '@/components/TaskRow.vue'
+import TaskDetail from '@/components/TaskDetail.vue'
 import { Plus, Filter, ArrowUpDown, ChevronDown, ChevronRight } from 'lucide-vue-next'
+import { Button } from '@/components/ui/button'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Input } from '@/components/ui/input'
 
 const taskStore = useTaskStore()
 
