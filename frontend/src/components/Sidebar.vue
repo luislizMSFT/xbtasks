@@ -20,6 +20,7 @@ import {
   Moon,
   FlaskConical,
 } from 'lucide-vue-next'
+import AzureDevOpsIcon from '@/components/icons/AzureDevOpsIcon.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -39,6 +40,7 @@ const navItems: NavItem[] = [
   { name: 'dashboard', icon: LayoutDashboard, path: '/dashboard', label: 'Dashboard' },
   { name: 'tasks', icon: CheckSquare, path: '/tasks', label: 'Tasks' },
   { name: 'projects', icon: FolderKanban, path: '/projects', label: 'Projects' },
+  { name: 'ado', icon: AzureDevOpsIcon, path: '/playground/ado', label: 'Azure DevOps' },
 ]
 
 const playgroundItems: NavItem[] = [

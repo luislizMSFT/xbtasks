@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import {
   Filter, ArrowUpDown, ChevronDown, ChevronRight,
   Bug, CheckSquare, BookOpen, Landmark,
+  Circle, CheckCircle2, Plus, GitPullRequest,
 } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -18,7 +19,7 @@ const taskStore = useTaskStore()
 const showNewTask = ref(false)
 const newTaskTitle = ref('')
 const newTaskInput = ref<HTMLInputElement | null>(null)
-const collapsedSections = ref<Set<string>>(new Set())
+const expandedSubtasks = ref<Set<number>>(new Set())
 
 const tabs = [
   { id: 'all', label: 'All' },
@@ -27,55 +28,65 @@ const tabs = [
   { id: 'blocked', label: 'Blocked' },
 ]
 
-const sectionOrder = ['in_progress', 'in_review', 'todo', 'blocked', 'done', 'cancelled'] as const
+const sectionOrder = ['in_progress', 'in_review', 'todo', 'blocked', 'done'] as const
 
-const sectionLabels: Record<string, string> = {
-  in_progress: 'In Progress',
-  in_review: 'In Review',
-  todo: 'To Do',
-  blocked: 'Blocked',
-  done: 'Done',
-  cancelled: 'Cancelled',
+const sectionMeta: Record<string, { label: string; dot: string }> = {
+  in_progress: { label: 'In Progress', dot: 'bg-blue-500' },
+  in_review:   { label: 'In Review',   dot: 'bg-violet-500' },
+  todo:        { label: 'To Do',       dot: 'bg-zinc-400' },
+  blocked:     { label: 'Blocked',     dot: 'bg-red-500' },
+  done:        { label: 'Done',        dot: 'bg-emerald-500' },
 }
 
-const sectionColors: Record<string, string> = {
-  in_progress: 'text-blue-500',
-  in_review: 'text-violet-500',
-  todo: 'text-zinc-500',
-  blocked: 'text-red-500',
-  done: 'text-emerald-500',
-  cancelled: 'text-zinc-400',
+// Mock subtasks per task (until real subtask backend)
+const mockSubtasks: Record<number, { id: number; title: string; done: boolean }[]> = {
+  1: [
+    { id: 101, title: 'Identify refresh token edge case', done: true },
+    { id: 102, title: 'Add token expiry middleware', done: true },
+    { id: 103, title: 'Update error handling in auth callback', done: false },
+    { id: 104, title: 'Add E2E test for token refresh', done: false },
+  ],
+  4: [
+    { id: 401, title: 'Test Create method', done: false },
+    { id: 402, title: 'Test Delete method', done: false },
+    { id: 403, title: 'Test GetBlockers method', done: false },
+  ],
 }
 
-// Priority → left stripe color
-function priorityStripe(p: string) {
-  switch (p) {
-    case 'P0': return 'bg-red-500'
-    case 'P1': return 'bg-orange-500'
-    case 'P2': return 'bg-amber-400'
-    default: return 'bg-zinc-300 dark:bg-zinc-600'
-  }
-}
+// Mock PR counts per task
+const mockPrCounts: Record<number, number> = { 1: 2, 3: 1 }
 
-// Status → dot color for the inline status indicator
-function statusDot(s: string) {
-  switch (s) {
-    case 'in_progress': return 'bg-blue-500'
-    case 'in_review': return 'bg-violet-500'
-    case 'todo': return 'bg-zinc-400'
-    case 'blocked': return 'bg-red-500'
-    case 'done': return 'bg-emerald-500'
-    case 'cancelled': return 'bg-zinc-300'
-    default: return 'bg-zinc-400'
-  }
-}
-
-// ADO type → icon component
 function adoIcon(adoId: string) {
   const lower = adoId.toLowerCase()
   if (lower.includes('bug')) return Bug
   if (lower.includes('story')) return BookOpen
   return CheckSquare
+}
+
+function subtasksFor(taskId: number) {
+  return mockSubtasks[taskId] || []
+}
+
+function subtaskProgress(taskId: number) {
+  const subs = subtasksFor(taskId)
+  if (!subs.length) return null
+  const done = subs.filter(s => s.done).length
+  return { done, total: subs.length, pct: Math.round((done / subs.length) * 100) }
+}
+
+function toggleSubtasks(taskId: number) {
+  if (expandedSubtasks.value.has(taskId)) {
+    expandedSubtasks.value.delete(taskId)
+  } else {
+    expandedSubtasks.value.add(taskId)
+  }
+}
+
+function toggleSubtaskDone(taskId: number, subId: number) {
+  const subs = mockSubtasks[taskId]
+  if (!subs) return
+  const sub = subs.find(s => s.id === subId)
+  if (sub) sub.done = !sub.done
 }
 
 const visibleSections = computed(() => {
@@ -85,16 +96,9 @@ const visibleSections = computed(() => {
   })
 })
 
-function toggleSection(section: string) {
-  if (collapsedSections.value.has(section)) {
-    collapsedSections.value.delete(section)
-  } else {
-    collapsedSections.value.add(section)
-  }
-}
-
-function isCollapsed(section: string) {
-  return collapsedSections.value.has(section)
+async function toggleDone(task: Task) {
+  const newStatus = task.status === 'done' ? 'todo' : 'done'
+  await taskStore.setStatus(task.id, newStatus)
 }
 
 async function createTask() {
@@ -175,10 +179,10 @@ onMounted(() => {
           <Button class="mt-2" @click="startInlineCreate">Create Task</Button>
         </div>
 
-        <!-- Inline create -->
-        <div v-if="showNewTask" class="px-4 py-2 border-b border-border bg-card/50">
-          <div class="flex items-center gap-3">
-            <div class="w-[3px] self-stretch rounded-full bg-zinc-300 dark:bg-zinc-600" />
+        <!-- Add task (always at top) -->
+        <div class="px-4 py-2 border-b border-border/50">
+          <div v-if="showNewTask" class="flex items-center gap-3">
+            <Circle :size="16" class="text-muted-foreground/30 shrink-0" />
             <Input
               ref="newTaskInput"
               v-model="newTaskTitle"
@@ -190,90 +194,165 @@ onMounted(() => {
             <Button size="sm" class="h-7 text-xs" @click="createTask">Add</Button>
             <Button variant="ghost" size="sm" class="h-7 text-xs" @click="showNewTask = false">Cancel</Button>
           </div>
+          <button
+            v-else
+            @click="startInlineCreate"
+            class="flex items-center gap-2 text-[12px] text-muted-foreground/40 hover:text-muted-foreground transition-colors w-full py-0.5"
+          >
+            <Plus :size="14" />
+            Add task
+          </button>
         </div>
 
         <!-- Grouped sections -->
         <div v-if="hasAnyTasks && !taskStore.loading">
-          <div v-for="section in visibleSections" :key="section" class="border-b border-border/50 last:border-b-0">
-            <!-- Section header -->
-            <button
-              @click="toggleSection(section)"
-              class="flex items-center gap-2 w-full px-4 py-1.5 text-left hover:bg-muted/30 transition-colors"
-            >
-              <component
-                :is="isCollapsed(section) ? ChevronRight : ChevronDown"
-                :size="13"
-                class="text-muted-foreground"
-              />
-              <span class="w-2 h-2 rounded-full" :class="statusDot(section)" />
-              <span class="text-[11px] font-semibold uppercase tracking-wider" :class="sectionColors[section]">
-                {{ sectionLabels[section] }}
+          <div v-for="section in visibleSections" :key="section">
+            <!-- Subtle section divider -->
+            <div class="flex items-center gap-2 px-4 pt-4 pb-1">
+              <span :class="cn('w-1.5 h-1.5 rounded-full', sectionMeta[section].dot)" />
+              <span class="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+                {{ sectionMeta[section].label }}
               </span>
-              <span class="text-[11px] text-muted-foreground tabular-nums">
+              <span class="text-[10px] text-muted-foreground/40 tabular-nums">
                 {{ taskStore.grouped[section]?.length ?? 0 }}
               </span>
-            </button>
+              <div class="flex-1 h-px bg-border/50" />
+            </div>
 
             <!-- Task rows -->
-            <div v-if="!isCollapsed(section)">
-              <div
-                v-for="task in taskStore.grouped[section]"
-                :key="task.id"
-                @click="selectTask(task.id)"
-                :class="cn(
-                  'group flex items-center gap-2 px-3 py-2 cursor-pointer transition-all border-b border-border/30 last:border-b-0',
-                  'hover:bg-muted/40',
-                  taskStore.selectedTaskId === task.id
-                    ? 'bg-primary/[0.06]'
-                    : ''
-                )"
-              >
-                <!-- Priority stripe -->
-                <div :class="cn('w-[3px] self-stretch rounded-full shrink-0', priorityStripe(task.priority))" />
+            <div>
+              <div v-for="task in taskStore.grouped[section]" :key="task.id">
+                <!-- Main row -->
+                <div
+                  @click="selectTask(task.id)"
+                  :class="cn(
+                    'group flex items-center gap-2.5 px-4 py-2 cursor-pointer transition-all',
+                    'hover:bg-muted/40',
+                    taskStore.selectedTaskId === task.id ? 'bg-primary/[0.06]' : ''
+                  )"
+                >
+                  <!-- Checkbox -->
+                  <button
+                    @click.stop="toggleDone(task)"
+                    :class="cn(
+                      'size-[18px] rounded-full border-[1.5px] shrink-0 flex items-center justify-center transition-all hover:scale-110',
+                      task.status === 'done'
+                        ? 'bg-emerald-500 border-emerald-500'
+                        : task.status === 'blocked'
+                          ? 'border-red-400 hover:border-red-500'
+                          : 'border-muted-foreground/30 hover:border-muted-foreground/60'
+                    )"
+                  >
+                    <CheckCircle2 v-if="task.status === 'done'" :size="10" class="text-white" :stroke-width="3" />
+                  </button>
 
-                <!-- Status dot -->
-                <div :class="cn('w-2 h-2 rounded-full shrink-0', statusDot(task.status))" />
+                  <!-- Subtask expand toggle -->
+                  <button
+                    v-if="subtasksFor(task.id).length > 0"
+                    @click.stop="toggleSubtasks(task.id)"
+                    class="shrink-0 text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+                  >
+                    <component :is="expandedSubtasks.has(task.id) ? ChevronDown : ChevronRight" :size="14" />
+                  </button>
+                  <div v-else class="w-[14px] shrink-0" />
 
-                <!-- Title + ADO inline -->
-                <div class="flex-1 min-w-0 flex items-center gap-1.5">
+                  <!-- Title -->
                   <span
                     :class="cn(
-                      'text-[13px] truncate',
-                      task.status === 'done' ? 'text-muted-foreground line-through' : 'text-foreground'
+                      'text-[13px] font-medium truncate flex-1',
+                      task.status === 'done' ? 'text-muted-foreground line-through decoration-muted-foreground/30' : 'text-foreground'
                     )"
                   >
                     {{ task.title }}
                   </span>
-                  <!-- ADO type icon + number -->
+
+                  <!-- Subtask progress bar -->
+                  <div v-if="subtaskProgress(task.id)" class="flex items-center gap-1.5 shrink-0">
+                    <div class="w-14 h-[3px] rounded-full bg-muted overflow-hidden">
+                      <div
+                        class="h-full rounded-full transition-all duration-300"
+                        :class="subtaskProgress(task.id)!.pct === 100 ? 'bg-emerald-500' : 'bg-blue-500'"
+                        :style="{ width: subtaskProgress(task.id)!.pct + '%' }"
+                      />
+                    </div>
+                    <span class="text-[10px] text-muted-foreground/50 tabular-nums w-7">
+                      {{ subtaskProgress(task.id)!.done }}/{{ subtaskProgress(task.id)!.total }}
+                    </span>
+                  </div>
+
+                  <!-- ADO badge -->
                   <span
                     v-if="task.adoId"
-                    class="inline-flex items-center gap-0.5 text-[10px] text-blue-600 dark:text-blue-400 shrink-0"
+                    class="inline-flex items-center gap-0.5 text-[10px] text-blue-600 dark:text-blue-400 bg-blue-500/8 px-1.5 py-0.5 rounded shrink-0"
                   >
                     <component :is="adoIcon(task.adoId)" :size="10" :stroke-width="2" />
                     {{ task.adoId.replace('ADO-', '#') }}
                   </span>
+
+                  <!-- PR count -->
+                  <span
+                    v-if="mockPrCounts[task.id]"
+                    class="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0"
+                  >
+                    <GitPullRequest :size="10" />
+                    {{ mockPrCounts[task.id] }}
+                  </span>
+
+                  <!-- Blocked reason -->
+                  <span
+                    v-if="task.status === 'blocked' && task.blockedReason"
+                    class="text-[10px] text-red-500/70 truncate max-w-[6rem] shrink-0"
+                  >
+                    {{ task.blockedReason }}
+                  </span>
+
+                  <!-- Time -->
+                  <span class="text-[10px] text-muted-foreground/40 tabular-nums shrink-0 w-6 text-right">
+                    {{ timeAgo(task.updatedAt) }}
+                  </span>
                 </div>
 
-                <!-- Blocked reason -->
-                <span
-                  v-if="task.status === 'blocked' && task.blockedReason"
-                  class="text-[10px] text-red-500/70 truncate max-w-[8rem] shrink-0"
-                >
-                  {{ task.blockedReason }}
-                </span>
-
-                <!-- Time -->
-                <span class="text-[10px] text-muted-foreground/40 tabular-nums shrink-0">
-                  {{ timeAgo(task.updatedAt) }}
-                </span>
+                <!-- Expanded subtasks -->
+                <div v-if="expandedSubtasks.has(task.id) && subtasksFor(task.id).length > 0" class="pl-[52px] pr-4 pb-1">
+                  <div
+                    v-for="sub in subtasksFor(task.id)"
+                    :key="sub.id"
+                    class="flex items-center gap-2 py-1 group/sub"
+                  >
+                    <button
+                      @click="toggleSubtaskDone(task.id, sub.id)"
+                      :class="cn(
+                        'size-[14px] rounded-[3px] border-[1.5px] shrink-0 flex items-center justify-center transition-all hover:scale-110',
+                        sub.done
+                          ? 'bg-emerald-500 border-emerald-500'
+                          : 'border-muted-foreground/25 hover:border-muted-foreground/50'
+                      )"
+                    >
+                      <CheckCircle2 v-if="sub.done" :size="8" class="text-white" :stroke-width="3" />
+                    </button>
+                    <span
+                      :class="cn(
+                        'text-[12px]',
+                        sub.done ? 'text-muted-foreground/50 line-through decoration-muted-foreground/20' : 'text-muted-foreground'
+                      )"
+                    >
+                      {{ sub.title }}
+                    </span>
+                  </div>
+                  <button class="flex items-center gap-1.5 text-[11px] text-muted-foreground/40 hover:text-muted-foreground mt-0.5 py-1 transition-colors">
+                    <Plus :size="11" />
+                    Add subtask
+                  </button>
+                </div>
               </div>
             </div>
           </div>
+
         </div>
       </ScrollArea>
     </div>
 
-    <!-- Right: Detail preview panel (Todoist hybrid) -->
+    <!-- Right: Detail panel -->
     <TaskDetail
       v-if="taskStore.selectedTask"
       @close="closeDetail"
