@@ -124,7 +124,7 @@ const timeUpdated = computed(() => {
       </div>
 
       <!-- Body -->
-      <ScrollArea class="flex-1">
+      <ScrollArea class="flex-1 h-full">
       <div class="px-5 py-4 space-y-5">
         <!-- Title -->
         <Input

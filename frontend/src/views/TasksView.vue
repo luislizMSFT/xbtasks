@@ -132,7 +132,7 @@ onMounted(() => {
       </div>
 
       <!-- Task list body -->
-      <ScrollArea class="flex-1">
+      <ScrollArea class="flex-1 h-full">
         <!-- Loading -->
         <div v-if="taskStore.loading" class="flex items-center justify-center py-20">
           <div class="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />

@@ -91,7 +91,7 @@ function resetDefaults() {
 </script>
 
 <template>
-  <ScrollArea class="flex-1">
+  <ScrollArea class="flex-1 h-full">
     <div class="max-w-2xl mx-auto px-6 py-6 space-y-6">
       <!-- Header -->
       <div class="flex items-center justify-between">
