@@ -15,13 +15,13 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Personal Tasks
 
-- [ ] **TASK-01**: User can create a personal task with title, description, priority (P0-P3), and category
-- [ ] **TASK-02**: User can edit and delete their own tasks
-- [ ] **TASK-03**: User can set task status (todo, in_progress, in_review, done, blocked, cancelled)
-- [ ] **TASK-04**: User can create subtasks under a parent task or ADO-linked item
-- [ ] **TASK-05**: User can set a personal priority overlay independent of ADO priority
-- [ ] **TASK-06**: User can define dependencies between tasks (task A blocks task B)
-- [ ] **TASK-07**: User can add tags to tasks for organization
+- [x] **TASK-01**: User can create a personal task with title, description, priority (P0-P3), and category
+- [x] **TASK-02**: User can edit and delete their own tasks
+- [x] **TASK-03**: User can set task status (todo, in_progress, in_review, done, blocked, cancelled)
+- [x] **TASK-04**: User can create subtasks under a parent task or ADO-linked item
+- [x] **TASK-05**: User can set a personal priority overlay independent of ADO priority
+- [x] **TASK-06**: User can define dependencies between tasks (task A blocks task B)
+- [x] **TASK-07**: User can add tags to tasks for organization
 
 ### ADO Integration
 
@@ -112,13 +112,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AUTH-01 | Phase 1: Foundation, Auth & Personal Tasks | Pending |
 | AUTH-02 | Phase 1: Foundation, Auth & Personal Tasks | Pending |
 | AUTH-03 | Phase 1: Foundation, Auth & Personal Tasks | Pending |
-| TASK-01 | Phase 1: Foundation, Auth & Personal Tasks | Pending |
-| TASK-02 | Phase 1: Foundation, Auth & Personal Tasks | Pending |
-| TASK-03 | Phase 1: Foundation, Auth & Personal Tasks | Pending |
-| TASK-04 | Phase 1: Foundation, Auth & Personal Tasks | Pending |
-| TASK-05 | Phase 1: Foundation, Auth & Personal Tasks | Pending |
-| TASK-06 | Phase 1: Foundation, Auth & Personal Tasks | Pending |
-| TASK-07 | Phase 1: Foundation, Auth & Personal Tasks | Pending |
+| TASK-01 | Phase 1: Foundation, Auth & Personal Tasks | Complete |
+| TASK-02 | Phase 1: Foundation, Auth & Personal Tasks | Complete |
+| TASK-03 | Phase 1: Foundation, Auth & Personal Tasks | Complete |
+| TASK-04 | Phase 1: Foundation, Auth & Personal Tasks | Complete |
+| TASK-05 | Phase 1: Foundation, Auth & Personal Tasks | Complete |
+| TASK-06 | Phase 1: Foundation, Auth & Personal Tasks | Complete |
+| TASK-07 | Phase 1: Foundation, Auth & Personal Tasks | Complete |
 | ADO-01 | Phase 2: ADO Integration, PRs & Unified Dashboard | Pending |
 | ADO-02 | Phase 2: ADO Integration, PRs & Unified Dashboard | Pending |
 | ADO-03 | Phase 2: ADO Integration, PRs & Unified Dashboard | Pending |
