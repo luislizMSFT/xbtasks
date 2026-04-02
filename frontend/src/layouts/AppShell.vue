@@ -12,7 +12,7 @@ import CommandPalette from '@/components/CommandPalette.vue'
     <Sidebar />
 
     <!-- Main content -->
-    <main class="flex-1 flex flex-col min-w-0 pt-[50px]">
+    <main class="flex-1 flex flex-col min-w-0 pt-[50px] overflow-hidden">
       <slot />
     </main>
 
