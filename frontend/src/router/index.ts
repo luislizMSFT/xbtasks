@@ -28,6 +28,21 @@ const router = createRouter({
       component: () => import('../views/SettingsView.vue'),
     },
     {
+      path: '/playground/tasks',
+      name: 'playground-tasks',
+      component: () => import('../views/PlaygroundTasksView.vue'),
+    },
+    {
+      path: '/playground/dashboard',
+      name: 'playground-dashboard',
+      component: () => import('../views/PlaygroundDashboardView.vue'),
+    },
+    {
+      path: '/playground/detail',
+      name: 'playground-detail',
+      component: () => import('../views/PlaygroundDetailView.vue'),
+    },
+    {
       path: '/login',
       name: 'login',
       component: () => import('../views/LoginView.vue'),

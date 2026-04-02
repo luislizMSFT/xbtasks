@@ -18,12 +18,15 @@ import {
   Settings,
   Sun,
   Moon,
+  FlaskConical,
 } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const { mode, toggle: toggleTheme } = useTheme()
+
+const isDev = import.meta.env.DEV
 
 interface NavItem {
   name: string
@@ -38,7 +41,11 @@ const navItems: NavItem[] = [
   { name: 'projects', icon: FolderKanban, path: '/projects', label: 'Projects' },
 ]
 
-const isActive = (path: string) => route.path === path
+const playgroundItems: NavItem[] = [
+  { name: 'playground-tasks', icon: FlaskConical, path: '/playground/tasks', label: '🧪 Layouts' },
+]
+
+const isActive = (path: string) => route.path === path || route.path.startsWith(path + '/')
 
 function navigate(path: string) {
   router.push(path)
@@ -48,7 +55,7 @@ const isDark = computed(() => mode.value === 'dark')
 </script>
 
 <template>
-  <nav class="w-14 flex-shrink-0 flex flex-col items-center py-1 gap-0.5 pt-[28px] border-r border-border bg-card titlebar-no-drag relative z-40">
+  <nav class="w-14 flex-shrink-0 flex flex-col items-center py-1 gap-0.5 pt-[32px] border-r border-border bg-card titlebar-no-drag relative z-40">
     <!-- Nav items -->
     <TooltipProvider :delay-duration="400">
       <div class="flex flex-col items-center gap-1">
@@ -73,6 +80,31 @@ const isDark = computed(() => mode.value === 'dark')
           </TooltipContent>
         </Tooltip>
       </div>
+
+      <!-- Playground (dev only) -->
+      <template v-if="isDev">
+        <Separator class="my-1 w-6" />
+        <Tooltip v-for="item in playgroundItems" :key="item.name">
+          <TooltipTrigger as-child>
+            <Button
+              variant="ghost"
+              size="icon"
+              @click="navigate(item.path)"
+              :class="[
+                'w-10 h-10',
+                isActive(item.path)
+                  ? 'bg-amber-500/15 text-amber-500 hover:bg-amber-500/20 hover:text-amber-500'
+                  : 'text-muted-foreground/50 hover:text-muted-foreground'
+              ]"
+            >
+              <component :is="item.icon" :size="18" :stroke-width="1.75" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            {{ item.label }}
+          </TooltipContent>
+        </Tooltip>
+      </template>
     </TooltipProvider>
 
     <!-- Spacer -->
