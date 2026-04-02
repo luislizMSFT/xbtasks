@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 import {
   Circle,
   CircleDot,
@@ -7,7 +10,6 @@ import {
   Octagon,
   XCircle,
 } from 'lucide-vue-next'
-import { computed } from 'vue'
 
 const props = defineProps<{ status: string }>()
 
@@ -25,11 +27,11 @@ const config = computed(() => {
 </script>
 
 <template>
-  <span
-    class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-medium"
-    :class="[config.bg, config.color]"
+  <Badge
+    variant="outline"
+    :class="cn('inline-flex items-center gap-1 border-transparent text-[11px] font-medium', config.bg, config.color)"
   >
     <component :is="config.icon" :size="13" :stroke-width="2" />
     <span class="leading-none">{{ config.label }}</span>
-  </span>
+  </Badge>
 </template>

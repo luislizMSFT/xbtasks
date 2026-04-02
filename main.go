@@ -6,6 +6,7 @@ import (
 
 	"dev.azure.com/xbox/xb-tasks/internal/app"
 	"dev.azure.com/xbox/xb-tasks/internal/auth"
+	"dev.azure.com/xbox/xb-tasks/internal/config"
 	"dev.azure.com/xbox/xb-tasks/internal/db"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
@@ -15,12 +16,17 @@ import (
 var assets embed.FS
 
 func main() {
-	database, err := db.Open(db.DefaultDBPath())
+	if err := config.Init(); err != nil {
+		log.Fatalf("failed to init config: %v", err)
+	}
+
+	database, err := db.Open(config.DBPath())
 	if err != nil {
 		log.Fatalf("failed to open database: %v", err)
 	}
 	defer database.Close()
 
+	configService := config.NewConfigService()
 	taskService := app.NewTaskService(database)
 	projectService := app.NewProjectService(database)
 	depService := app.NewDependencyService(database)
@@ -38,6 +44,7 @@ func main() {
 
 	// Register services after app creation so authService can reference wailsApp
 	authService := auth.NewAuthService(database, wailsApp)
+	wailsApp.RegisterService(application.NewService(configService))
 	wailsApp.RegisterService(application.NewService(taskService))
 	wailsApp.RegisterService(application.NewService(projectService))
 	wailsApp.RegisterService(application.NewService(depService))
@@ -67,8 +74,8 @@ func main() {
 	mainWindow := wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:   "main",
 		Title:  "Team ADO Tool",
-		Width:  1200,
-		Height: 800,
+		Width:  config.WindowWidth(),
+		Height: config.WindowHeight(),
 		Mac: application.MacWindow{
 			InvisibleTitleBarHeight: 50,
 			Backdrop:                application.MacBackdropTranslucent,
