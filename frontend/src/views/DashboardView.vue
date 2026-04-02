@@ -57,7 +57,7 @@ function timeAgo(dateStr: string) {
 
 <template>
   <ScrollArea class="flex-1 h-full">
-    <div class="max-w-4xl mx-auto px-6 py-6 space-y-6">
+    <div class="max-w-5xl mx-auto px-4 py-4 space-y-3">
       <!-- Header -->
       <div class="flex items-center justify-between">
         <div>
@@ -71,51 +71,51 @@ function timeAgo(dateStr: string) {
       </div>
 
       <!-- Stat cards -->
-      <div class="grid grid-cols-4 gap-3">
+      <div class="grid grid-cols-4 gap-2">
         <Card>
-          <CardContent class="p-4">
-            <div class="flex items-center gap-2 mb-2">
-              <Loader2 :size="16" class="text-blue-500" />
-              <span class="text-xs font-medium text-muted-foreground uppercase tracking-wider">In Progress</span>
+          <CardContent class="p-3">
+            <div class="flex items-center gap-2 mb-1">
+              <Loader2 :size="14" class="text-blue-500" />
+              <span class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">In Progress</span>
             </div>
-            <p class="text-2xl font-bold text-foreground tabular-nums">{{ taskStore.stats.inProgress }}</p>
+            <p class="text-xl font-bold text-foreground tabular-nums">{{ taskStore.stats.inProgress }}</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent class="p-4">
-            <div class="flex items-center gap-2 mb-2">
-              <Octagon :size="16" class="text-red-500" />
-              <span class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Blocked</span>
+          <CardContent class="p-3">
+            <div class="flex items-center gap-2 mb-1">
+              <Octagon :size="14" class="text-red-500" />
+              <span class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Blocked</span>
             </div>
-            <p class="text-2xl font-bold text-foreground tabular-nums">{{ taskStore.stats.blocked }}</p>
+            <p class="text-xl font-bold text-foreground tabular-nums">{{ taskStore.stats.blocked }}</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent class="p-4">
-            <div class="flex items-center gap-2 mb-2">
-              <CheckCircle2 :size="16" class="text-emerald-500" />
-              <span class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Done</span>
+          <CardContent class="p-3">
+            <div class="flex items-center gap-2 mb-1">
+              <CheckCircle2 :size="14" class="text-emerald-500" />
+              <span class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Done</span>
             </div>
-            <p class="text-2xl font-bold text-foreground tabular-nums">{{ taskStore.stats.done }}</p>
+            <p class="text-xl font-bold text-foreground tabular-nums">{{ taskStore.stats.done }}</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent class="p-4">
-            <div class="flex items-center gap-2 mb-2">
-              <Clock :size="16" class="text-zinc-500" />
-              <span class="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total</span>
+          <CardContent class="p-3">
+            <div class="flex items-center gap-2 mb-1">
+              <Clock :size="14" class="text-zinc-500" />
+              <span class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Total</span>
             </div>
-            <p class="text-2xl font-bold text-foreground tabular-nums">{{ taskStore.stats.total }}</p>
+            <p class="text-xl font-bold text-foreground tabular-nums">{{ taskStore.stats.total }}</p>
           </CardContent>
         </Card>
       </div>
 
       <!-- Today's Focus -->
       <Card v-if="focusTasks.length > 0">
-        <CardHeader class="px-4 py-3">
+        <CardHeader class="px-3 py-2">
           <CardTitle class="text-sm">Today's Focus</CardTitle>
         </CardHeader>
         <Separator />
@@ -123,7 +123,7 @@ function timeAgo(dateStr: string) {
           <div
             v-for="(task, i) in focusTasks"
             :key="task.id"
-            class="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/50 cursor-pointer transition-colors"
+            class="flex items-center gap-3 px-3 py-2 hover:bg-muted/50 cursor-pointer transition-colors"
             @click="router.push('/tasks')"
           >
             <StatusBadge :status="task.status" />
@@ -136,9 +136,9 @@ function timeAgo(dateStr: string) {
 
       <!-- Blocked section -->
       <Card v-if="blockedTasks.length > 0" class="border-red-500/20 bg-red-500/5">
-        <CardHeader class="px-4 py-3">
+        <CardHeader class="px-3 py-2">
           <CardTitle class="text-sm flex items-center gap-2">
-            <AlertTriangle :size="16" class="text-red-500" />
+            <AlertTriangle :size="14" class="text-red-500" />
             <span class="text-red-600 dark:text-red-400">Blocked</span>
           </CardTitle>
         </CardHeader>
@@ -147,7 +147,7 @@ function timeAgo(dateStr: string) {
           <div
             v-for="task in blockedTasks"
             :key="task.id"
-            class="flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors hover:bg-red-500/5"
+            class="flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors hover:bg-red-500/5"
             @click="router.push('/tasks')"
           >
             <span class="text-sm text-foreground flex-1 truncate">{{ task.title }}</span>
@@ -159,7 +159,7 @@ function timeAgo(dateStr: string) {
 
       <!-- Recent Activity -->
       <Card>
-        <CardHeader class="px-4 py-3">
+        <CardHeader class="px-3 py-2">
           <CardTitle class="text-sm">Recent Activity</CardTitle>
         </CardHeader>
         <Separator />
@@ -167,7 +167,7 @@ function timeAgo(dateStr: string) {
           <div
             v-for="task in recentTasks"
             :key="task.id"
-            class="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/50 cursor-pointer transition-colors"
+            class="flex items-center gap-3 px-3 py-2 hover:bg-muted/50 cursor-pointer transition-colors"
             @click="router.push('/tasks')"
           >
             <StatusBadge :status="task.status" />
