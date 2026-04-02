@@ -77,7 +77,7 @@ func main() {
 		Width:  config.WindowWidth(),
 		Height: config.WindowHeight(),
 		Mac: application.MacWindow{
-			InvisibleTitleBarHeight: 32,
+			InvisibleTitleBarHeight: 40,
 			Backdrop:                application.MacBackdropTranslucent,
 			TitleBar:                application.MacTitleBarHiddenInset,
 		},

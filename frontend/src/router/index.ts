@@ -43,6 +43,11 @@ const router = createRouter({
       component: () => import('../views/PlaygroundDetailView.vue'),
     },
     {
+      path: '/playground/ado',
+      name: 'playground-ado',
+      component: () => import('../views/PlaygroundAdoView.vue'),
+    },
+    {
       path: '/login',
       name: 'login',
       component: () => import('../views/LoginView.vue'),

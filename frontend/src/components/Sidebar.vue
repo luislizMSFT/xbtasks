@@ -42,7 +42,8 @@ const navItems: NavItem[] = [
 ]
 
 const playgroundItems: NavItem[] = [
-  { name: 'playground-tasks', icon: FlaskConical, path: '/playground/tasks', label: '🧪 Layouts' },
+  { name: 'playground-tasks', icon: FlaskConical, path: '/playground/tasks', label: 'Layout Playground' },
+  { name: 'playground-ado', icon: FlaskConical, path: '/playground/ado', label: 'ADO Playground' },
 ]
 
 const isActive = (path: string) => route.path === path || route.path.startsWith(path + '/')
@@ -55,7 +56,7 @@ const isDark = computed(() => mode.value === 'dark')
 </script>
 
 <template>
-  <nav class="w-14 flex-shrink-0 flex flex-col items-center py-1 gap-0.5 pt-[38px] border-r border-border bg-card titlebar-no-drag relative z-40">
+  <nav class="w-14 flex-shrink-0 flex flex-col items-center py-1 gap-0.5 pt-[44px] border-r border-border bg-card titlebar-no-drag relative z-40">
     <!-- Nav items -->
     <TooltipProvider :delay-duration="400">
       <div class="flex flex-col items-center gap-1">

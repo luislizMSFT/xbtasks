@@ -50,9 +50,10 @@ const navigationActions: Action[] = [
 ]
 
 const devActions: Action[] = [
-  { id: 'pg-tasks', label: '🧪 Task Layouts', icon: FlaskConical, hint: 'Compare layouts', action: () => router.push('/playground/tasks') },
-  { id: 'pg-dashboard', label: '🧪 Dashboard Layouts', icon: FlaskConical, hint: 'Compare dashboards', action: () => router.push('/playground/dashboard') },
-  { id: 'pg-detail', label: '🧪 Detail Layouts', icon: FlaskConical, hint: 'Compare panels', action: () => router.push('/playground/detail') },
+  { id: 'pg-tasks', label: 'Task Layouts', icon: FlaskConical, hint: 'Compare layouts', action: () => router.push('/playground/tasks') },
+  { id: 'pg-dashboard', label: 'Dashboard Layouts', icon: FlaskConical, hint: 'Compare dashboards', action: () => router.push('/playground/dashboard') },
+  { id: 'pg-detail', label: 'Detail Layouts', icon: FlaskConical, hint: 'Compare panels', action: () => router.push('/playground/detail') },
+  { id: 'pg-ado', label: 'ADO Management', icon: FlaskConical, hint: 'ADO tree & team view', action: () => router.push('/playground/ado') },
 ]
 
 const createActions: Action[] = [
