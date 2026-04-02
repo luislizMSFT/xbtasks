@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Task } from '../stores/tasks'
-import PriorityBadge from './ui/PriorityBadge.vue'
-import TagChip from './ui/TagChip.vue'
-import AdoBadge from './ui/AdoBadge.vue'
+import type { Task } from '@/stores/tasks'
+import PriorityBadge from '@/components/ui/PriorityBadge.vue'
+import TagChip from '@/components/ui/TagChip.vue'
+import AdoBadge from '@/components/ui/AdoBadge.vue'
 import {
   Circle,
   CircleDot,
@@ -80,8 +80,8 @@ function onCheckClick(e: Event) {
     class="group flex items-start gap-3 px-4 py-2.5 cursor-pointer transition-all duration-100 relative"
     :class="[
       selected
-        ? 'bg-accent/5 border-l-2 border-l-accent'
-        : 'border-l-2 border-l-transparent hover:bg-surface-tertiary/50',
+        ? 'bg-primary/5 border-l-2 border-l-primary'
+        : 'border-l-2 border-l-transparent hover:bg-muted/50',
     ]"
   >
     <!-- Status circle (Things 3 style) -->
@@ -100,7 +100,7 @@ function onCheckClick(e: Event) {
         <span
           class="text-sm truncate flex-1 min-w-0"
           :class="[
-            isDone ? 'line-through text-text-secondary' : 'text-text-primary',
+            isDone ? 'line-through text-muted-foreground' : 'text-foreground',
           ]"
         >
           {{ task.title }}
@@ -113,14 +113,14 @@ function onCheckClick(e: Event) {
           <TagChip v-for="tag in visibleTags" :key="tag" :tag="tag" />
           <span
             v-if="overflowCount > 0"
-            class="text-[11px] text-text-secondary font-medium"
+            class="text-[11px] text-muted-foreground font-medium"
           >
             +{{ overflowCount }}
           </span>
 
           <AdoBadge :ado-id="task.adoId" />
 
-          <span class="text-[11px] text-text-secondary ml-1 tabular-nums whitespace-nowrap">
+          <span class="text-[11px] text-muted-foreground ml-1 tabular-nums whitespace-nowrap">
             {{ timeAgo }}
           </span>
         </div>

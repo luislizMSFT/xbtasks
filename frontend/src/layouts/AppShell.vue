@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import Sidebar from '../components/Sidebar.vue'
-import CommandPalette from '../components/CommandPalette.vue'
+import Sidebar from '@/components/Sidebar.vue'
+import CommandPalette from '@/components/CommandPalette.vue'
 </script>
 
 <template>
-  <div class="h-screen w-screen flex overflow-hidden bg-surface-primary text-text-primary">
+  <div class="h-screen w-screen flex overflow-hidden bg-background text-foreground">
     <!-- macOS titlebar drag region -->
     <div class="fixed top-0 left-0 right-0 h-[50px] titlebar-drag z-50" />
 
