@@ -55,7 +55,7 @@ const isDark = computed(() => mode.value === 'dark')
 </script>
 
 <template>
-  <nav class="w-14 flex-shrink-0 flex flex-col items-center py-1 gap-0.5 pt-[32px] border-r border-border bg-card titlebar-no-drag relative z-40">
+  <nav class="w-14 flex-shrink-0 flex flex-col items-center py-1 gap-0.5 pt-[38px] border-r border-border bg-card titlebar-no-drag relative z-40">
     <!-- Nav items -->
     <TooltipProvider :delay-duration="400">
       <div class="flex flex-col items-center gap-1">
