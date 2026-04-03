@@ -30,6 +30,12 @@ import {
 const router = useRouter()
 
 // --- Types ---
+interface SubtaskItem {
+  id: number
+  title: string
+  done: boolean
+}
+
 interface GraphNode {
   id: number
   title: string
@@ -38,18 +44,31 @@ interface GraphNode {
   description: string
   dependsOn: number[]
   children: GraphNode[]
+  subtasks?: SubtaskItem[]
 }
 
 // --- Mock Data ---
 const rawTasks: Omit<GraphNode, 'children'>[] = [
   // Chain of 4: root blocked → cascade
-  { id: 1, title: 'Provision staging database cluster', status: 'blocked', priority: 'P0', description: 'Set up PostgreSQL cluster for staging environment. Waiting on infrastructure team approval.', dependsOn: [] },
+  { id: 1, title: 'Provision staging database cluster', status: 'blocked', priority: 'P0', description: 'Set up PostgreSQL cluster for staging environment. Waiting on infrastructure team approval.', dependsOn: [], subtasks: [
+    { id: 101, title: 'Request infra approval', done: true },
+    { id: 102, title: 'Configure cluster settings', done: false },
+    { id: 103, title: 'Set up connection pooling', done: false },
+  ] },
   { id: 2, title: 'Run database schema migrations', status: 'blocked', priority: 'P0', description: 'Apply v2.3 schema changes including new indexes and partitioning.', dependsOn: [1] },
-  { id: 3, title: 'Deploy auth service to staging', status: 'blocked', priority: 'P1', description: 'Deploy authentication microservice with new OAuth2 provider support.', dependsOn: [2] },
+  { id: 3, title: 'Deploy auth service to staging', status: 'blocked', priority: 'P1', description: 'Deploy authentication microservice with new OAuth2 provider support.', dependsOn: [2], subtasks: [
+    { id: 301, title: 'Update OAuth2 client config', done: true },
+    { id: 302, title: 'Rotate service credentials', done: false },
+  ] },
   { id: 4, title: 'Run integration test suite', status: 'blocked', priority: 'P1', description: 'Execute full integration test suite against staging environment.', dependsOn: [3] },
 
   // Fan-out: one task blocks multiple
-  { id: 5, title: 'Design API v3 specification', status: 'in_progress', priority: 'P1', description: 'Create OpenAPI spec for the v3 REST API including new endpoints for batch operations.', dependsOn: [] },
+  { id: 5, title: 'Design API v3 specification', status: 'in_progress', priority: 'P1', description: 'Create OpenAPI spec for the v3 REST API including new endpoints for batch operations.', dependsOn: [], subtasks: [
+    { id: 501, title: 'Draft endpoint inventory', done: true },
+    { id: 502, title: 'Define request/response schemas', done: true },
+    { id: 503, title: 'Review with backend team', done: false },
+    { id: 504, title: 'Publish to API portal', done: false },
+  ] },
   { id: 6, title: 'Implement user endpoints', status: 'todo', priority: 'P2', description: 'Build CRUD endpoints for user management following v3 spec.', dependsOn: [5] },
   { id: 7, title: 'Implement project endpoints', status: 'todo', priority: 'P2', description: 'Build CRUD endpoints for project management following v3 spec.', dependsOn: [5] },
   { id: 8, title: 'Implement webhook endpoints', status: 'todo', priority: 'P3', description: 'Build webhook registration and delivery endpoints following v3 spec.', dependsOn: [5] },
@@ -58,7 +77,11 @@ const rawTasks: Omit<GraphNode, 'children'>[] = [
   { id: 9, title: 'Write API documentation', status: 'todo', priority: 'P2', description: 'Generate and review API documentation for all v3 endpoints.', dependsOn: [6, 7, 8] },
 
   // Independent tasks
-  { id: 10, title: 'Update CI pipeline configuration', status: 'in_progress', priority: 'P2', description: 'Migrate from Jenkins to GitHub Actions for main build pipeline.', dependsOn: [] },
+  { id: 10, title: 'Update CI pipeline configuration', status: 'in_progress', priority: 'P2', description: 'Migrate from Jenkins to GitHub Actions for main build pipeline.', dependsOn: [], subtasks: [
+    { id: 1001, title: 'Create GitHub Actions workflow file', done: true },
+    { id: 1002, title: 'Migrate build secrets', done: false },
+    { id: 1003, title: 'Decommission Jenkins jobs', done: false },
+  ] },
   { id: 11, title: 'Refactor logging middleware', status: 'done', priority: 'P3', description: 'Replace custom logger with structured logging using pino.', dependsOn: [] },
 
   // Another small chain
@@ -71,7 +94,7 @@ const rawTasks: Omit<GraphNode, 'children'>[] = [
 const allNodes = computed<GraphNode[]>(() => {
   const map = new Map<number, GraphNode>()
   for (const t of rawTasks) {
-    map.set(t.id, { ...t, children: [] })
+    map.set(t.id, { ...t, children: [], subtasks: t.subtasks })
   }
   for (const node of map.values()) {
     for (const depId of node.dependsOn) {
@@ -255,8 +278,8 @@ const stats = computed(() => {
     </div>
 
     <!-- Main content -->
-    <ScrollArea class="flex-1">
-      <div class="p-6">
+    <ScrollArea class="min-h-0 flex-1">
+      <div class="p-6 pb-12">
         <!-- Tree View -->
         <div v-if="viewMode === 'tree'" class="space-y-0.5">
           <div v-if="filteredRoots.length === 0" class="py-12 text-center text-sm text-muted-foreground">
@@ -340,6 +363,12 @@ const stats = computed(() => {
 <script lang="ts">
 import { defineComponent, type PropType } from 'vue'
 
+interface TreeSubtaskItem {
+  id: number
+  title: string
+  done: boolean
+}
+
 interface TreeGraphNode {
   id: number
   title: string
@@ -348,6 +377,7 @@ interface TreeGraphNode {
   description: string
   dependsOn: number[]
   children: TreeGraphNode[]
+  subtasks?: TreeSubtaskItem[]
 }
 
 function getDescendantCount(node: TreeGraphNode): number {
@@ -380,7 +410,7 @@ const TreeNodeItem = defineComponent({
       return this.expandedNodes.has(this.node.id)
     },
     hasChildren(): boolean {
-      return this.node.children.length > 0
+      return this.node.children.length > 0 || (this.node.subtasks != null && this.node.subtasks.length > 0)
     },
     isSelected(): boolean {
       return this.selectedNodeId === this.node.id
@@ -493,8 +523,38 @@ const TreeNodeItem = defineComponent({
         </div>
       </div>
 
+      <!-- Subtasks (leaf items) -->
+      <div v-if="isExpanded && node.subtasks && node.subtasks.length > 0" class="relative">
+        <div
+          class="absolute top-0 bottom-2"
+          :style="{ left: (depth * 24 + 19) + 'px' }"
+        >
+          <div class="h-full w-px bg-border"></div>
+        </div>
+        <div
+          v-for="st in node.subtasks"
+          :key="'st-' + st.id"
+          class="relative flex items-center gap-2 rounded-md px-2 py-1 text-muted-foreground"
+          :style="{ paddingLeft: ((depth + 1) * 24 + 8) + 'px' }"
+        >
+          <div
+            v-if="true"
+            class="connector-line absolute top-0 bottom-0"
+            :style="{ left: (depth * 24 + 19) + 'px', width: '24px' }"
+          >
+            <div class="absolute top-1/2 left-0 h-px w-4 bg-border"></div>
+            <div class="absolute top-0 left-0 h-1/2 w-px bg-border"></div>
+          </div>
+          <div class="w-5 shrink-0"></div>
+          <!-- Checkbox icon: filled green if done, empty circle if not -->
+          <svg v-if="st.done" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 text-emerald-500"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 text-zinc-400"><circle cx="12" cy="12" r="10"/></svg>
+          <span class="truncate text-xs" :class="st.done ? 'line-through opacity-60' : 'opacity-80'">{{ st.title }}</span>
+        </div>
+      </div>
+
       <!-- Children (recursive) -->
-      <div v-if="hasChildren && isExpanded" class="relative">
+      <div v-if="hasChildren && isExpanded && filteredChildren.length > 0" class="relative">
         <div
           class="absolute top-0 bottom-2"
           :style="{ left: (depth * 24 + 19) + 'px' }"
