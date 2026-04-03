@@ -33,7 +33,7 @@ import {
   Trash2,
   Folder,
   CalendarDays,
-  Landmark,
+
   Tag,
   MessageSquare,
   User,
@@ -42,6 +42,7 @@ import {
   GitBranch,
   ArrowRight,
 } from 'lucide-vue-next'
+import AzureDevOpsIcon from '@/components/icons/AzureDevOpsIcon.vue'
 
 const { mode, toggle } = useTheme()
 
@@ -89,9 +90,32 @@ interface MockTask {
   updatedAt?: string
 }
 
-type StyleVariant = 'compact' | 'spacious' | 'dense'
+interface ActivityItem {
+  text: string
+  time: string
+}
 
-// ── Mock data ──────────────────────────────────────────────────────────
+interface MockTask {
+  id: string
+  title: string
+  status: 'in_progress' | 'in_review' | 'todo' | 'blocked' | 'done'
+  priority: 'P0' | 'P1' | 'P2' | 'P3'
+  adoType?: 'Bug' | 'Task' | 'UserStory'
+  adoNumber?: number
+  timeAgo: string
+  group: 'in_progress' | 'todo' | 'blocked' | 'done'
+  description?: string
+  subtasks?: Subtask[]
+  prs?: PullRequest[]
+  comments?: Comment[]
+  adoComments?: Comment[]
+  project?: string
+  dueDate?: string
+  tags?: string[]
+  createdAt?: string
+  updatedAt?: string
+  activity?: ActivityItem[]
+}
 const tasks: MockTask[] = [
   {
     id: 't1',
@@ -145,6 +169,14 @@ const tasks: MockTask[] = [
     tags: ['bug', 'urgent', 'auth'],
     createdAt: 'Mar 31',
     updatedAt: '2h ago',
+    activity: [
+      { text: 'Status changed to In Progress', time: '2d ago' },
+      { text: 'Linked to ADO Bug #48291', time: '2d ago' },
+      { text: 'Subtask completed: Identify refresh token edge case', time: '1d ago' },
+      { text: 'Subtask completed: Add token expiry middleware', time: '18h ago' },
+      { text: 'PR #234 opened', time: '6h ago' },
+      { text: 'PR #240 opened (Draft)', time: '2h ago' },
+    ],
   },
   {
     id: 't2',
@@ -167,6 +199,11 @@ const tasks: MockTask[] = [
     tags: ['frontend', 'ui'],
     createdAt: 'Apr 1',
     updatedAt: '1h ago',
+    activity: [
+      { text: 'Task created', time: '3d ago' },
+      { text: 'Status changed to In Progress', time: '1h ago' },
+      { text: 'Subtask completed: Icon rail layout', time: '45m ago' },
+    ],
   },
   {
     id: 't3',
@@ -234,6 +271,12 @@ const tasks: MockTask[] = [
     tags: ['auth', 'migration'],
     createdAt: 'Mar 28',
     updatedAt: '1d ago',
+    activity: [
+      { text: 'Task created', time: '5d ago' },
+      { text: 'Linked to ADO Task #48100', time: '5d ago' },
+      { text: 'Subtask completed: Create MSAL config', time: '3d ago' },
+      { text: 'Status changed to Blocked', time: '1d ago' },
+    ],
   },
   {
     id: 't6',
@@ -275,7 +318,7 @@ const navItems = [
 
 // ── Reactive state ─────────────────────────────────────────────────────
 const selectedTaskId = ref('t1')
-const variant = ref<StyleVariant>('compact')
+const detailTab = ref('work')
 const expandedGroups = ref<Record<string, boolean>>({
   in_progress: true,
   todo: true,
@@ -361,39 +404,13 @@ function adoColor(type?: string) {
   return 'text-muted-foreground'
 }
 
-// variant-aware class helpers
-const v = computed(() => {
-  const s = variant.value
-  return {
-    sectionGap: s === 'compact' ? 'space-y-2' : s === 'spacious' ? 'space-y-4' : 'space-y-1.5',
-    sectionPx: s === 'compact' ? 'px-4' : s === 'spacious' ? 'px-5' : 'px-3',
-    sectionPy: s === 'compact' ? 'py-2' : s === 'spacious' ? 'py-3' : 'py-1',
-    titleSize: s === 'compact' ? 'text-base' : s === 'spacious' ? 'text-lg' : 'text-sm',
-    bodySize: s === 'compact' ? 'text-[13px]' : s === 'spacious' ? 'text-sm' : 'text-xs',
-    labelSize: s === 'compact' ? 'text-xs' : s === 'spacious' ? 'text-sm' : 'text-[11px]',
-    sectionWrap: s === 'spacious' ? 'border border-border rounded-lg p-4' : '',
-    monoClass: s === 'dense' ? 'font-mono' : '',
-    rowPy: s === 'compact' ? 'py-1.5' : s === 'spacious' ? 'py-2' : 'py-1',
-  }
-})
 </script>
 
 <template>
   <div class="flex flex-col gap-3 p-4" style="height: calc(100vh - 2rem)">
-    <!-- Variant selector tabs -->
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <h2 class="text-sm font-semibold text-foreground">Detail Panel Playground</h2>
-        <Separator orientation="vertical" class="h-4" />
-        <span class="text-xs text-muted-foreground">Style variant:</span>
-      </div>
-      <Tabs v-model="variant" class="w-auto">
-        <TabsList class="h-8">
-          <TabsTrigger value="compact" class="text-xs px-3 h-6">Compact</TabsTrigger>
-          <TabsTrigger value="spacious" class="text-xs px-3 h-6">Spacious</TabsTrigger>
-          <TabsTrigger value="dense" class="text-xs px-3 h-6">Dense</TabsTrigger>
-        </TabsList>
-      </Tabs>
+    <!-- Page header -->
+    <div class="flex items-center gap-2">
+      <h2 class="text-sm font-semibold text-foreground">Detail Panel Playground</h2>
     </div>
 
     <!-- App Shell Mock -->
@@ -541,317 +558,346 @@ const v = computed(() => {
 
           <!-- Right: Detail panel (~45%) -->
           <div class="w-[45%] flex flex-col min-h-0 min-w-[340px]">
-            <ScrollArea class="flex-1">
-              <div :class="cn('flex flex-col', v.sectionGap)">
 
-                <!-- ─── Header ─────────────────────────────────── -->
-                <div :class="cn('border-b border-border', v.sectionPx, v.sectionPy, 'pt-3 pb-3')">
-                  <div class="group flex items-start gap-2">
-                    <h3 :class="cn('font-semibold leading-snug flex-1', v.titleSize, v.monoClass, selectedTask.status === 'done' && 'line-through text-muted-foreground')">
-                      {{ selectedTask.title }}
-                    </h3>
-                    <Pencil :size="14" class="shrink-0 mt-1 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                  <div class="flex items-center gap-2 mt-2 flex-wrap">
-                    <!-- Status badge -->
-                    <span class="inline-flex items-center gap-1.5 text-xs font-medium border border-border rounded-full px-2 py-0.5">
-                      <span :class="cn('size-2 rounded-full', statusColor[selectedTask.status])" />
-                      {{ statusLabel[selectedTask.status] }}
-                    </span>
-                    <!-- Priority badge -->
-                    <span class="inline-flex items-center gap-1.5 text-xs font-medium border border-border rounded-full px-2 py-0.5">
-                      <span :class="cn('size-2 rounded-full', priorityDot[selectedTask.priority])" />
-                      {{ selectedTask.priority }}
-                    </span>
-                    <!-- ADO link -->
-                    <span
-                      v-if="selectedTask.adoType && selectedTask.adoNumber"
-                      class="inline-flex items-center gap-1.5 text-xs font-medium text-blue-500 border border-blue-500/30 rounded-full px-2 py-0.5 cursor-pointer hover:bg-blue-500/10 transition-colors"
-                    >
-                      <component :is="adoIcon(selectedTask.adoType)" :size="12" />
-                      #{{ selectedTask.adoNumber }}
-                      <ExternalLink :size="10" />
-                    </span>
-                  </div>
-                </div>
-
-                <!-- ─── Subtasks ───────────────────────────────── -->
-                <div v-if="selectedTask.subtasks && selectedTask.subtasks.length > 0" :class="cn(v.sectionPx, v.sectionWrap && 'mx-4')">
-                  <div :class="v.sectionWrap">
-                    <div class="flex items-center justify-between mb-2">
-                      <div class="flex items-center gap-2">
-                        <span :class="cn('font-semibold', v.labelSize)">Subtasks</span>
-                        <Badge variant="secondary" class="h-4 text-[10px] px-1.5">{{ subtasksDone }}/{{ subtasksTotal }}</Badge>
-                      </div>
-                    </div>
-                    <!-- Progress bar -->
-                    <div class="h-1 w-full rounded-full bg-muted mb-2">
-                      <div class="h-1 rounded-full bg-blue-500 transition-all" :style="{ width: subtaskPct + '%' }" />
-                    </div>
-                    <!-- Subtask rows -->
-                    <div :class="cn('flex flex-col', variant === 'dense' ? 'gap-0.5' : 'gap-1')">
-                      <div
-                        v-for="(sub, i) in selectedTask.subtasks"
-                        :key="i"
-                        :class="cn('flex items-center gap-2', v.rowPy)"
-                      >
-                        <CheckCircle2 v-if="sub.done" :size="15" class="text-emerald-500 shrink-0" />
-                        <Circle v-else :size="15" class="text-muted-foreground shrink-0" />
-                        <span :class="cn(v.bodySize, v.monoClass, sub.done && 'line-through text-muted-foreground')">
-                          {{ sub.title }}
-                        </span>
-                      </div>
-                    </div>
-                    <button class="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mt-1.5 transition-colors">
-                      <Plus :size="12" />
-                      Add subtask
-                    </button>
-                  </div>
-                </div>
-
-                <Separator v-if="variant !== 'spacious'" />
-
-                <!-- ─── Description ────────────────────────────── -->
-                <div v-if="selectedTask.description" :class="cn(v.sectionPx, v.sectionWrap && 'mx-4')">
-                  <div :class="v.sectionWrap">
-                    <button class="flex items-center gap-1.5 w-full" @click="descriptionOpen = !descriptionOpen">
-                      <ChevronDown v-if="descriptionOpen" :size="14" class="text-muted-foreground" />
-                      <ChevronRight v-else :size="14" class="text-muted-foreground" />
-                      <span :class="cn('font-semibold', v.labelSize)">Description</span>
-                    </button>
-                    <p
-                      v-if="descriptionOpen"
-                      :class="cn('mt-1.5 text-muted-foreground leading-relaxed', v.bodySize, v.monoClass)"
-                    >
-                      {{ selectedTask.description }}
-                    </p>
-                  </div>
-                </div>
-
-                <Separator v-if="variant !== 'spacious'" />
-
-                <!-- ─── Pull Requests ──────────────────────────── -->
-                <div v-if="selectedTask.prs && selectedTask.prs.length > 0" :class="cn(v.sectionPx, v.sectionWrap && 'mx-4')">
-                  <div :class="v.sectionWrap">
-                    <button class="flex items-center gap-1.5 w-full" @click="prsOpen = !prsOpen">
-                      <ChevronDown v-if="prsOpen" :size="14" class="text-muted-foreground" />
-                      <ChevronRight v-else :size="14" class="text-muted-foreground" />
-                      <span :class="cn('font-semibold', v.labelSize)">Pull Requests</span>
-                      <Badge variant="secondary" class="h-4 text-[10px] px-1.5 ml-1">{{ selectedTask.prs.length }}</Badge>
-                    </button>
-                    <div v-if="prsOpen" :class="cn('flex flex-col mt-2', variant === 'dense' ? 'gap-1' : 'gap-2')">
-                      <div
-                        v-for="pr in selectedTask.prs"
-                        :key="pr.number"
-                        :class="cn('flex flex-col gap-1 rounded-md border border-border p-2', v.bodySize)"
-                      >
-                        <div class="flex items-center gap-2">
-                          <GitPullRequest :size="14" class="text-muted-foreground shrink-0" />
-                          <span class="font-medium truncate">{{ pr.title }}</span>
-                          <Badge
-                            :variant="pr.status === 'Draft' ? 'outline' : 'secondary'"
-                            class="h-4 text-[10px] px-1.5 ml-auto shrink-0"
-                          >
-                            {{ pr.status }}
-                          </Badge>
-                        </div>
-                        <div class="flex items-center gap-1.5 text-muted-foreground text-[11px] pl-5">
-                          <Badge variant="outline" class="h-4 text-[10px] px-1.5">{{ pr.repo }}</Badge>
-                          <GitBranch :size="11" />
-                          <span :class="v.monoClass">{{ pr.source }}</span>
-                          <ArrowRight :size="10" />
-                          <span :class="v.monoClass">{{ pr.target }}</span>
-                        </div>
-                        <!-- Reviewers -->
-                        <div v-if="pr.reviewers && pr.reviewers.length > 0" class="flex items-center gap-1.5 pl-5 mt-0.5">
-                          <div
-                            v-for="rev in pr.reviewers"
-                            :key="rev.name"
-                            :class="cn(
-                              'size-5 rounded-full flex items-center justify-center text-[9px] font-semibold border',
-                              rev.approved
-                                ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
-                                : 'bg-muted text-muted-foreground border-border'
-                            )"
-                          >
-                            {{ rev.initials }}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator v-if="variant !== 'spacious'" />
-
-                <!-- ─── Comments ───────────────────────────────── -->
-                <div :class="cn(v.sectionPx, v.sectionWrap && 'mx-4')">
-                  <div :class="v.sectionWrap">
-                    <Tabs v-model="commentTab" class="w-full">
-                      <TabsList class="h-7 w-full">
-                        <TabsTrigger value="notes" class="text-[11px] h-5 flex-1 gap-1">
-                          <MessageSquare :size="11" />
-                          Notes
-                          <Badge v-if="selectedTask.comments && selectedTask.comments.length > 0" variant="secondary" class="h-3.5 text-[9px] px-1">
-                            {{ selectedTask.comments.length }}
-                          </Badge>
-                        </TabsTrigger>
-                        <TabsTrigger value="ado" class="text-[11px] h-5 flex-1 gap-1">
-                          <Landmark :size="11" />
-                          ADO Comments
-                          <Badge v-if="selectedTask.adoComments && selectedTask.adoComments.length > 0" variant="secondary" class="h-3.5 text-[9px] px-1">
-                            {{ selectedTask.adoComments.length }}
-                          </Badge>
-                        </TabsTrigger>
-                      </TabsList>
-
-                      <TabsContent value="notes" class="mt-2">
-                        <div :class="cn('flex flex-col', variant === 'dense' ? 'gap-1.5' : 'gap-2.5')">
-                          <div
-                            v-for="(c, i) in selectedTask.comments ?? []"
-                            :key="'n' + i"
-                            class="flex gap-2"
-                          >
-                            <div class="size-6 rounded-full bg-muted flex items-center justify-center shrink-0">
-                              <span class="text-[9px] font-semibold text-muted-foreground">{{ c.initials }}</span>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                              <div class="flex items-baseline gap-2">
-                                <span :class="cn('font-medium', v.bodySize)">{{ c.author }}</span>
-                                <span :class="cn('text-muted-foreground', v.monoClass, 'text-[10px]')">{{ c.time }}</span>
-                              </div>
-                              <p :class="cn('text-muted-foreground mt-0.5', v.bodySize)">{{ c.text }}</p>
-                            </div>
-                          </div>
-                          <p
-                            v-if="!selectedTask.comments || selectedTask.comments.length === 0"
-                            class="text-xs text-muted-foreground italic"
-                          >
-                            No notes yet.
-                          </p>
-                        </div>
-                        <!-- Input -->
-                        <div class="flex items-center gap-2 mt-3">
-                          <Input
-                            v-model="noteText"
-                            placeholder="Add a note..."
-                            class="h-7 text-xs flex-1"
-                          />
-                          <Button variant="ghost" size="icon" class="size-7 shrink-0">
-                            <Send :size="13" />
-                          </Button>
-                        </div>
-                      </TabsContent>
-
-                      <TabsContent value="ado" class="mt-2">
-                        <div :class="cn('flex flex-col', variant === 'dense' ? 'gap-1.5' : 'gap-2.5')">
-                          <div
-                            v-for="(c, i) in selectedTask.adoComments ?? []"
-                            :key="'a' + i"
-                            class="flex gap-2"
-                          >
-                            <div class="size-6 rounded-full bg-muted flex items-center justify-center shrink-0">
-                              <span class="text-[9px] font-semibold text-muted-foreground">{{ c.initials }}</span>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                              <div class="flex items-baseline gap-2">
-                                <span :class="cn('font-medium', v.bodySize)">{{ c.author }}</span>
-                                <span :class="cn('text-muted-foreground', v.monoClass, 'text-[10px]')">{{ c.time }}</span>
-                              </div>
-                              <p :class="cn('text-muted-foreground mt-0.5', v.bodySize)">{{ c.text }}</p>
-                            </div>
-                          </div>
-                          <p
-                            v-if="!selectedTask.adoComments || selectedTask.adoComments.length === 0"
-                            class="text-xs text-muted-foreground italic"
-                          >
-                            No ADO comments synced.
-                          </p>
-                        </div>
-                      </TabsContent>
-                    </Tabs>
-                  </div>
-                </div>
-
-                <Separator v-if="variant !== 'spacious'" />
-
-                <!-- ─── Config / Metadata ──────────────────────── -->
-                <div :class="cn(v.sectionPx, v.sectionWrap && 'mx-4')">
-                  <div :class="v.sectionWrap">
-                    <span :class="cn('font-semibold mb-2 block', v.labelSize)">Details</span>
-                    <div :class="cn('grid grid-cols-[auto_1fr] items-center', variant === 'dense' ? 'gap-x-3 gap-y-1' : 'gap-x-4 gap-y-2')">
-                      <!-- Status -->
-                      <span :class="cn('text-muted-foreground', v.bodySize)">Status</span>
-                      <span :class="cn('flex items-center gap-1.5', v.bodySize, v.monoClass)">
-                        <span :class="cn('size-2 rounded-full', statusColor[selectedTask.status])" />
-                        {{ statusLabel[selectedTask.status] }}
-                      </span>
-
-                      <!-- Priority -->
-                      <span :class="cn('text-muted-foreground', v.bodySize)">Priority</span>
-                      <span :class="cn('flex items-center gap-1.5', v.bodySize, v.monoClass)">
-                        <span :class="cn('size-2 rounded-full', priorityDot[selectedTask.priority])" />
-                        {{ priorityLabel[selectedTask.priority] }}
-                      </span>
-
-                      <!-- Project -->
-                      <span :class="cn('text-muted-foreground', v.bodySize)">Project</span>
-                      <span :class="cn('flex items-center gap-1.5', v.bodySize)">
-                        <Folder :size="12" class="text-muted-foreground" />
-                        {{ selectedTask.project ?? '—' }}
-                      </span>
-
-                      <!-- Due Date -->
-                      <span :class="cn('text-muted-foreground', v.bodySize)">Due Date</span>
-                      <span :class="cn('flex items-center gap-1.5', v.bodySize, v.monoClass)">
-                        <CalendarDays :size="12" class="text-muted-foreground" />
-                        {{ selectedTask.dueDate ?? '—' }}
-                      </span>
-
-                      <!-- Tags -->
-                      <span :class="cn('text-muted-foreground', v.bodySize)">Tags</span>
-                      <div class="flex items-center gap-1 flex-wrap">
-                        <span
-                          v-for="tag in selectedTask.tags ?? []"
-                          :key="tag"
-                          :class="cn(
-                            'inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5',
-                            variant === 'dense' ? 'text-[10px]' : 'text-[11px]'
-                          )"
-                        >
-                          <Tag :size="10" class="text-muted-foreground" />
-                          {{ tag }}
-                        </span>
-                        <span v-if="!selectedTask.tags || selectedTask.tags.length === 0" :class="cn('text-muted-foreground', v.bodySize)">—</span>
-                      </div>
-
-                      <!-- ADO Link -->
-                      <span :class="cn('text-muted-foreground', v.bodySize)">ADO Link</span>
-                      <span v-if="selectedTask.adoType && selectedTask.adoNumber" :class="cn('flex items-center gap-1.5 text-blue-500 cursor-pointer hover:underline', v.bodySize, v.monoClass)">
-                        <Landmark :size="12" />
-                        {{ selectedTask.adoType }} #{{ selectedTask.adoNumber }}
-                        <ExternalLink :size="10" />
-                      </span>
-                      <span v-else :class="cn('text-muted-foreground', v.bodySize)">—</span>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- ─── Footer ─────────────────────────────────── -->
-                <div :class="cn('flex items-center justify-between border-t border-border', v.sectionPx, 'py-2 mt-1')">
-                  <span class="text-[11px] text-muted-foreground">
-                    Created {{ selectedTask.createdAt ?? '—' }} · Updated {{ selectedTask.updatedAt ?? '—' }}
-                  </span>
-                  <Button variant="ghost" size="sm" class="h-6 text-[11px] text-red-500 hover:text-red-600 hover:bg-red-500/10 gap-1">
-                    <Trash2 :size="12" />
-                    Delete
-                  </Button>
-                </div>
-
-                <!-- bottom spacer for scroll -->
-                <div class="h-4" />
+            <!-- ─── Header (fixed) ─────────────────────────────── -->
+            <div class="shrink-0 border-b border-border px-4 pt-3 pb-3">
+              <div class="group flex items-start gap-2">
+                <h3 :class="cn('font-semibold leading-snug flex-1 text-base', selectedTask.status === 'done' && 'line-through text-muted-foreground')">
+                  {{ selectedTask.title }}
+                </h3>
+                <Pencil :size="14" class="shrink-0 mt-1 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
-            </ScrollArea>
+              <div class="flex items-center gap-2 mt-2 flex-wrap">
+                <span class="inline-flex items-center gap-1.5 text-xs font-medium border border-border rounded-full px-2 py-0.5">
+                  <span :class="cn('size-2 rounded-full', statusColor[selectedTask.status])" />
+                  {{ statusLabel[selectedTask.status] }}
+                </span>
+                <span class="inline-flex items-center gap-1.5 text-xs font-medium border border-border rounded-full px-2 py-0.5">
+                  <span :class="cn('size-2 rounded-full', priorityDot[selectedTask.priority])" />
+                  {{ selectedTask.priority }}
+                </span>
+                <span
+                  v-if="selectedTask.adoType && selectedTask.adoNumber"
+                  class="inline-flex items-center gap-1.5 text-xs font-medium text-blue-500 border border-blue-500/30 rounded-full px-2 py-0.5 cursor-pointer hover:bg-blue-500/10 transition-colors"
+                >
+                  <component :is="adoIcon(selectedTask.adoType)" :size="12" />
+                  #{{ selectedTask.adoNumber }}
+                  <ExternalLink :size="10" />
+                </span>
+              </div>
+            </div>
+
+            <!-- ─── Tabs: Work / Discussion ────────────────────── -->
+            <Tabs v-model="detailTab" class="flex flex-col flex-1 min-h-0">
+              <div class="shrink-0 px-4 border-b border-border">
+                <TabsList class="h-8 w-full">
+                  <TabsTrigger value="work" class="text-xs h-6 flex-1 gap-1">
+                    <ListTodo :size="13" />
+                    Work
+                  </TabsTrigger>
+                  <TabsTrigger value="discussion" class="text-xs h-6 flex-1 gap-1">
+                    <MessageSquare :size="13" />
+                    Discussion
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+
+              <!-- Scrollable tab content -->
+              <ScrollArea class="flex-1 min-h-0">
+                <!-- ── Work tab ──────────────────────────────── -->
+                <TabsContent value="work" class="mt-0 p-0">
+                  <div class="flex flex-col space-y-2">
+
+                    <!-- Subtasks -->
+                    <div v-if="selectedTask.subtasks && selectedTask.subtasks.length > 0" class="px-4 pt-3">
+                      <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-2">
+                          <span class="font-semibold text-xs">Subtasks</span>
+                          <Badge variant="secondary" class="h-4 text-[10px] px-1.5">{{ subtasksDone }}/{{ subtasksTotal }}</Badge>
+                        </div>
+                      </div>
+                      <div class="h-1 w-full rounded-full bg-muted mb-2">
+                        <div class="h-1 rounded-full bg-blue-500 transition-all" :style="{ width: subtaskPct + '%' }" />
+                      </div>
+                      <div class="flex flex-col gap-1">
+                        <div
+                          v-for="(sub, i) in selectedTask.subtasks"
+                          :key="i"
+                          class="flex items-center gap-2 py-1.5"
+                        >
+                          <CheckCircle2 v-if="sub.done" :size="15" class="text-emerald-500 shrink-0" />
+                          <Circle v-else :size="15" class="text-muted-foreground shrink-0" />
+                          <span :class="cn('text-[13px]', sub.done && 'line-through text-muted-foreground')">
+                            {{ sub.title }}
+                          </span>
+                        </div>
+                      </div>
+                      <button class="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mt-1.5 transition-colors">
+                        <Plus :size="12" />
+                        Add subtask
+                      </button>
+                    </div>
+
+                    <Separator />
+
+                    <!-- Description -->
+                    <div v-if="selectedTask.description" class="px-4">
+                      <button class="flex items-center gap-1.5 w-full" @click="descriptionOpen = !descriptionOpen">
+                        <ChevronDown v-if="descriptionOpen" :size="14" class="text-muted-foreground" />
+                        <ChevronRight v-else :size="14" class="text-muted-foreground" />
+                        <span class="font-semibold text-xs">Description</span>
+                      </button>
+                      <p
+                        v-if="descriptionOpen"
+                        class="mt-1.5 text-muted-foreground leading-relaxed text-[13px]"
+                      >
+                        {{ selectedTask.description }}
+                      </p>
+                    </div>
+
+                    <Separator />
+
+                    <!-- Pull Requests -->
+                    <div v-if="selectedTask.prs && selectedTask.prs.length > 0" class="px-4">
+                      <button class="flex items-center gap-1.5 w-full" @click="prsOpen = !prsOpen">
+                        <ChevronDown v-if="prsOpen" :size="14" class="text-muted-foreground" />
+                        <ChevronRight v-else :size="14" class="text-muted-foreground" />
+                        <span class="font-semibold text-xs">Pull Requests</span>
+                        <Badge variant="secondary" class="h-4 text-[10px] px-1.5 ml-1">{{ selectedTask.prs.length }}</Badge>
+                      </button>
+                      <div v-if="prsOpen" class="flex flex-col mt-2 gap-2">
+                        <div
+                          v-for="pr in selectedTask.prs"
+                          :key="pr.number"
+                          class="flex flex-col gap-1 rounded-md border border-border p-2 text-[13px]"
+                        >
+                          <div class="flex items-center gap-2">
+                            <GitPullRequest :size="14" class="text-muted-foreground shrink-0" />
+                            <span class="font-medium truncate">{{ pr.title }}</span>
+                            <Badge
+                              :variant="pr.status === 'Draft' ? 'outline' : 'secondary'"
+                              class="h-4 text-[10px] px-1.5 ml-auto shrink-0"
+                            >
+                              {{ pr.status }}
+                            </Badge>
+                          </div>
+                          <div class="flex items-center gap-1.5 text-muted-foreground text-[11px] pl-5">
+                            <Badge variant="outline" class="h-4 text-[10px] px-1.5">{{ pr.repo }}</Badge>
+                            <GitBranch :size="11" />
+                            <span>{{ pr.source }}</span>
+                            <ArrowRight :size="10" />
+                            <span>{{ pr.target }}</span>
+                          </div>
+                          <div v-if="pr.reviewers && pr.reviewers.length > 0" class="flex items-center gap-1.5 pl-5 mt-0.5">
+                            <div
+                              v-for="rev in pr.reviewers"
+                              :key="rev.name"
+                              :class="cn(
+                                'size-5 rounded-full flex items-center justify-center text-[9px] font-semibold border',
+                                rev.approved
+                                  ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
+                                  : 'bg-muted text-muted-foreground border-border'
+                              )"
+                            >
+                              {{ rev.initials }}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="h-4" />
+                  </div>
+                </TabsContent>
+
+                <!-- ── Discussion tab ────────────────────────── -->
+                <TabsContent value="discussion" class="mt-0 p-0">
+                  <div class="flex flex-col space-y-2">
+
+                    <!-- Comments (Notes / ADO sub-tabs) -->
+                    <div class="px-4 pt-3">
+                      <Tabs v-model="commentTab" class="w-full">
+                        <TabsList class="h-7 w-full">
+                          <TabsTrigger value="notes" class="text-[11px] h-5 flex-1 gap-1">
+                            <MessageSquare :size="11" />
+                            Notes
+                            <Badge v-if="selectedTask.comments && selectedTask.comments.length > 0" variant="secondary" class="h-3.5 text-[9px] px-1">
+                              {{ selectedTask.comments.length }}
+                            </Badge>
+                          </TabsTrigger>
+                          <TabsTrigger value="ado" class="text-[11px] h-5 flex-1 gap-1">
+                            <AzureDevOpsIcon :size="11" />
+                            ADO Comments
+                            <Badge v-if="selectedTask.adoComments && selectedTask.adoComments.length > 0" variant="secondary" class="h-3.5 text-[9px] px-1">
+                              {{ selectedTask.adoComments.length }}
+                            </Badge>
+                          </TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="notes" class="mt-2">
+                          <div class="flex flex-col gap-2.5">
+                            <div
+                              v-for="(c, i) in selectedTask.comments ?? []"
+                              :key="'n' + i"
+                              class="flex gap-2"
+                            >
+                              <div class="size-6 rounded-full bg-muted flex items-center justify-center shrink-0">
+                                <span class="text-[9px] font-semibold text-muted-foreground">{{ c.initials }}</span>
+                              </div>
+                              <div class="flex-1 min-w-0">
+                                <div class="flex items-baseline gap-2">
+                                  <span class="font-medium text-[13px]">{{ c.author }}</span>
+                                  <span class="text-muted-foreground text-[10px]">{{ c.time }}</span>
+                                </div>
+                                <p class="text-muted-foreground mt-0.5 text-[13px]">{{ c.text }}</p>
+                              </div>
+                            </div>
+                            <p
+                              v-if="!selectedTask.comments || selectedTask.comments.length === 0"
+                              class="text-xs text-muted-foreground italic"
+                            >
+                              No notes yet.
+                            </p>
+                          </div>
+                          <div class="flex items-center gap-2 mt-3">
+                            <Input
+                              v-model="noteText"
+                              placeholder="Add a note..."
+                              class="h-7 text-xs flex-1"
+                            />
+                            <Button variant="ghost" size="icon" class="size-7 shrink-0">
+                              <Send :size="13" />
+                            </Button>
+                          </div>
+                        </TabsContent>
+
+                        <TabsContent value="ado" class="mt-2">
+                          <div class="flex flex-col gap-2.5">
+                            <div
+                              v-for="(c, i) in selectedTask.adoComments ?? []"
+                              :key="'a' + i"
+                              class="flex gap-2"
+                            >
+                              <div class="size-6 rounded-full bg-muted flex items-center justify-center shrink-0">
+                                <span class="text-[9px] font-semibold text-muted-foreground">{{ c.initials }}</span>
+                              </div>
+                              <div class="flex-1 min-w-0">
+                                <div class="flex items-baseline gap-2">
+                                  <span class="font-medium text-[13px]">{{ c.author }}</span>
+                                  <span class="text-muted-foreground text-[10px]">{{ c.time }}</span>
+                                </div>
+                                <p class="text-muted-foreground mt-0.5 text-[13px]">{{ c.text }}</p>
+                              </div>
+                            </div>
+                            <p
+                              v-if="!selectedTask.adoComments || selectedTask.adoComments.length === 0"
+                              class="text-xs text-muted-foreground italic"
+                            >
+                              No ADO comments synced.
+                            </p>
+                          </div>
+                        </TabsContent>
+                      </Tabs>
+                    </div>
+
+                    <Separator />
+
+                    <!-- Activity Timeline -->
+                    <div v-if="selectedTask.activity && selectedTask.activity.length > 0" class="px-4 pb-2">
+                      <div class="flex items-center gap-1.5 mb-3">
+                        <Activity :size="13" class="text-muted-foreground" />
+                        <span class="font-semibold text-xs">Activity</span>
+                      </div>
+                      <div class="flex flex-col">
+                        <div
+                          v-for="(item, i) in selectedTask.activity"
+                          :key="'act' + i"
+                          class="flex gap-2.5 relative"
+                        >
+                          <div class="flex flex-col items-center w-3 shrink-0">
+                            <div class="size-1.5 rounded-full bg-muted-foreground/50 mt-[7px] shrink-0 z-10" />
+                            <div
+                              v-if="i < (selectedTask.activity?.length ?? 0) - 1"
+                              class="w-px flex-1 bg-border"
+                            />
+                          </div>
+                          <div class="flex-1 min-w-0 pb-3">
+                            <span class="text-[13px] text-muted-foreground">{{ item.text }}</span>
+                            <span class="text-[10px] text-muted-foreground/60 ml-1.5">— {{ item.time }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="h-4" />
+                  </div>
+                </TabsContent>
+              </ScrollArea>
+            </Tabs>
+
+            <!-- ─── Sticky Config/Details Footer ───────────────── -->
+            <div class="shrink-0 border-t border-border">
+              <div class="px-4 py-2">
+                <span class="font-semibold text-xs mb-1.5 block">Details</span>
+                <div class="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-1.5">
+                  <span class="text-muted-foreground text-[13px]">Status</span>
+                  <span class="flex items-center gap-1.5 text-[13px]">
+                    <span :class="cn('size-2 rounded-full', statusColor[selectedTask.status])" />
+                    {{ statusLabel[selectedTask.status] }}
+                  </span>
+
+                  <span class="text-muted-foreground text-[13px]">Priority</span>
+                  <span class="flex items-center gap-1.5 text-[13px]">
+                    <span :class="cn('size-2 rounded-full', priorityDot[selectedTask.priority])" />
+                    {{ priorityLabel[selectedTask.priority] }}
+                  </span>
+
+                  <span class="text-muted-foreground text-[13px]">Project</span>
+                  <span class="flex items-center gap-1.5 text-[13px]">
+                    <Folder :size="12" class="text-muted-foreground" />
+                    {{ selectedTask.project ?? '—' }}
+                  </span>
+
+                  <span class="text-muted-foreground text-[13px]">Due Date</span>
+                  <span class="flex items-center gap-1.5 text-[13px]">
+                    <CalendarDays :size="12" class="text-muted-foreground" />
+                    {{ selectedTask.dueDate ?? '—' }}
+                  </span>
+
+                  <span class="text-muted-foreground text-[13px]">Tags</span>
+                  <div class="flex items-center gap-1 flex-wrap">
+                    <span
+                      v-for="tag in selectedTask.tags ?? []"
+                      :key="tag"
+                      class="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px]"
+                    >
+                      <Tag :size="10" class="text-muted-foreground" />
+                      {{ tag }}
+                    </span>
+                    <span v-if="!selectedTask.tags || selectedTask.tags.length === 0" class="text-muted-foreground text-[13px]">—</span>
+                  </div>
+
+                  <span class="text-muted-foreground text-[13px]">ADO Link</span>
+                  <span v-if="selectedTask.adoType && selectedTask.adoNumber" class="flex items-center gap-1.5 text-blue-500 cursor-pointer hover:underline text-[13px]">
+                    <AzureDevOpsIcon :size="12" />
+                    {{ selectedTask.adoType }} #{{ selectedTask.adoNumber }}
+                    <ExternalLink :size="10" />
+                  </span>
+                  <span v-else class="text-muted-foreground text-[13px]">—</span>
+                </div>
+              </div>
+
+              <!-- Footer -->
+              <div class="flex items-center justify-between border-t border-border px-4 py-2">
+                <span class="text-[11px] text-muted-foreground">
+                  Created {{ selectedTask.createdAt ?? '—' }} · Updated {{ selectedTask.updatedAt ?? '—' }}
+                </span>
+                <Button variant="ghost" size="sm" class="h-6 text-[11px] text-red-500 hover:text-red-600 hover:bg-red-500/10 gap-1">
+                  <Trash2 :size="12" />
+                  Delete
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
