@@ -135,15 +135,19 @@ function timeAgo(dateStr: string) {
 
 const hasAnyTasks = computed(() => taskStore.tasks.length > 0)
 
-onMounted(() => {
-  taskStore.fetchTasks()
+onMounted(async () => {
+  await taskStore.fetchTasks()
+  // Auto-select first task so detail panel is always visible
+  if (taskStore.tasks.length > 0 && !taskStore.selectedTaskId) {
+    taskStore.selectTask(taskStore.tasks[0].id)
+  }
 })
 </script>
 
 <template>
   <div class="flex-1 flex overflow-hidden">
     <!-- Left: Task list -->
-    <div class="flex-1 flex flex-col min-w-0" :class="taskStore.selectedTask ? 'w-[55%]' : ''">
+    <div class="flex-1 flex flex-col min-w-0 w-[55%]">
       <PageHeader>
         <template #left>
           <Tabs :default-value="taskStore.filterStatus" @update:model-value="(v) => { if (v) taskStore.filterStatus = String(v) }">
@@ -352,10 +356,13 @@ onMounted(() => {
       </ScrollArea>
     </div>
 
-    <!-- Right: Detail panel -->
+    <!-- Right: Detail panel (always visible) -->
     <TaskDetail
       v-if="taskStore.selectedTask"
       @close="closeDetail"
     />
+    <div v-else class="w-[45%] shrink-0 border-l border-border flex items-center justify-center">
+      <p class="text-sm text-muted-foreground">Select a task to view details</p>
+    </div>
   </div>
 </template>
