@@ -35,8 +35,34 @@ func (s *ADOService) runAzCli(args ...string) ([]byte, error) {
 	return output, nil
 }
 
-func (s *ADOService) orgURL() string {
-	return "https://dev.azure.com/" + s.cfg.GetADOOrg()
+// appendOrgProject conditionally adds --organization and --project flags
+// when config values are set. When empty, az cli uses its own defaults.
+func (s *ADOService) appendOrgProject(args []string) []string {
+	if org := s.cfg.GetADOOrg(); org != "" {
+		args = append(args, "--organization", "https://dev.azure.com/"+org)
+	}
+	if proj := s.cfg.GetADOProject(); proj != "" {
+		args = append(args, "--project", proj)
+	}
+	return args
+}
+
+// CheckConnection verifies az cli is available and authenticated.
+// Returns the authenticated user's display name, or error.
+func (s *ADOService) CheckConnection() (string, error) {
+	output, err := s.runAzCli("account", "show", "-o", "json")
+	if err != nil {
+		return "", fmt.Errorf("az cli not authenticated: %w", err)
+	}
+	var acct struct {
+		User struct {
+			Name string `json:"name"`
+		} `json:"user"`
+	}
+	if err := json.Unmarshal(output, &acct); err != nil {
+		return "", err
+	}
+	return acct.User.Name, nil
 }
 
 // azQueryResult represents one item returned by az boards query.
@@ -92,13 +118,12 @@ func (s *ADOService) ListMyWorkItems() ([]domain.ADOWorkItem, error) {
 		`FROM WorkItems WHERE [System.AssignedTo] = @Me ` +
 		`ORDER BY [Microsoft.VSTS.Common.Priority] ASC, [System.ChangedDate] DESC`
 
-	output, err := s.runAzCli(
+	args := s.appendOrgProject([]string{
 		"boards", "query",
 		"--wiql", wiql,
-		"--organization", s.orgURL(),
-		"--project", s.cfg.GetADOProject(),
 		"-o", "json",
-	)
+	})
+	output, err := s.runAzCli(args...)
 	if err != nil {
 		return nil, fmt.Errorf("list my work items: %w", err)
 	}
@@ -117,13 +142,12 @@ func (s *ADOService) ListMyWorkItems() ([]domain.ADOWorkItem, error) {
 
 // GetWorkItem fetches a single work item from ADO by its ID.
 func (s *ADOService) GetWorkItem(adoID string) (domain.ADOWorkItem, error) {
-	output, err := s.runAzCli(
+	args := s.appendOrgProject([]string{
 		"boards", "work-item", "show",
 		"--id", adoID,
-		"--organization", s.orgURL(),
-		"--project", s.cfg.GetADOProject(),
 		"-o", "json",
-	)
+	})
+	output, err := s.runAzCli(args...)
 	if err != nil {
 		return domain.ADOWorkItem{}, fmt.Errorf("get work item %s: %w", adoID, err)
 	}

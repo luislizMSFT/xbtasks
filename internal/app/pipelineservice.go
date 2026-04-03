@@ -34,8 +34,16 @@ func (s *PipelineService) runAzCli(args ...string) ([]byte, error) {
 	return output, nil
 }
 
-func (s *PipelineService) orgURL() string {
-	return "https://dev.azure.com/" + s.cfg.GetADOOrg()
+// appendOrgProject conditionally adds --organization and --project flags
+// when config values are set. When empty, az cli uses its own defaults.
+func (s *PipelineService) appendOrgProject(args []string) []string {
+	if org := s.cfg.GetADOOrg(); org != "" {
+		args = append(args, "--organization", "https://dev.azure.com/"+org)
+	}
+	if proj := s.cfg.GetADOProject(); proj != "" {
+		args = append(args, "--project", proj)
+	}
+	return args
 }
 
 // azPipelineRun represents the JSON structure returned by az pipelines runs list/show.
@@ -82,13 +90,12 @@ func mapPipelineRun(raw azPipelineRun) domain.ADOPipeline {
 
 // ListRecentRuns returns the most recent pipeline runs for the project.
 func (s *PipelineService) ListRecentRuns() ([]domain.ADOPipeline, error) {
-	output, err := s.runAzCli(
+	args := s.appendOrgProject([]string{
 		"pipelines", "runs", "list",
-		"--organization", s.orgURL(),
-		"--project", s.cfg.GetADOProject(),
 		"--top", "20",
 		"-o", "json",
-	)
+	})
+	output, err := s.runAzCli(args...)
 	if err != nil {
 		return nil, fmt.Errorf("list pipeline runs: %w", err)
 	}
@@ -107,13 +114,12 @@ func (s *PipelineService) ListRecentRuns() ([]domain.ADOPipeline, error) {
 
 // GetPipelineRun returns a single pipeline run by ID.
 func (s *PipelineService) GetPipelineRun(runID int) (domain.ADOPipeline, error) {
-	output, err := s.runAzCli(
+	args := s.appendOrgProject([]string{
 		"pipelines", "runs", "show",
 		"--id", strconv.Itoa(runID),
-		"--organization", s.orgURL(),
-		"--project", s.cfg.GetADOProject(),
 		"-o", "json",
-	)
+	})
+	output, err := s.runAzCli(args...)
 	if err != nil {
 		return domain.ADOPipeline{}, fmt.Errorf("get pipeline run %d: %w", runID, err)
 	}

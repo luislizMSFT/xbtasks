@@ -35,8 +35,16 @@ func (s *PRService) runAzCli(args ...string) ([]byte, error) {
 	return output, nil
 }
 
-func (s *PRService) orgURL() string {
-	return "https://dev.azure.com/" + s.cfg.GetADOOrg()
+// appendOrgProject conditionally adds --organization and --project flags
+// when config values are set. When empty, az cli uses its own defaults.
+func (s *PRService) appendOrgProject(args []string) []string {
+	if org := s.cfg.GetADOOrg(); org != "" {
+		args = append(args, "--organization", "https://dev.azure.com/"+org)
+	}
+	if proj := s.cfg.GetADOProject(); proj != "" {
+		args = append(args, "--project", proj)
+	}
+	return args
 }
 
 // azPR represents the JSON structure returned by az repos pr list.
@@ -91,6 +99,7 @@ func (s *PRService) mapPR(raw azPR) domain.PullRequest {
 		SourceBranch: stripRefPrefix(raw.SourceRefName),
 		TargetBranch: stripRefPrefix(raw.TargetRefName),
 		Votes:        totalVotes,
+		CreatedBy:    raw.CreatedBy.DisplayName,
 	}
 
 	if t, err := time.Parse(time.RFC3339, raw.CreationDate); err == nil {
@@ -108,11 +117,9 @@ func (s *PRService) mapPR(raw azPR) domain.PullRequest {
 }
 
 func (s *PRService) fetchPRs(extraArgs ...string) ([]domain.PullRequest, error) {
-	args := []string{
+	args := s.appendOrgProject([]string{
 		"repos", "pr", "list",
-		"--organization", s.orgURL(),
-		"--project", s.cfg.GetADOProject(),
-	}
+	})
 	args = append(args, extraArgs...)
 	args = append(args, "-o", "json")
 
