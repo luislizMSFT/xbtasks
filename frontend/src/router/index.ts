@@ -58,6 +58,11 @@ const router = createRouter({
       component: () => import('../views/PlaygroundChainView.vue'),
     },
     {
+      path: '/playground/shell',
+      name: 'playground-shell',
+      component: () => import('../views/PlaygroundShellView.vue'),
+    },
+    {
       path: '/login',
       name: 'login',
       component: () => import('../views/LoginView.vue'),
