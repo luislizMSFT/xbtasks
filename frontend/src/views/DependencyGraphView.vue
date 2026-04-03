@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import type { Component } from 'vue'
-import { cn } from '@/lib/utils'
-import PageHeader from '@/components/PageHeader.vue'
+import { useRouter } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
 import {
   Tooltip,
   TooltipContent,
@@ -14,726 +11,521 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import {
-  Check,
-  Circle,
-  CircleDot,
-  GitPullRequest,
-  Package,
-  Rocket,
-  X,
-  AlertTriangle,
-  Bug,
-  ClipboardList,
-  Clock,
-  Bell,
-  Zap,
-  ExternalLink,
-  ChevronDown,
-  ChevronRight,
-  Eye,
-  MessageSquare,
-  FileText,
-  Minus,
-  ArrowRight,
-  TriangleAlert,
-  Megaphone,
-  Merge,
-  ListChecks,
-  Filter,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import StatusBadge from '@/components/ui/StatusBadge.vue'
+import PriorityBadge from '@/components/ui/PriorityBadge.vue'
+import {
+  GitBranch,
+  AlertCircle,
+  TreePine,
+  List,
+  Users,
 } from 'lucide-vue-next'
 
-// ---------- Types ----------
+const router = useRouter()
 
-type StageStatus = 'done' | 'in_progress' | 'failed' | 'pending' | 'skipped'
-
-interface ChainStage {
-  label: string
-  status: StageStatus
-  icon: Component
-  detail: string
-  link?: string
-}
-
-interface Blocker {
-  reason: string
-  owner?: string
-  actionLabel?: string
-}
-
-interface FollowUp {
-  description: string
-  type: 'manual' | 'auto'
-  status: 'waiting' | 'triggered' | 'expired'
-  sourceTask: string
-}
-
-interface MockTask {
-  id: string
+// --- Types ---
+interface GraphNode {
+  id: number
   title: string
+  status: string
   priority: string
-  type: 'bug' | 'task'
-  adoId: string
-  time: string
-  chain: ChainStage[]
-  blocker?: Blocker
-  followUps?: FollowUp[]
-}
-
-// ---------- Filter state ----------
-
-const filterMode = ref<'all' | 'blocked' | 'inflight'>('all')
-const expandedTask = ref<string | null>(null)
-
-function toggleExpand(id: string) {
-  expandedTask.value = expandedTask.value === id ? null : id
-}
-
-// ---------- Mock data ----------
-
-const tasks: MockTask[] = [
-  {
-    id: 't1',
-    title: 'Fix auth redirect loop',
-    priority: 'P0',
-    type: 'bug',
-    adoId: '#48291',
-    time: '30m',
-    chain: [
-      { label: 'Task', status: 'in_progress', icon: ClipboardList, detail: 'In Progress' },
-      { label: 'PR #234', status: 'in_progress', icon: GitPullRequest, detail: 'Active (Alex \u2713, Sam pending)', link: 'PR #234' },
-      { label: 'Build', status: 'pending', icon: Package, detail: 'Queued' },
-      { label: 'Deploy', status: 'pending', icon: Rocket, detail: 'Pending' },
-    ],
-  },
-  {
-    id: 't2',
-    title: 'Schema migration v2',
-    priority: 'P1',
-    type: 'task',
-    adoId: '#48350',
-    time: '2h',
-    chain: [
-      { label: 'Task', status: 'done', icon: ClipboardList, detail: 'Done' },
-      { label: 'PR #298', status: 'done', icon: GitPullRequest, detail: 'Approved', link: 'PR #298' },
-      { label: 'Build #1245', status: 'done', icon: Package, detail: 'Succeeded', link: 'Build #1245' },
-      { label: 'Deploy', status: 'in_progress', icon: Rocket, detail: 'Running (2m elapsed)' },
-    ],
-  },
-  {
-    id: 't3',
-    title: 'Rate limit middleware',
-    priority: 'P1',
-    type: 'task',
-    adoId: '#48400',
-    time: '3h',
-    chain: [
-      { label: 'Task', status: 'done', icon: ClipboardList, detail: 'Done' },
-      { label: 'PR #280', status: 'failed', icon: GitPullRequest, detail: 'Changes Requested', link: 'PR #280' },
-      { label: 'Build', status: 'skipped', icon: Package, detail: 'N/A' },
-      { label: 'Deploy', status: 'skipped', icon: Rocket, detail: 'N/A' },
-    ],
-    blocker: {
-      reason: 'Changes requested by Alex K \u2014 "Need rate limit tests"',
-      owner: 'Alex K',
-      actionLabel: 'View PR',
-    },
-  },
-  {
-    id: 't4',
-    title: 'Migrate auth to MSAL v3',
-    priority: 'P0',
-    type: 'bug',
-    adoId: '#48100',
-    time: '1d',
-    chain: [
-      { label: 'Task', status: 'failed', icon: ClipboardList, detail: 'Blocked (external)' },
-      { label: 'PR', status: 'skipped', icon: GitPullRequest, detail: 'N/A' },
-      { label: 'Build', status: 'skipped', icon: Package, detail: 'N/A' },
-      { label: 'Deploy', status: 'skipped', icon: Rocket, detail: 'N/A' },
-    ],
-    blocker: {
-      reason: 'Blocked by: Bug #48292 (Alex K) \u2014 Token expiry fix',
-      owner: 'Alex K',
-      actionLabel: 'Open in ADO',
-    },
-    followUps: [
-      {
-        description: 'Notify when #48292 resolved',
-        type: 'auto',
-        status: 'waiting',
-        sourceTask: '#48100',
-      },
-    ],
-  },
-  {
-    id: 't5',
-    title: 'Add telemetry hooks',
-    priority: 'P2',
-    type: 'task',
-    adoId: '#48500',
-    time: '4h',
-    chain: [
-      { label: 'Task', status: 'done', icon: ClipboardList, detail: 'Done' },
-      { label: 'PR #301', status: 'in_progress', icon: GitPullRequest, detail: 'Active', link: 'PR #301' },
-      { label: 'Build #1244', status: 'in_progress', icon: Package, detail: 'Running', link: 'Build #1244' },
-      { label: 'Deploy', status: 'pending', icon: Rocket, detail: 'Pending' },
-    ],
-  },
-  {
-    id: 't6',
-    title: 'Update deployment docs',
-    priority: 'P3',
-    type: 'task',
-    adoId: '',
-    time: '45m',
-    chain: [
-      { label: 'Task', status: 'done', icon: ClipboardList, detail: 'Done' },
-      { label: 'Verified', status: 'done', icon: Check, detail: 'Verified' },
-    ],
-  },
-]
-
-// ---------- Blocker cards ----------
-
-interface BlockerCard {
-  title: string
   description: string
-  owner?: string
-  detail: string
-  timeStuck?: string
-  actions: string[]
+  dependsOn: number[]
+  children: GraphNode[]
 }
 
-const blockerCards: BlockerCard[] = [
-  {
-    title: 'Rate limit middleware \u2192 PR #280',
-    description: 'PR has changes requested',
-    owner: 'Alex K',
-    detail: 'Requested changes on code review',
-    timeStuck: '2h',
-    actions: ['View PR', 'Ping reviewer'],
-  },
-  {
-    title: 'MSAL v3 migration \u2192 Bug #48292',
-    description: 'Depends on another team member\'s ADO item',
-    owner: 'Alex K',
-    detail: 'Status in ADO: Active \u2014 Follow-up: Reminder active (daily check)',
-    actions: ['Open in ADO', 'Create follow-up task'],
-  },
-  {
-    title: 'Deploy pipeline #1240 failed',
-    description: 'Pipeline failure blocking deployment',
-    detail: 'Error: Test stage failed \u2014 3 tests failing',
-    actions: ['View logs', 'Create fix task'],
-  },
+// --- Mock Data ---
+const rawTasks: Omit<GraphNode, 'children'>[] = [
+  // Chain of 4: root blocked → cascade
+  { id: 1, title: 'Provision staging database cluster', status: 'blocked', priority: 'P0', description: 'Set up PostgreSQL cluster for staging environment. Waiting on infrastructure team approval.', dependsOn: [] },
+  { id: 2, title: 'Run database schema migrations', status: 'blocked', priority: 'P0', description: 'Apply v2.3 schema changes including new indexes and partitioning.', dependsOn: [1] },
+  { id: 3, title: 'Deploy auth service to staging', status: 'blocked', priority: 'P1', description: 'Deploy authentication microservice with new OAuth2 provider support.', dependsOn: [2] },
+  { id: 4, title: 'Run integration test suite', status: 'blocked', priority: 'P1', description: 'Execute full integration test suite against staging environment.', dependsOn: [3] },
+
+  // Fan-out: one task blocks multiple
+  { id: 5, title: 'Design API v3 specification', status: 'in_progress', priority: 'P1', description: 'Create OpenAPI spec for the v3 REST API including new endpoints for batch operations.', dependsOn: [] },
+  { id: 6, title: 'Implement user endpoints', status: 'todo', priority: 'P2', description: 'Build CRUD endpoints for user management following v3 spec.', dependsOn: [5] },
+  { id: 7, title: 'Implement project endpoints', status: 'todo', priority: 'P2', description: 'Build CRUD endpoints for project management following v3 spec.', dependsOn: [5] },
+  { id: 8, title: 'Implement webhook endpoints', status: 'todo', priority: 'P3', description: 'Build webhook registration and delivery endpoints following v3 spec.', dependsOn: [5] },
+
+  // Fan-in: one task depends on multiple parents
+  { id: 9, title: 'Write API documentation', status: 'todo', priority: 'P2', description: 'Generate and review API documentation for all v3 endpoints.', dependsOn: [6, 7, 8] },
+
+  // Independent tasks
+  { id: 10, title: 'Update CI pipeline configuration', status: 'in_progress', priority: 'P2', description: 'Migrate from Jenkins to GitHub Actions for main build pipeline.', dependsOn: [] },
+  { id: 11, title: 'Refactor logging middleware', status: 'done', priority: 'P3', description: 'Replace custom logger with structured logging using pino.', dependsOn: [] },
+
+  // Another small chain
+  { id: 12, title: 'Set up monitoring dashboards', status: 'done', priority: 'P2', description: 'Create Grafana dashboards for API latency, error rates, and throughput.', dependsOn: [] },
+  { id: 13, title: 'Configure alerting rules', status: 'in_progress', priority: 'P1', description: 'Define PagerDuty alert thresholds based on dashboard metrics.', dependsOn: [12] },
+  { id: 14, title: 'Run load test baseline', status: 'todo', priority: 'P2', description: 'Execute k6 load test to establish performance baseline before v3 rollout.', dependsOn: [13, 4] },
 ]
 
-// ---------- Follow-up items ----------
-
-const followUpItems: FollowUp[] = [
-  {
-    description: 'Notify when Bug #48292 resolved',
-    type: 'manual',
-    status: 'waiting',
-    sourceTask: '#48100',
-  },
-  {
-    description: 'Verify deployment after schema migration merges',
-    type: 'auto',
-    status: 'waiting',
-    sourceTask: '#48350',
-  },
-]
-
-// ---------- Suggested actions ----------
-
-interface SuggestedAction {
-  icon: Component
-  description: string
-  actionLabel: string
-}
-
-const suggestedActions: SuggestedAction[] = [
-  { icon: Merge, description: 'PR #298 is approved \u2014 ready to merge and deploy', actionLabel: 'Merge PR' },
-  { icon: ListChecks, description: 'Build #1245 succeeded \u2014 verify deployment', actionLabel: 'Create verify task' },
-  { icon: Bug, description: '3 tests failing in Pipeline #1240 \u2014 create fix task', actionLabel: 'Create task from failure' },
-]
-
-// ---------- Computed ----------
-
-const filteredTasks = computed(() => {
-  if (filterMode.value === 'all') return tasks
-  if (filterMode.value === 'blocked') {
-    return tasks.filter((t) => t.chain.some((s) => s.status === 'failed'))
+// --- Build tree ---
+const allNodes = computed<GraphNode[]>(() => {
+  const map = new Map<number, GraphNode>()
+  for (const t of rawTasks) {
+    map.set(t.id, { ...t, children: [] })
   }
-  // inflight: has at least one in_progress stage
-  return tasks.filter((t) => t.chain.some((s) => s.status === 'in_progress'))
+  for (const node of map.values()) {
+    for (const depId of node.dependsOn) {
+      const parent = map.get(depId)
+      if (parent) {
+        parent.children.push(node)
+      }
+    }
+  }
+  return Array.from(map.values())
 })
 
-// ---------- Helpers ----------
+const rootNodes = computed(() => allNodes.value.filter(n => n.dependsOn.length === 0))
 
-function priorityColor(p: string): string {
-  switch (p) {
-    case 'P0': return 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/20'
-    case 'P1': return 'bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/20'
-    case 'P2': return 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20'
-    default: return 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20'
+// --- View / Filter state ---
+type ViewMode = 'tree' | 'flat'
+const viewMode = ref<ViewMode>('tree')
+const statusFilter = ref('all')
+const expandedNodes = ref(new Set<number>([1, 2, 3, 5, 12, 13]))
+const selectedNodeId = ref<number | null>(null)
+
+// --- Chain highlighting ---
+const highlightedIds = computed<Set<number>>(() => {
+  if (selectedNodeId.value === null) return new Set()
+  const ids = new Set<number>()
+  const nodeMap = new Map(allNodes.value.map(n => [n.id, n]))
+
+  function walkUp(id: number) {
+    if (ids.has(id)) return
+    ids.add(id)
+    const node = nodeMap.get(id)
+    if (node) {
+      for (const depId of node.dependsOn) walkUp(depId)
+    }
   }
-}
 
-function stageCircleClass(status: StageStatus): string {
-  switch (status) {
-    case 'done': return 'bg-emerald-500 border-emerald-500 text-white'
-    case 'in_progress': return 'bg-blue-500 border-blue-500 text-white animate-pulse'
-    case 'failed': return 'bg-red-500 border-red-500 text-white'
-    case 'pending': return 'bg-transparent border-zinc-300 dark:border-zinc-600 text-zinc-400'
-    case 'skipped': return 'bg-transparent border-zinc-200 dark:border-zinc-700 border-dashed text-zinc-300 dark:text-zinc-600'
+  function walkDown(id: number) {
+    if (ids.has(id)) return
+    ids.add(id)
+    const node = nodeMap.get(id)
+    if (node) {
+      for (const child of node.children) walkDown(child.id)
+    }
   }
-}
 
-function stageLineClass(leftStatus: StageStatus): string {
-  switch (leftStatus) {
-    case 'done': return 'bg-emerald-500'
-    case 'in_progress': return 'bg-blue-500'
-    case 'failed': return 'bg-red-500'
-    default: return 'bg-zinc-200 dark:bg-zinc-700'
+  walkUp(selectedNodeId.value)
+  walkDown(selectedNodeId.value)
+  return ids
+})
+
+// --- Dependent count ---
+function getDependentCount(node: GraphNode): number {
+  let count = node.children.length
+  for (const child of node.children) {
+    count += getDependentCount(child)
   }
+  return count
 }
 
-function stageLineDashed(leftStatus: StageStatus): boolean {
-  return leftStatus === 'pending' || leftStatus === 'skipped'
+// --- Filtered flat list ---
+const flatNodes = computed(() => {
+  let nodes = allNodes.value
+  if (statusFilter.value !== 'all') {
+    nodes = nodes.filter(n => n.status === statusFilter.value)
+  }
+  return [...nodes].sort((a, b) => {
+    const priorityOrder: Record<string, number> = { P0: 0, P1: 1, P2: 2, P3: 3 }
+    return (priorityOrder[a.priority] ?? 4) - (priorityOrder[b.priority] ?? 4)
+  })
+})
+
+// --- Filtered root nodes ---
+function nodeMatchesFilter(node: GraphNode): boolean {
+  if (statusFilter.value === 'all') return true
+  if (node.status === statusFilter.value) return true
+  return node.children.some(c => nodeMatchesFilter(c))
+}
+const filteredRoots = computed(() => rootNodes.value.filter(n => nodeMatchesFilter(n)))
+
+// --- Expand / Collapse ---
+function toggleExpand(id: number) {
+  const next = new Set(expandedNodes.value)
+  if (next.has(id)) {
+    next.delete(id)
+  } else {
+    next.add(id)
+  }
+  expandedNodes.value = next
 }
 
-function chainSummaryDots(chain: ChainStage[]): StageStatus[] {
-  return chain.map((s) => s.status)
+function selectNode(id: number) {
+  selectedNodeId.value = selectedNodeId.value === id ? null : id
 }
 
-function isTaskDone(task: MockTask): boolean {
-  return task.chain.every((s) => s.status === 'done')
+function navigateToTask(id: number) {
+  router.push({ name: 'tasks', query: { taskId: String(id) } })
 }
 
-function isTaskBlocked(task: MockTask): boolean {
-  return task.chain.some((s) => s.status === 'failed')
-}
+// --- Stats ---
+const stats = computed(() => {
+  const all = allNodes.value
+  return {
+    total: all.length,
+    blocked: all.filter(n => n.status === 'blocked').length,
+    inProgress: all.filter(n => n.status === 'in_progress').length,
+  }
+})
 </script>
 
 <template>
-  <div class="flex-1 flex flex-col min-h-0 h-full">
-    <!-- Page header -->
-    <PageHeader>
-      <template #left>
-        <h1 class="text-sm font-semibold text-foreground">Work Chains</h1>
-        <Separator orientation="vertical" class="h-4 mx-1" />
-        <span class="text-xs text-muted-foreground">Dependency flow visualization</span>
-      </template>
-      <template #right>
-        <div class="flex items-center gap-1">
-          <Button
-            v-for="f in (['all', 'blocked', 'inflight'] as const)"
-            :key="f"
-            :variant="filterMode === f ? 'secondary' : 'ghost'"
-            size="sm"
-            class="h-7 text-xs px-2.5"
-            @click="filterMode = f"
-          >
-            <Filter v-if="f === 'all'" :size="12" class="mr-1" />
-            <AlertTriangle v-if="f === 'blocked'" :size="12" class="mr-1" />
-            <Rocket v-if="f === 'inflight'" :size="12" class="mr-1" />
-            {{ f === 'all' ? 'Show all' : f === 'blocked' ? 'Blocked only' : 'In flight' }}
-          </Button>
+  <div class="flex h-full flex-col overflow-hidden">
+    <!-- Top Bar -->
+    <div class="flex-none border-b border-border bg-background px-6 py-4">
+      <div class="flex items-start justify-between gap-4">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <GitBranch :size="20" class="text-muted-foreground" />
+            <h1 class="text-lg font-semibold text-foreground">Dependency Graph</h1>
+          </div>
+          <p class="mt-0.5 text-sm text-muted-foreground">
+            Trace blocked tasks and dependency chains
+          </p>
         </div>
-      </template>
-    </PageHeader>
 
-    <!-- Main scrollable content -->
-    <ScrollArea class="flex-1">
-      <div class="px-5 py-5 max-w-[1400px] mx-auto space-y-6">
-
-        <!-- ============================================================ -->
-        <!-- SECTION 1: Task List with Flow Chains                        -->
-        <!-- ============================================================ -->
-        <section>
-          <div class="flex items-center gap-2 mb-3">
-            <ClipboardList :size="14" class="text-muted-foreground" />
-            <h2 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Task Chains
-            </h2>
-            <Badge variant="outline" class="text-[10px] h-4 px-1.5 ml-1">
-              {{ filteredTasks.length }}
+        <div class="flex items-center gap-3">
+          <div class="hidden items-center gap-2 md:flex">
+            <Badge variant="outline" class="gap-1 text-xs text-muted-foreground">
+              {{ stats.total }} tasks
+            </Badge>
+            <Badge
+              v-if="stats.blocked > 0"
+              variant="outline"
+              class="gap-1 border-red-500/20 bg-red-500/10 text-xs text-red-600 dark:text-red-400"
+            >
+              <AlertCircle :size="12" />
+              {{ stats.blocked }} blocked
             </Badge>
           </div>
 
-          <div class="border border-border rounded-lg bg-card divide-y divide-border overflow-hidden">
-            <div
-              v-for="task in filteredTasks"
-              :key="task.id"
+          <Select v-model="statusFilter">
+            <SelectTrigger class="h-8 w-[140px] text-xs">
+              <SelectValue placeholder="Filter status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="blocked">Blocked</SelectItem>
+              <SelectItem value="in_progress">In Progress</SelectItem>
+              <SelectItem value="todo">To Do</SelectItem>
+              <SelectItem value="done">Done</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <div class="flex rounded-md border border-border">
+            <Button
+              variant="ghost"
+              size="sm"
+              :class="[
+                'h-8 rounded-r-none px-2.5',
+                viewMode === 'tree' && 'bg-accent text-accent-foreground',
+              ]"
+              @click="viewMode = 'tree'"
             >
-              <!-- Task row -->
-              <button
-                class="w-full flex items-center gap-3 px-3.5 py-2.5 text-left hover:bg-muted/40 transition-colors"
-                @click="toggleExpand(task.id)"
-              >
-                <!-- Expand icon -->
-                <component
-                  :is="expandedTask === task.id ? ChevronDown : ChevronRight"
-                  :size="13"
-                  class="text-muted-foreground shrink-0"
-                />
+              <TreePine :size="14" />
+              <span class="ml-1 hidden text-xs sm:inline">Tree</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              :class="[
+                'h-8 rounded-l-none border-l border-border px-2.5',
+                viewMode === 'flat' && 'bg-accent text-accent-foreground',
+              ]"
+              @click="viewMode = 'flat'"
+            >
+              <List :size="14" />
+              <span class="ml-1 hidden text-xs sm:inline">List</span>
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
 
-                <!-- Done checkbox circle -->
-                <div
-                  :class="cn(
-                    'w-[18px] h-[18px] rounded-full border-[1.5px] flex items-center justify-center shrink-0',
-                    isTaskDone(task)
-                      ? 'bg-emerald-500 border-emerald-500'
-                      : isTaskBlocked(task)
-                        ? 'border-red-400 bg-red-500/10'
-                        : 'border-zinc-300 dark:border-zinc-600'
-                  )"
-                >
-                  <Check v-if="isTaskDone(task)" :size="11" class="text-white" />
-                  <X v-else-if="isTaskBlocked(task)" :size="10" class="text-red-500" />
-                </div>
+    <!-- Main content -->
+    <ScrollArea class="flex-1">
+      <div class="p-6">
+        <!-- Tree View -->
+        <div v-if="viewMode === 'tree'" class="space-y-0.5">
+          <div v-if="filteredRoots.length === 0" class="py-12 text-center text-sm text-muted-foreground">
+            No tasks match the current filter.
+          </div>
+          <TreeNodeItem
+            v-for="node in filteredRoots"
+            :key="node.id"
+            :node="node"
+            :depth="0"
+            :expanded-nodes="expandedNodes"
+            :selected-node-id="selectedNodeId"
+            :highlighted-ids="highlightedIds"
+            :status-filter="statusFilter"
+            @toggle-expand="toggleExpand"
+            @select-node="selectNode"
+            @navigate="navigateToTask"
+          />
+        </div>
 
-                <!-- Title -->
-                <span class="text-[13px] text-foreground truncate flex-1 min-w-0">
-                  {{ task.title }}
-                </span>
-
-                <!-- ADO Badge -->
-                <Badge
-                  v-if="task.adoId"
-                  variant="outline"
-                  class="text-[10px] h-[18px] px-1.5 gap-1 shrink-0 bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
-                >
-                  <component :is="task.type === 'bug' ? Bug : ClipboardList" :size="9" />
-                  {{ task.adoId }}
-                </Badge>
-
-                <!-- Priority badge -->
-                <Badge
-                  variant="outline"
-                  :class="cn('text-[10px] h-[18px] px-1.5 shrink-0', priorityColor(task.priority))"
-                >
-                  {{ task.priority }}
-                </Badge>
-
-                <!-- Mini flow dots -->
-                <TooltipProvider :delay-duration="200">
-                  <div class="flex items-center gap-[3px] shrink-0 ml-1">
-                    <template v-for="(dotStatus, dIdx) in chainSummaryDots(task.chain)" :key="dIdx">
-                      <!-- connecting mini line -->
-                      <div
-                        v-if="dIdx > 0"
-                        :class="cn(
-                          'w-[6px] h-[1.5px] rounded-full',
-                          stageLineClass(task.chain[dIdx - 1].status),
-                          stageLineDashed(task.chain[dIdx - 1].status) && 'opacity-40'
-                        )"
-                      />
-                      <Tooltip>
-                        <TooltipTrigger as-child>
-                          <div
-                            :class="cn(
-                              'w-[7px] h-[7px] rounded-full border',
-                              dotStatus === 'done' ? 'bg-emerald-500 border-emerald-500' :
-                              dotStatus === 'in_progress' ? 'bg-blue-500 border-blue-500' :
-                              dotStatus === 'failed' ? 'bg-red-500 border-red-500' :
-                              dotStatus === 'skipped' ? 'border-zinc-300 dark:border-zinc-600 border-dashed bg-transparent' :
-                              'border-zinc-300 dark:border-zinc-600 bg-transparent'
-                            )"
-                          />
-                        </TooltipTrigger>
-                        <TooltipContent side="top" class="text-[10px] px-2 py-1">
-                          {{ task.chain[dIdx].label }}: {{ task.chain[dIdx].detail }}
-                        </TooltipContent>
-                      </Tooltip>
-                    </template>
-                  </div>
-                </TooltipProvider>
-
-                <!-- Time -->
-                <span class="text-[11px] text-muted-foreground/60 tabular-nums shrink-0 ml-1">
-                  {{ task.time }}
-                </span>
-              </button>
-
-              <!-- Expanded chain detail -->
-              <div
-                v-if="expandedTask === task.id"
-                class="px-4 pb-4 pt-1 bg-muted/20"
-              >
-                <!-- Horizontal chain timeline -->
-                <div class="flex items-start gap-0 py-3 pl-8 overflow-x-auto">
-                  <template v-for="(stage, sIdx) in task.chain" :key="sIdx">
-                    <!-- Connecting line (before each stage except first) -->
-                    <div
-                      v-if="sIdx > 0"
-                      class="flex items-center pt-[10px] shrink-0"
-                    >
-                      <div
-                        :class="cn(
-                          'w-8 h-[2px] rounded-full',
-                          stageLineClass(task.chain[sIdx - 1].status),
-                        )"
-                        :style="stageLineDashed(task.chain[sIdx - 1].status) ? 'background: repeating-linear-gradient(90deg, currentColor 0 3px, transparent 3px 6px)' : ''"
-                      />
-                    </div>
-
-                    <!-- Stage column -->
-                    <div class="flex flex-col items-center shrink-0 min-w-[80px]">
-                      <!-- Stage circle -->
-                      <div
-                        :class="cn(
-                          'w-5 h-5 rounded-full border-[1.5px] flex items-center justify-center',
-                          stageCircleClass(stage.status)
-                        )"
-                      >
-                        <Check v-if="stage.status === 'done'" :size="11" />
-                        <X v-else-if="stage.status === 'failed'" :size="11" />
-                        <Minus v-else-if="stage.status === 'skipped'" :size="9" />
-                        <component
-                          v-else
-                          :is="stage.icon"
-                          :size="10"
-                        />
-                      </div>
-
-                      <!-- Label -->
-                      <span class="text-[11px] font-medium text-foreground mt-1.5">
-                        {{ stage.label }}
-                      </span>
-
-                      <!-- Status detail -->
-                      <span
-                        :class="cn(
-                          'text-[10px] mt-0.5 text-center max-w-[100px]',
-                          stage.status === 'done' ? 'text-emerald-600 dark:text-emerald-400' :
-                          stage.status === 'in_progress' ? 'text-blue-600 dark:text-blue-400' :
-                          stage.status === 'failed' ? 'text-red-600 dark:text-red-400' :
-                          'text-muted-foreground/60'
-                        )"
-                      >
-                        {{ stage.detail }}
-                      </span>
-
-                      <!-- Link -->
-                      <button
-                        v-if="stage.link"
-                        class="flex items-center gap-0.5 text-[10px] text-blue-500 hover:text-blue-600 mt-1"
-                      >
-                        <ExternalLink :size="9" />
-                        {{ stage.link }}
-                      </button>
-                    </div>
-                  </template>
-                </div>
-
-                <!-- Blocker info if present -->
-                <div
-                  v-if="task.blocker"
-                  class="ml-8 mt-2 flex items-start gap-2 rounded-md bg-red-500/5 border border-red-500/10 px-3 py-2"
-                >
-                  <TriangleAlert :size="13" class="text-red-500 mt-0.5 shrink-0" />
-                  <div class="flex-1 min-w-0">
-                    <p class="text-[11px] text-red-600 dark:text-red-400 font-medium">
-                      {{ task.blocker.reason }}
-                    </p>
-                    <div class="flex items-center gap-2 mt-1.5">
-                      <Button variant="outline" size="sm" class="h-6 text-[10px] px-2 gap-1">
-                        <ExternalLink :size="9" />
-                        {{ task.blocker.actionLabel }}
-                      </Button>
-                      <Button variant="ghost" size="sm" class="h-6 text-[10px] px-2 gap-1">
-                        <Megaphone :size="9" />
-                        Ping owner
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Follow-up reminders if present -->
-                <div
-                  v-if="task.followUps?.length"
-                  class="ml-8 mt-2 space-y-1.5"
-                >
-                  <div
-                    v-for="(fu, fuIdx) in task.followUps"
-                    :key="fuIdx"
-                    class="flex items-center gap-2 rounded-md bg-amber-500/5 border border-amber-500/10 px-3 py-2"
+        <!-- Flat List View -->
+        <div v-else class="space-y-2">
+          <div v-if="flatNodes.length === 0" class="py-12 text-center text-sm text-muted-foreground">
+            No tasks match the current filter.
+          </div>
+          <TooltipProvider>
+            <div
+              v-for="node in flatNodes"
+              :key="node.id"
+              class="group flex items-center gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-accent/50"
+              :class="{
+                'ring-2 ring-primary/50': selectedNodeId === node.id,
+                'border-red-500/30 bg-red-500/5': node.status === 'blocked',
+              }"
+              @click="selectNode(node.id)"
+            >
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2">
+                  <button
+                    class="truncate text-sm font-medium text-foreground hover:underline"
+                    @click.stop="navigateToTask(node.id)"
                   >
-                    <component :is="fu.type === 'manual' ? Bell : Zap" :size="12" class="text-amber-500 shrink-0" />
-                    <span class="text-[11px] text-amber-700 dark:text-amber-400 flex-1">
-                      {{ fu.description }}
-                    </span>
-                    <Badge variant="outline" class="text-[9px] h-4 px-1.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">
-                      {{ fu.status }}
+                    {{ node.title }}
+                  </button>
+                </div>
+                <p class="mt-0.5 truncate text-xs text-muted-foreground">
+                  {{ node.description }}
+                </p>
+              </div>
+              <div class="flex shrink-0 items-center gap-2">
+                <StatusBadge :status="node.status" />
+                <PriorityBadge :priority="node.priority" />
+                <Tooltip v-if="node.children.length > 0">
+                  <TooltipTrigger as-child>
+                    <Badge variant="outline" class="gap-1 text-[10px]">
+                      <Users :size="10" />
+                      {{ getDependentCount(node) }}
                     </Badge>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <Separator />
-
-        <!-- ============================================================ -->
-        <!-- SECTION 2: Blockers & Dependencies                           -->
-        <!-- ============================================================ -->
-        <section>
-          <div class="flex items-center gap-2 mb-3">
-            <AlertTriangle :size="14" class="text-red-500" />
-            <h2 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Blockers &amp; Dependencies
-            </h2>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <!-- Active Blockers -->
-            <div>
-              <div class="flex items-center gap-1.5 mb-2">
-                <span class="text-[11px] font-semibold text-foreground">Active Blockers</span>
-                <Badge variant="outline" class="text-[9px] h-4 px-1 bg-red-500/10 text-red-500 border-red-500/20">
-                  {{ blockerCards.length }}
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p class="text-xs">{{ getDependentCount(node) }} dependent task(s)</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Badge
+                  v-if="node.dependsOn.length > 0"
+                  variant="outline"
+                  class="gap-1 text-[10px] text-muted-foreground"
+                >
+                  {{ node.dependsOn.length }} dep{{ node.dependsOn.length > 1 ? 's' : '' }}
                 </Badge>
               </div>
-              <div class="space-y-2.5">
-                <div
-                  v-for="(card, cIdx) in blockerCards"
-                  :key="cIdx"
-                  class="border border-border rounded-md bg-card border-l-[3px] border-l-red-500 p-3"
-                >
-                  <div class="flex items-start gap-2">
-                    <X :size="13" class="text-red-500 mt-0.5 shrink-0" />
-                    <div class="flex-1 min-w-0">
-                      <p class="text-[12px] font-medium text-foreground">{{ card.title }}</p>
-                      <p class="text-[11px] text-muted-foreground mt-0.5">{{ card.description }}</p>
-                      <p class="text-[10px] text-muted-foreground/70 mt-1">{{ card.detail }}</p>
-
-                      <div class="flex items-center gap-2 mt-2">
-                        <div v-if="card.owner" class="flex items-center gap-1 text-[10px] text-muted-foreground">
-                          <Circle :size="8" class="text-zinc-400" />
-                          {{ card.owner }}
-                        </div>
-                        <div v-if="card.timeStuck" class="flex items-center gap-1 text-[10px] text-muted-foreground">
-                          <Clock :size="9" />
-                          Stuck {{ card.timeStuck }}
-                        </div>
-                      </div>
-
-                      <div class="flex items-center gap-1.5 mt-2">
-                        <Button
-                          v-for="action in card.actions"
-                          :key="action"
-                          variant="outline"
-                          size="sm"
-                          class="h-6 text-[10px] px-2 gap-1"
-                        >
-                          <ExternalLink v-if="action.includes('View') || action.includes('Open')" :size="9" />
-                          <Megaphone v-else-if="action.includes('Ping')" :size="9" />
-                          <ClipboardList v-else :size="9" />
-                          {{ action }}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
-
-            <!-- Follow-up Items -->
-            <div>
-              <div class="flex items-center gap-1.5 mb-2">
-                <span class="text-[11px] font-semibold text-foreground">Follow-up Items</span>
-                <Badge variant="outline" class="text-[9px] h-4 px-1 bg-amber-500/10 text-amber-500 border-amber-500/20">
-                  {{ followUpItems.length }}
-                </Badge>
-              </div>
-              <div class="space-y-2.5">
-                <div
-                  v-for="(fu, fuIdx) in followUpItems"
-                  :key="fuIdx"
-                  class="border border-border rounded-md bg-amber-500/5 p-3"
-                >
-                  <div class="flex items-start gap-2">
-                    <component
-                      :is="fu.type === 'manual' ? Bell : Zap"
-                      :size="13"
-                      class="text-amber-500 mt-0.5 shrink-0"
-                    />
-                    <div class="flex-1 min-w-0">
-                      <p class="text-[12px] text-foreground">{{ fu.description }}</p>
-                      <div class="flex items-center gap-2 mt-1.5">
-                        <Badge
-                          variant="outline"
-                          class="text-[9px] h-4 px-1.5"
-                          :class="fu.type === 'manual'
-                            ? 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20'
-                            : 'bg-violet-500/10 text-violet-500 border-violet-500/20'
-                          "
-                        >
-                          <component :is="fu.type === 'manual' ? Bell : Zap" :size="8" class="mr-0.5" />
-                          {{ fu.type === 'manual' ? 'Manual' : 'Auto-generated' }}
-                        </Badge>
-                        <Badge variant="outline" class="text-[9px] h-4 px-1.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">
-                          {{ fu.status }}
-                        </Badge>
-                        <span class="text-[10px] text-muted-foreground/60">
-                          Source: {{ fu.sourceTask }}
-                        </span>
-                      </div>
-                      <div class="flex items-center gap-1.5 mt-2">
-                        <Button variant="ghost" size="sm" class="h-6 text-[10px] px-2 gap-1">
-                          <Clock :size="9" />
-                          Snooze
-                        </Button>
-                        <Button variant="ghost" size="sm" class="h-6 text-[10px] px-2 gap-1 text-muted-foreground/60">
-                          <X :size="9" />
-                          Dismiss
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <Separator />
-
-        <!-- ============================================================ -->
-        <!-- SECTION 3: Suggested Actions                                 -->
-        <!-- ============================================================ -->
-        <section class="pb-4">
-          <div class="flex items-center gap-2 mb-3">
-            <Zap :size="14" class="text-blue-500" />
-            <h2 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Suggested Actions
-            </h2>
-          </div>
-
-          <div class="flex flex-col gap-2">
-            <div
-              v-for="(action, aIdx) in suggestedActions"
-              :key="aIdx"
-              class="flex items-center gap-3 rounded-md bg-blue-500/5 border border-blue-500/10 border-l-[3px] border-l-blue-500 px-3 py-2.5"
-            >
-              <component :is="action.icon" :size="14" class="text-blue-500 shrink-0" />
-              <span class="text-[12px] text-foreground flex-1 min-w-0">{{ action.description }}</span>
-              <Button variant="outline" size="sm" class="h-6 text-[10px] px-2.5 gap-1 shrink-0 border-blue-500/20 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10">
-                <ArrowRight :size="9" />
-                {{ action.actionLabel }}
-              </Button>
-              <Button variant="ghost" size="sm" class="h-6 w-6 p-0 shrink-0 text-muted-foreground/40 hover:text-muted-foreground">
-                <X :size="12" />
-              </Button>
-            </div>
-          </div>
-        </section>
-
+          </TooltipProvider>
+        </div>
       </div>
     </ScrollArea>
   </div>
 </template>
+
+<!-- TreeNodeItem: recursive component for tree nodes -->
+<script lang="ts">
+import { defineComponent, type PropType } from 'vue'
+
+interface TreeGraphNode {
+  id: number
+  title: string
+  status: string
+  priority: string
+  description: string
+  dependsOn: number[]
+  children: TreeGraphNode[]
+}
+
+function getDescendantCount(node: TreeGraphNode): number {
+  let count = node.children.length
+  for (const child of node.children) {
+    count += getDescendantCount(child)
+  }
+  return count
+}
+
+function treeNodeMatchesFilter(node: TreeGraphNode, filter: string): boolean {
+  if (filter === 'all') return true
+  if (node.status === filter) return true
+  return node.children.some(c => treeNodeMatchesFilter(c, filter))
+}
+
+const TreeNodeItem = defineComponent({
+  name: 'TreeNodeItem',
+  props: {
+    node: { type: Object as PropType<TreeGraphNode>, required: true },
+    depth: { type: Number, required: true },
+    expandedNodes: { type: Object as PropType<Set<number>>, required: true },
+    selectedNodeId: { type: Number as PropType<number | null>, default: null },
+    highlightedIds: { type: Object as PropType<Set<number>>, required: true },
+    statusFilter: { type: String, required: true },
+  },
+  emits: ['toggle-expand', 'select-node', 'navigate'],
+  computed: {
+    isExpanded(): boolean {
+      return this.expandedNodes.has(this.node.id)
+    },
+    hasChildren(): boolean {
+      return this.node.children.length > 0
+    },
+    isSelected(): boolean {
+      return this.selectedNodeId === this.node.id
+    },
+    isHighlighted(): boolean {
+      return this.highlightedIds.has(this.node.id)
+    },
+    isBlocked(): boolean {
+      return this.node.status === 'blocked'
+    },
+    descendantCount(): number {
+      return getDescendantCount(this.node)
+    },
+    filteredChildren(): TreeGraphNode[] {
+      return this.node.children.filter(c => treeNodeMatchesFilter(c, this.statusFilter))
+    },
+    statusColor(): string {
+      switch (this.node.status) {
+        case 'blocked': return 'bg-red-500'
+        case 'in_progress': return 'bg-blue-500'
+        case 'done': return 'bg-emerald-500'
+        case 'todo': return 'bg-zinc-400'
+        default: return 'bg-zinc-400'
+      }
+    },
+    statusLabel(): string {
+      switch (this.node.status) {
+        case 'blocked': return 'Blocked'
+        case 'in_progress': return 'In Progress'
+        case 'done': return 'Done'
+        case 'todo': return 'To Do'
+        default: return this.node.status
+      }
+    },
+    priorityColor(): string {
+      switch (this.node.priority) {
+        case 'P0': return 'text-red-600 dark:text-red-400'
+        case 'P1': return 'text-orange-600 dark:text-orange-400'
+        case 'P2': return 'text-amber-600 dark:text-amber-400'
+        case 'P3': return 'text-zinc-500'
+        default: return 'text-zinc-500'
+      }
+    },
+  },
+  template: `
+    <div>
+      <div
+        class="tree-node group relative flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-accent/50"
+        :class="{
+          'ring-2 ring-primary/50 bg-primary/5': isSelected,
+          'bg-yellow-500/5': isHighlighted && !isSelected,
+          'border-l-2 border-l-red-500': isBlocked && depth === 0,
+        }"
+        :style="{ paddingLeft: (depth * 24 + 8) + 'px' }"
+        @click="$emit('select-node', node.id)"
+      >
+        <!-- Connector lines for nested items -->
+        <div
+          v-if="depth > 0"
+          class="connector-line absolute top-0 bottom-0"
+          :style="{ left: ((depth - 1) * 24 + 19) + 'px', width: '24px' }"
+        >
+          <div class="absolute top-1/2 left-0 h-px w-4 bg-border"></div>
+          <div class="absolute top-0 left-0 h-1/2 w-px bg-border"></div>
+        </div>
+
+        <!-- Expand/collapse chevron -->
+        <button
+          v-if="hasChildren"
+          class="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+          @click.stop="$emit('toggle-expand', node.id)"
+        >
+          <svg v-if="isExpanded" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+        <div v-else class="w-5 shrink-0"></div>
+
+        <!-- Status dot -->
+        <div class="flex h-2.5 w-2.5 shrink-0 rounded-full" :class="statusColor"></div>
+
+        <!-- Task title -->
+        <button
+          class="min-w-0 flex-1 truncate text-left text-sm font-medium text-foreground hover:underline"
+          :title="node.description"
+          @click.stop="$emit('navigate', node.id)"
+        >
+          {{ node.title }}
+        </button>
+
+        <!-- Badges -->
+        <div class="flex shrink-0 items-center gap-1.5 opacity-80 group-hover:opacity-100">
+          <span
+            class="rounded px-1.5 py-0.5 text-[10px] font-medium"
+            :class="{
+              'bg-red-500/15 text-red-600 dark:text-red-400': node.status === 'blocked',
+              'bg-blue-500/15 text-blue-600 dark:text-blue-400': node.status === 'in_progress',
+              'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400': node.status === 'done',
+              'bg-zinc-500/15 text-zinc-500': node.status === 'todo',
+            }"
+          >{{ statusLabel }}</span>
+          <span
+            class="text-[10px] font-semibold"
+            :class="priorityColor"
+          >{{ node.priority }}</span>
+          <span
+            v-if="descendantCount > 0"
+            class="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+            :title="descendantCount + ' dependent task(s)'"
+          >{{ descendantCount }} dep{{ descendantCount > 1 ? 's' : '' }}</span>
+        </div>
+      </div>
+
+      <!-- Children (recursive) -->
+      <div v-if="hasChildren && isExpanded" class="relative">
+        <div
+          class="absolute top-0 bottom-2"
+          :style="{ left: (depth * 24 + 19) + 'px' }"
+        >
+          <div class="h-full w-px bg-border"></div>
+        </div>
+        <TreeNodeItem
+          v-for="child in filteredChildren"
+          :key="child.id"
+          :node="child"
+          :depth="depth + 1"
+          :expanded-nodes="expandedNodes"
+          :selected-node-id="selectedNodeId"
+          :highlighted-ids="highlightedIds"
+          :status-filter="statusFilter"
+          @toggle-expand="$emit('toggle-expand', $event)"
+          @select-node="$emit('select-node', $event)"
+          @navigate="$emit('navigate', $event)"
+        />
+      </div>
+    </div>
+  `,
+})
+
+export default {
+  components: { TreeNodeItem },
+}
+</script>
+
+<style scoped>
+.tree-node {
+  min-height: 36px;
+}
+</style>
