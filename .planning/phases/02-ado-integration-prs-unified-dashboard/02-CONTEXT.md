@@ -51,11 +51,13 @@ Our domain: **Projects** and **Tasks** (with subtasks). ADO has its own hierarch
 - **D-15:** Tree scope: sync items assigned to me + their parent chain for context
 - **D-16:** Tree search: instant search of local SQLite cache + "Search all ADO" button for live API query
 
-### ADO Linking (3 Flows)
+### ADO Linking (3 Flows + Unlink)
 - **D-17:** **Link** — Connect local task to existing ADO item (search by ID or title)
 - **D-18:** **Promote** — Create new ADO work item from local task (preview diff of what will be created, confirm)
 - **D-19:** **Import** — Pull ADO work item into local task list (creates new local task with ADO link)
-- **D-20:** Task row ADO icon: hollow/empty if unlinked, filled with ADO type icon if linked. Click hollow → opens link dialog
+- **D-19a:** **Unlink** — Disconnect task from ADO item. User chooses: keep local task (reverts to personal) or delete it.
+- **D-20:** Task row ADO badge: hollow/empty if unlinked, filled with ADO type icon if linked. Click hollow → opens link dialog
+- **D-20a:** Projects can be linked to ADO scenarios/deliverables (same link/unlink UX as tasks). Project dashboard shows ADO children progress when linked.
 
 ### Sync Behavior
 - **D-21:** Background auto-sync pulls ADO changes to linked items silently on configurable timer (default 15 min via Viper) + manual refresh button

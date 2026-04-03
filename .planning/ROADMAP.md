@@ -34,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 ### Phase 2: ADO Integration & Sync Workflow
 **Goal**: User can authenticate via az cli, browse ADO items, link/promote/import tasks with the personal→public model, and bidirectionally sync with safe confirmation before any outbound changes
 **Depends on**: Phase 1
-**Requirements**: AUTH-01, AUTH-02, AUTH-03, TASK-08, TASK-09, ADO-01, ADO-02, ADO-03, ADO-04, ADO-05, ADO-06, ADO-07, ADO-08, ADO-09, ADO-10, SYNC-01, SYNC-02, SYNC-03, SYNC-04, LINK-01, LINK-02, LINK-03, CMT-01, CMT-02, CMT-03, DASH-01, DASH-02, DASH-03
+**Requirements**: AUTH-01, AUTH-02, AUTH-03, TASK-08, TASK-09, ADO-01 through ADO-10, SYNC-01 through SYNC-04, LINK-01 through LINK-03, CMT-01 through CMT-03, DASH-01 through DASH-03, TL-01 through TL-05, PROJ-01 through PROJ-07, UX-01 through UX-05
 **Success Criteria** (what must be TRUE):
   1. App authenticates to ADO via abstracted token provider (az cli initially); token auto-refreshes
   2. User can configure multiple ADO orgs and pick specific projects within each. Items from all org/project pairs appear in a unified list with org/project labels; toggleable group-by-project view
@@ -54,7 +54,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 ### Phase 3: PR Monitoring & Team Views
 **Goal**: Surface PRs under tasks, show pipeline status, enable team-wide visibility into work and blockers
 **Depends on**: Phase 2
-**Requirements**: PR-01, PR-02, PR-03, PR-04, PIPE-01, PIPE-02 (v2 requirements)
+**Requirements**: PR-01, PR-02, PR-03, PR-04, PIPE-01, PIPE-02, UX-06, UX-07 (v2 requirements)
 **Success Criteria** (what must be TRUE):
   1. User can see all their own PRs and PRs assigned to them for review with status, title, repo, branch info, reviewers, and votes
   2. PRs appear under linked tasks in the detail panel
