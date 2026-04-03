@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
@@ -10,7 +10,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { Separator } from '@/components/ui/separator'
 import {
   LayoutDashboard,
   CheckSquare,
@@ -18,7 +17,7 @@ import {
   Settings,
   Sun,
   Moon,
-  FlaskConical,
+  GitBranch,
 } from 'lucide-vue-next'
 import AzureDevOpsIcon from '@/components/icons/AzureDevOpsIcon.vue'
 
@@ -26,8 +25,6 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const { mode, toggle: toggleTheme } = useTheme()
-
-const isDev = import.meta.env.DEV
 
 interface NavItem {
   name: string
@@ -41,10 +38,7 @@ const navItems: NavItem[] = [
   { name: 'tasks', icon: CheckSquare, path: '/tasks', label: 'Tasks' },
   { name: 'projects', icon: FolderKanban, path: '/projects', label: 'Projects' },
   { name: 'ado', icon: AzureDevOpsIcon, path: '/ado', label: 'Azure DevOps' },
-]
-
-const playgroundItems: NavItem[] = [
-  { name: 'playground-tasks', icon: FlaskConical, path: '/playground/tasks', label: 'Layout Playground' },
+  { name: 'dependencies', icon: GitBranch, path: '/dependencies', label: 'Dependencies' },
 ]
 
 const isActive = (path: string) => route.path === path || route.path.startsWith(path + '/')
@@ -83,30 +77,6 @@ const isDark = computed(() => mode.value === 'dark')
         </Tooltip>
       </div>
 
-      <!-- Playground (dev only) -->
-      <template v-if="isDev">
-        <Separator class="my-1 w-6" />
-        <Tooltip v-for="item in playgroundItems" :key="item.name">
-          <TooltipTrigger as-child>
-            <Button
-              variant="ghost"
-              size="icon"
-              @click="navigate(item.path)"
-              :class="[
-                'w-10 h-10',
-                isActive(item.path)
-                  ? 'bg-amber-500/15 text-amber-500 hover:bg-amber-500/20 hover:text-amber-500'
-                  : 'text-muted-foreground/50 hover:text-muted-foreground'
-              ]"
-            >
-              <component :is="item.icon" :size="18" :stroke-width="1.75" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            {{ item.label }}
-          </TooltipContent>
-        </Tooltip>
-      </template>
     </TooltipProvider>
 
     <!-- Spacer -->

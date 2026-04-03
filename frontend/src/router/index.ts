@@ -28,39 +28,14 @@ const router = createRouter({
       component: () => import('../views/SettingsView.vue'),
     },
     {
-      path: '/playground/tasks',
-      name: 'playground-tasks',
-      component: () => import('../views/PlaygroundTasksView.vue'),
-    },
-    {
-      path: '/playground/dashboard',
-      name: 'playground-dashboard',
-      component: () => import('../views/PlaygroundDashboardView.vue'),
-    },
-    {
       path: '/ado',
       name: 'ado',
-      component: () => import('../views/PlaygroundAdoView.vue'),
+      component: () => import('../views/AdoView.vue'),
     },
     {
-      path: '/playground/detail',
-      name: 'playground-detail',
-      component: () => import('../views/PlaygroundDetailView.vue'),
-    },
-    {
-      path: '/playground/ado',
-      name: 'playground-ado',
-      component: () => import('../views/PlaygroundAdoView.vue'),
-    },
-    {
-      path: '/playground/chain',
-      name: 'playground-chain',
-      component: () => import('../views/PlaygroundChainView.vue'),
-    },
-    {
-      path: '/playground/shell',
-      name: 'playground-shell',
-      component: () => import('../views/PlaygroundShellView.vue'),
+      path: '/dependencies',
+      name: 'dependencies',
+      component: () => import('../views/DependencyGraphView.vue'),
     },
     {
       path: '/login',
