@@ -616,16 +616,7 @@ function getPendingTooltip(itemId: number): string {
           </TabsList>
         </div>
 
-          <!-- Tabs container -->
-          <Tabs default-value="management" class="flex-1 flex flex-col min-h-0">
-            <div class="px-4 pt-3 pb-1">
-              <TabsList class="h-8">
-                <TabsTrigger value="management" class="text-xs px-3 h-7">Management</TabsTrigger>
-                <TabsTrigger value="devops" class="text-xs px-3 h-7">DevOps</TabsTrigger>
-              </TabsList>
-            </div>
-
-            <!-- ============================================================ -->
+        <!-- ============================================================ -->
             <!-- TAB 1 — Management (Work Items)                              -->
             <!-- ============================================================ -->
             <TabsContent value="management" class="flex-1 min-h-0 mt-0 flex flex-col">
