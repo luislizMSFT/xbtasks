@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 2 context gathered
-last_updated: "2026-04-02T22:01:22.679Z"
-last_activity: 2026-04-02
+stopped_at: Phase 2 UI iteration — playgrounds + real views
+last_updated: "2026-04-03T00:30:00.000Z"
+last_activity: 2026-04-03
 progress:
   total_phases: 2
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 6
-  completed_plans: 2
-  percent: 0
+  completed_plans: 6
+  percent: 50
 ---
 
 # Project State
@@ -21,64 +21,82 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-31)
 
 **Core value:** One pane of glass for all your work — personal tasks linked to ADO items, PRs, and comments — so nobody has to context-switch between tools.
-**Current focus:** Phase 01 — foundation-auth-personal-tasks
+**Current focus:** Phase 02 — ado-integration-prs-unified-dashboard (UI iteration)
 
 ## Current Position
 
-Phase: 01 (foundation-auth-personal-tasks) — EXECUTING
-Plan: 2 of 6
-Status: Ready to execute
-Last activity: 2026-04-02
+Phase: 02 (ado-integration-prs-unified-dashboard) — EXECUTING
+Status: Deep UI iteration — playgrounds built, real views being refined
+Last activity: 2026-04-03
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█████░░░░░] 50%
 
-## Performance Metrics
+## What's Been Done
 
-**Velocity:**
+### Phase 01 — Foundation (COMPLETE)
+- Go backend: auth service, task CRUD, dependencies, projects, SQLite
+- Viper config with OS-appropriate paths
+- Frontend scaffold with Wails v3 + Vue 3 + vue-router
 
-- Total plans completed: 0
-- Average duration: —
-- Total execution time: 0 hours
+### Phase 02 — UI Build-Out (IN PROGRESS)
+**Completed this session:**
+- shadcn-vue installed (79 components), Zinc theme, Tailwind v4
+- AppShell: 40px top bar (breadcrumb + stats pills + search/new/activity), icon sidebar, global activity panel
+- TasksView: richer rows (checkbox, subtask expand, progress bar, ADO badge with AzureDevOpsIcon, PR count)
+- TaskDetail: rebuilt — Work/Discussion tabs, slim collapsible PRs, sticky config footer
+- DashboardView: 2-column (tasks+inbox left, PRs right), quick-capture inbox
+- ADO view (/ado): Management tab (tree browser, queue & confirm), DevOps tab (2-col PRs+Pipelines)
+- PageHeader component for per-page toolbars
+- AzureDevOpsIcon component (official Azure DevOps SVG)
+- Codebase mapped: 7 docs in .planning/codebase/ (1519 lines)
 
-**By Phase:**
+**Playgrounds built:**
+- /playground/tasks — Todoist hybrid layout
+- /playground/detail — 2-col with full shell, compact variant
+- /playground/chain — Task→PR→Build→Deploy flow chains + blockers dashboard
+- /playground/shell — 3 shell layout variants (Compact Rail, Expanded Nav, Floating Panels)
+- /playground/ado — ADO tree + GParted queue (now promoted to /ado)
 
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| - | - | - | - |
-
-**Recent Trend:**
-
-- Last 5 plans: —
-- Trend: —
-
-*Updated after each plan completion*
-| Phase 01 P02 | 2m 37s | 2 tasks | 2 files |
+**Still needed:**
+- Shell header fix (padding, traffic light overlap, cross-platform macOS/Windows)
+- Wire stores to real Go backend (flip useMock to false)
+- ADO service implementation (Go backend for ADO API)
+- PR service implementation
+- Subtasks backend (currently mock data)
+- Work chain visualization integration into real views
+- Drag-drop task reordering
 
 ## Accumulated Context
 
 ### Decisions
 
-Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
-
-- Stack: Wails v3 (Go) + Vue 3 + SQLite + Entra ID (native desktop, local-first)
-- Port from xl: ADO client (pkg/ado/), SQLite schema (pkg/db/), data model are proven and reusable
-- Auth: OAuth2 PKCE for desktop app, PAT fallback, OS keychain for token storage
-- Sync: Polling-based ADO sync (desktop can't receive webhooks), smart change detection
-- [Phase 01]: DFS (iterative stack) for dependency cycle detection — simple, correct, no recursion depth issues
-- [Phase 01]: Tags searched via SQL LIKE on comma-separated field; domain package used for types (not pkg/models)
+- Stack: Wails v3 (Go) + Vue 3 + SQLite + Entra ID
+- No emojis — Lucide icons + AzureDevOpsIcon only
+- Todoist hybrid task rows: checkbox → title → subtask progress → ADO badge → PR count → time
+- Detail panel: Work/Discussion tabs, sticky config footer
+- ADO operations: GParted-style queue & confirm (batch apply)
+- Dashboard: inbox quick-capture that promotes to tasks
+- Stats in global top bar, activity as global sidebar
+- ADO is management/linking layer, not primary workspace
 
 ### Pending Todos
 
-None yet.
+- Shell header: fix padding, traffic light overlap, Windows compat
+- Wire mock stores to real Go backend
+- Implement ADO Go service
+- Implement PR Go service
+- Subtask backend implementation
+- Drag-drop task reordering
+- Splash screen (Xbox logo)
 
 ### Blockers/Concerns
 
 - Wails v3 is alpha — may need v2 fallback if blockers arise
 - Entra ID app registration needed before auth development
+- Detached HEAD state — commits need to be merged to a branch
 
 ## Session Continuity
 
-Last session: 2026-04-02T22:01:22.671Z
-Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/02-ado-integration-prs-unified-dashboard/02-CONTEXT.md
+Last session: 2026-04-03T00:30:00.000Z
+Stopped at: Phase 2 UI iteration — playgrounds + real views
+Resume: Continue refining shell header, then wire backend services
