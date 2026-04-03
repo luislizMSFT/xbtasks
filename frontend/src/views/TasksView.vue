@@ -5,9 +5,9 @@ import TaskDetail from '@/components/TaskDetail.vue'
 import { cn } from '@/lib/utils'
 import {
   Filter, ArrowUpDown, ChevronDown, ChevronRight,
-  Bug, CheckSquare, BookOpen, Landmark,
   Circle, CheckCircle2, Plus, GitPullRequest,
 } from 'lucide-vue-next'
+import AzureDevOpsIcon from '@/components/icons/AzureDevOpsIcon.vue'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -55,13 +55,6 @@ const mockSubtasks: Record<number, { id: number; title: string; done: boolean }[
 
 // Mock PR counts per task
 const mockPrCounts: Record<number, number> = { 1: 2, 3: 1 }
-
-function adoIcon(adoId: string) {
-  const lower = adoId.toLowerCase()
-  if (lower.includes('bug')) return Bug
-  if (lower.includes('story')) return BookOpen
-  return CheckSquare
-}
 
 function subtasksFor(taskId: number) {
   return mockSubtasks[taskId] || []
@@ -289,7 +282,7 @@ onMounted(async () => {
                     v-if="task.adoId"
                     class="inline-flex items-center gap-0.5 text-[10px] text-blue-600 dark:text-blue-400 bg-blue-500/8 px-1.5 py-0.5 rounded shrink-0"
                   >
-                    <component :is="adoIcon(task.adoId)" :size="10" :stroke-width="2" />
+                    <AzureDevOpsIcon :size="10" />
                     {{ task.adoId.replace('ADO-', '#') }}
                   </span>
 
