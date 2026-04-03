@@ -130,6 +130,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority);
 CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_ado_id ON tasks(ado_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_parent ON tasks(parent_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pull_requests_pr_repo ON pull_requests(pr_number, repo);
 CREATE INDEX IF NOT EXISTS idx_pull_requests_status ON pull_requests(status);
 CREATE INDEX IF NOT EXISTS idx_pull_requests_task ON pull_requests(task_id);
 CREATE INDEX IF NOT EXISTS idx_ado_work_items_ado_id ON ado_work_items(ado_id);

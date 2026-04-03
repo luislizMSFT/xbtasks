@@ -61,6 +61,35 @@ type TaskDep struct {
 	DependsOn int `json:"dependsOn"`
 }
 
+type PullRequest struct {
+	ID           int        `json:"id"`
+	Title        string     `json:"title"`
+	PRURL        string     `json:"prUrl"`
+	PRNumber     int        `json:"prNumber"`
+	Repo         string     `json:"repo"`
+	TaskID       *int       `json:"taskId"`
+	AdoID        string     `json:"adoId"`
+	Status       string     `json:"status"` // draft, active, completed, abandoned
+	Reviewers    string     `json:"reviewers"` // JSON array of reviewer objects
+	SourceBranch string     `json:"sourceBranch"`
+	TargetBranch string     `json:"targetBranch"`
+	Votes        int        `json:"votes"`
+	CreatedAt    time.Time  `json:"createdAt"`
+	UpdatedAt    time.Time  `json:"updatedAt"`
+	MergedAt     *time.Time `json:"mergedAt"`
+}
+
+type ADOPipeline struct {
+	ID           int        `json:"id"`
+	Name         string     `json:"name"`
+	Status       string     `json:"status"` // succeeded, failed, running, queued, cancelled
+	Result       string     `json:"result"`
+	URL          string     `json:"url"`
+	SourceBranch string     `json:"sourceBranch"`
+	QueueTime    time.Time  `json:"queueTime"`
+	FinishTime   *time.Time `json:"finishTime"`
+}
+
 type ADOWorkItem struct {
 	ID          int       `json:"id"`
 	AdoID       string    `json:"adoId"`
