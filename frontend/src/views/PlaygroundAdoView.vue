@@ -979,241 +979,214 @@ function getPendingTooltip(itemId: number): string {
               </Transition>
             </TabsContent>
             <TabsContent value="devops" class="flex-1 min-h-0 mt-0">
-              <ScrollArea class="h-full">
-                <div class="p-4 space-y-6">
+              <div class="flex gap-4 h-full p-4">
 
-                  <!-- Review Requested -->
-                  <section class="space-y-2">
-                    <div class="flex items-center gap-2">
-                      <h3 class="text-xs font-semibold text-foreground uppercase tracking-wider">
-                        Review Requested
-                      </h3>
-                      <Badge variant="outline" class="text-[10px] h-4 px-1.5">
-                        {{ reviewRequestedPrs.length }}
-                      </Badge>
+                <!-- Left column: Pull Requests -->
+                <div class="flex-1 min-w-0 flex flex-col">
+                  <ScrollArea class="flex-1">
+
+                    <!-- Section: Review Requested -->
+                    <div class="flex items-center gap-2 px-3 py-1.5 border-b border-border/50">
+                      <span class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Review Requested</span>
+                      <span class="text-[10px] text-muted-foreground/70">&middot;</span>
+                      <span class="text-[10px] text-muted-foreground">{{ reviewRequestedPrs.length }}</span>
                     </div>
-                    <div class="space-y-1.5">
-                      <div v-for="pr in reviewRequestedPrs" :key="pr.id">
-                        <Card
-                          class="cursor-pointer hover:bg-muted/30 transition-colors"
-                          @click="togglePr(pr.id)"
-                        >
-                          <CardContent class="p-3">
-                            <div class="flex items-center gap-2">
-                              <GitPullRequest :size="14" class="text-blue-500 shrink-0" />
-                              <span class="text-sm font-medium text-foreground truncate">{{ pr.title }}</span>
-                              <Badge variant="outline" class="text-[10px] h-4 px-1.5 shrink-0">
-                                #{{ pr.id }}
-                              </Badge>
-                            </div>
 
-                            <div class="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
-                              <Badge variant="secondary" class="text-[10px] h-4 px-1.5">{{ pr.repo }}</Badge>
-                              <span class="flex items-center gap-1 text-[11px]">
-                                <GitBranch :size="11" />
-                                {{ pr.sourceBranch }}
-                              </span>
-                              <ArrowRight :size="10" class="shrink-0" />
-                              <span class="text-[11px]">{{ pr.targetBranch }}</span>
-                              <span class="ml-auto flex items-center gap-1.5">
-                                <span
-                                  v-for="(r, ri) in pr.reviewers"
-                                  :key="ri"
-                                  :class="cn('w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-medium text-white', r.color)"
-                                >
-                                  {{ r.initials }}
-                                </span>
-                              </span>
-                            </div>
-
-                            <div class="flex items-center gap-3 mt-1.5 text-[11px] text-muted-foreground">
-                              <span class="text-green-600 dark:text-green-400">+{{ pr.additions }}</span>
-                              <span class="text-red-600 dark:text-red-400">-{{ pr.deletions }}</span>
-                              <span class="ml-auto">{{ pr.timeAgo }}</span>
-                            </div>
-
-                            <!-- Expanded detail -->
-                            <div
-                              v-if="expandedPrs[pr.id]"
-                              class="mt-3 pt-3 border-t border-border space-y-2 text-xs"
-                            >
-                              <p class="text-foreground/80 leading-relaxed">{{ pr.description }}</p>
-                              <div class="flex items-center gap-4 text-muted-foreground">
-                                <span class="flex items-center gap-1">
-                                  <FileCode :size="12" />
-                                  {{ pr.filesChanged }} files
-                                </span>
-                                <span class="flex items-center gap-1">
-                                  <CheckCircle2
-                                    :size="12"
-                                    :class="pr.checksPass ? 'text-green-500' : 'text-red-500'"
-                                  />
-                                  Checks {{ pr.checksPass ? 'passing' : 'failing' }}
-                                </span>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-                    </div>
-                  </section>
-
-                  <Separator />
-
-                  <!-- Your PRs -->
-                  <section class="space-y-2">
-                    <div class="flex items-center gap-2">
-                      <h3 class="text-xs font-semibold text-foreground uppercase tracking-wider">
-                        Your PRs
-                      </h3>
-                      <Badge variant="outline" class="text-[10px] h-4 px-1.5">
-                        {{ yourPrs.length }}
-                      </Badge>
-                    </div>
-                    <div class="space-y-1.5">
-                      <div v-for="pr in yourPrs" :key="pr.id">
-                        <Card
-                          class="cursor-pointer hover:bg-muted/30 transition-colors"
-                          @click="togglePr(pr.id)"
-                        >
-                          <CardContent class="p-3">
-                            <div class="flex items-center gap-2">
-                              <GitPullRequest
-                                :size="14"
-                                :class="pr.status === 'merged' ? 'text-violet-500' : 'text-blue-500'"
-                                class="shrink-0"
-                              />
-                              <span class="text-sm font-medium text-foreground truncate">{{ pr.title }}</span>
-                              <Badge variant="outline" class="text-[10px] h-4 px-1.5 shrink-0">
-                                #{{ pr.id }}
-                              </Badge>
-                              <Badge
-                                variant="outline"
-                                :class="cn('text-[10px] h-4 px-1.5 shrink-0 ml-auto', getPrStatusInfo(pr.status).cls)"
-                              >
-                                {{ getPrStatusInfo(pr.status).label }}
-                              </Badge>
-                            </div>
-
-                            <div class="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
-                              <Badge variant="secondary" class="text-[10px] h-4 px-1.5">{{ pr.repo }}</Badge>
-                              <span class="flex items-center gap-1 text-[11px]">
-                                <GitBranch :size="11" />
-                                {{ pr.sourceBranch }}
-                              </span>
-                              <ArrowRight :size="10" class="shrink-0" />
-                              <span class="text-[11px]">{{ pr.targetBranch }}</span>
-                              <span class="ml-auto flex items-center gap-1.5">
-                                <span
-                                  v-for="(r, ri) in pr.reviewers"
-                                  :key="ri"
-                                  :class="cn('w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-medium text-white', r.color)"
-                                >
-                                  {{ r.initials }}
-                                </span>
-                              </span>
-                            </div>
-
-                            <div class="flex items-center gap-3 mt-1.5 text-[11px] text-muted-foreground">
-                              <span class="text-green-600 dark:text-green-400">+{{ pr.additions }}</span>
-                              <span class="text-red-600 dark:text-red-400">-{{ pr.deletions }}</span>
-                              <span class="ml-auto">{{ pr.timeAgo }}</span>
-                            </div>
-
-                            <!-- Merged PR → inline pipeline status -->
-                            <div
-                              v-if="pr.status === 'merged'"
-                              class="mt-2 pt-2 border-t border-border"
-                            >
-                              <div
-                                v-for="pipe in pipelines.filter(p => p.trigger.includes('#' + pr.id))"
-                                :key="pipe.runId"
-                                class="flex items-center gap-2 text-xs text-muted-foreground"
-                              >
-                                <component
-                                  :is="getPipelineIcon(pipe.status).icon"
-                                  :size="13"
-                                  :class="getPipelineIcon(pipe.status).color"
-                                />
-                                <span class="text-foreground">{{ pipe.name }}</span>
-                                <span class="text-[10px]">Run #{{ pipe.runId }}</span>
-                                <span class="ml-auto text-[10px]">{{ pipe.duration }}</span>
-                              </div>
-                            </div>
-
-                            <!-- Expanded detail -->
-                            <div
-                              v-if="expandedPrs[pr.id]"
-                              class="mt-3 pt-3 border-t border-border space-y-2 text-xs"
-                            >
-                              <p class="text-foreground/80 leading-relaxed">{{ pr.description }}</p>
-                              <div class="flex items-center gap-4 text-muted-foreground">
-                                <span class="flex items-center gap-1">
-                                  <FileCode :size="12" />
-                                  {{ pr.filesChanged }} files
-                                </span>
-                                <span class="flex items-center gap-1">
-                                  <CheckCircle2
-                                    :size="12"
-                                    :class="pr.checksPass ? 'text-green-500' : 'text-red-500'"
-                                  />
-                                  Checks {{ pr.checksPass ? 'passing' : 'failing' }}
-                                </span>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-                    </div>
-                  </section>
-
-                  <Separator />
-
-                  <!-- Pipelines -->
-                  <section class="space-y-2">
-                    <div class="flex items-center gap-2">
-                      <h3 class="text-xs font-semibold text-foreground uppercase tracking-wider">
-                        Pipelines
-                      </h3>
-                      <Badge variant="outline" class="text-[10px] h-4 px-1.5">
-                        {{ pipelines.length }}
-                      </Badge>
-                    </div>
-                    <div class="space-y-1">
+                    <div v-for="pr in reviewRequestedPrs" :key="'rr-' + pr.id">
                       <div
-                        v-for="pipe in pipelines"
-                        :key="pipe.runId"
-                        class="flex items-center gap-3 px-3 py-2 rounded-md border border-border bg-card text-sm"
+                        class="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted/30 transition-colors border-b border-border/30"
+                        @click="togglePr(pr.id)"
                       >
+                        <GitPullRequest :size="14" class="text-blue-500 shrink-0" />
+                        <span class="text-xs font-medium text-foreground truncate">PR #{{ pr.id }}: {{ pr.title }}</span>
+                        <Badge variant="outline" class="text-[10px] h-4 px-1.5 shrink-0">{{ pr.repo }}</Badge>
+                        <span class="text-[10px] text-green-600 dark:text-green-400 shrink-0">+{{ pr.additions }}</span>
+                        <span class="text-[10px] text-red-600 dark:text-red-400 shrink-0">-{{ pr.deletions }}</span>
+                        <span class="flex items-center gap-1 shrink-0">
+                          <Tooltip v-for="(r, ri) in pr.reviewers" :key="ri">
+                            <TooltipTrigger as-child>
+                              <span
+                                :class="cn('w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-medium text-white', r.color)"
+                              >{{ r.initials }}</span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" class="text-xs">{{ r.initials }}</TooltipContent>
+                          </Tooltip>
+                        </span>
+                        <span class="text-[10px] text-muted-foreground shrink-0 ml-auto">{{ pr.timeAgo }}</span>
+                        <Badge
+                          variant="outline"
+                          :class="cn('text-[10px] h-4 px-1.5 shrink-0', getPrStatusInfo(pr.status).cls)"
+                        >{{ getPrStatusInfo(pr.status).label }}</Badge>
+                      </div>
+                      <!-- Expanded detail -->
+                      <div
+                        v-if="expandedPrs[pr.id]"
+                        class="px-3 py-2 border-b border-border/30 bg-muted/20 space-y-2 text-xs"
+                      >
+                        <p class="text-foreground/80 leading-relaxed">{{ pr.description }}</p>
+                        <div class="flex items-center gap-4 text-muted-foreground">
+                          <span class="flex items-center gap-1">
+                            <FileCode :size="12" />
+                            {{ pr.filesChanged }} files
+                          </span>
+                          <span class="flex items-center gap-1">
+                            <CheckCircle2
+                              :size="12"
+                              :class="pr.checksPass ? 'text-green-500' : 'text-red-500'"
+                            />
+                            Checks {{ pr.checksPass ? 'passing' : 'failing' }}
+                          </span>
+                          <span class="flex items-center gap-1 text-[11px]">
+                            <GitBranch :size="11" />
+                            {{ pr.sourceBranch }}
+                            <ArrowRight :size="10" />
+                            {{ pr.targetBranch }}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Section: Your PRs -->
+                    <div class="flex items-center gap-2 px-3 py-1.5 border-b border-border/50 mt-1">
+                      <span class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Your PRs</span>
+                      <span class="text-[10px] text-muted-foreground/70">&middot;</span>
+                      <span class="text-[10px] text-muted-foreground">{{ yourPrs.length }}</span>
+                    </div>
+
+                    <div v-for="pr in yourPrs" :key="'yr-' + pr.id">
+                      <div
+                        class="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-muted/30 transition-colors border-b border-border/30"
+                        @click="togglePr(pr.id)"
+                      >
+                        <GitPullRequest
+                          :size="14"
+                          :class="pr.status === 'merged' ? 'text-violet-500' : 'text-blue-500'"
+                          class="shrink-0"
+                        />
+                        <span class="text-xs font-medium text-foreground truncate">PR #{{ pr.id }}: {{ pr.title }}</span>
+                        <Badge variant="outline" class="text-[10px] h-4 px-1.5 shrink-0">{{ pr.repo }}</Badge>
+                        <span class="text-[10px] text-green-600 dark:text-green-400 shrink-0">+{{ pr.additions }}</span>
+                        <span class="text-[10px] text-red-600 dark:text-red-400 shrink-0">-{{ pr.deletions }}</span>
+                        <span class="flex items-center gap-1 shrink-0">
+                          <Tooltip v-for="(r, ri) in pr.reviewers" :key="ri">
+                            <TooltipTrigger as-child>
+                              <span
+                                :class="cn('w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-medium text-white', r.color)"
+                              >{{ r.initials }}</span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" class="text-xs">{{ r.initials }}</TooltipContent>
+                          </Tooltip>
+                        </span>
+                        <span class="text-[10px] text-muted-foreground shrink-0 ml-auto">{{ pr.timeAgo }}</span>
+                        <Badge
+                          variant="outline"
+                          :class="cn('text-[10px] h-4 px-1.5 shrink-0', getPrStatusInfo(pr.status).cls)"
+                        >{{ getPrStatusInfo(pr.status).label }}</Badge>
+                        <!-- Inline pipeline indicator for merged PRs -->
+                        <template v-if="pr.status === 'merged'">
+                          <component
+                            v-for="pipe in pipelines.filter(p => p.trigger.includes('#' + pr.id))"
+                            :key="pipe.runId"
+                            :is="getPipelineIcon(pipe.status).icon"
+                            :size="13"
+                            :class="cn('shrink-0', getPipelineIcon(pipe.status).color)"
+                          />
+                        </template>
+                      </div>
+                      <!-- Expanded detail -->
+                      <div
+                        v-if="expandedPrs[pr.id]"
+                        class="px-3 py-2 border-b border-border/30 bg-muted/20 space-y-2 text-xs"
+                      >
+                        <p class="text-foreground/80 leading-relaxed">{{ pr.description }}</p>
+                        <div class="flex items-center gap-4 text-muted-foreground">
+                          <span class="flex items-center gap-1">
+                            <FileCode :size="12" />
+                            {{ pr.filesChanged }} files
+                          </span>
+                          <span class="flex items-center gap-1">
+                            <CheckCircle2
+                              :size="12"
+                              :class="pr.checksPass ? 'text-green-500' : 'text-red-500'"
+                            />
+                            Checks {{ pr.checksPass ? 'passing' : 'failing' }}
+                          </span>
+                          <span class="flex items-center gap-1 text-[11px]">
+                            <GitBranch :size="11" />
+                            {{ pr.sourceBranch }}
+                            <ArrowRight :size="10" />
+                            {{ pr.targetBranch }}
+                          </span>
+                        </div>
+                        <!-- Merged PR pipeline details in expanded view -->
+                        <div v-if="pr.status === 'merged'">
+                          <div
+                            v-for="pipe in pipelines.filter(p => p.trigger.includes('#' + pr.id))"
+                            :key="pipe.runId"
+                            class="flex items-center gap-2 text-muted-foreground"
+                          >
+                            <component
+                              :is="getPipelineIcon(pipe.status).icon"
+                              :size="13"
+                              :class="getPipelineIcon(pipe.status).color"
+                            />
+                            <span class="text-foreground">{{ pipe.name }}</span>
+                            <span class="text-[10px]">Run #{{ pipe.runId }}</span>
+                            <span class="ml-auto text-[10px]">{{ pipe.duration }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                  </ScrollArea>
+                </div>
+
+                <!-- Right column: Pipelines & Status -->
+                <div class="w-[40%] shrink-0 border-l border-border pl-4 flex flex-col">
+                  <div class="flex items-center gap-2 px-3 py-1.5 border-b border-border/50">
+                    <span class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Pipelines</span>
+                    <span class="text-[10px] text-muted-foreground/70">&middot;</span>
+                    <span class="text-[10px] text-muted-foreground">{{ pipelines.length }}</span>
+                  </div>
+                  <ScrollArea class="flex-1">
+                    <div
+                      v-for="pipe in pipelines"
+                      :key="pipe.runId"
+                      class="px-3 py-2 border-b border-border/30 hover:bg-muted/30 transition-colors"
+                    >
+                      <div class="flex items-center gap-2">
                         <component
                           :is="getPipelineIcon(pipe.status).icon"
-                          :size="16"
+                          :size="14"
                           :class="getPipelineIcon(pipe.status).color"
                         />
-                        <div class="flex flex-col min-w-0">
-                          <span class="text-sm font-medium text-foreground truncate">{{ pipe.name }}</span>
-                          <span class="text-[11px] text-muted-foreground">Run #{{ pipe.runId }}</span>
-                        </div>
+                        <span class="text-xs font-medium text-foreground truncate">{{ pipe.name }}</span>
+                        <span class="text-[10px] text-muted-foreground shrink-0">Run #{{ pipe.runId }}</span>
                         <Badge
                           variant="outline"
                           :class="cn(
-                            'text-[10px] h-4 px-1.5 capitalize',
+                            'text-[10px] h-4 px-1.5 capitalize shrink-0',
                             pipe.status === 'succeeded' && 'bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/25',
                             pipe.status === 'running' && 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/25',
                             pipe.status === 'failed' && 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/25',
                           )"
-                        >
-                          {{ pipe.status }}
-                        </Badge>
-                        <span class="text-xs text-muted-foreground ml-auto shrink-0">{{ pipe.duration }}</span>
-                        <Separator orientation="vertical" class="h-4" />
-                        <span class="text-[11px] text-muted-foreground shrink-0">{{ pipe.trigger }}</span>
+                        >{{ pipe.status }}</Badge>
+                        <span class="text-[10px] text-muted-foreground ml-auto shrink-0">{{ pipe.duration }}</span>
+                      </div>
+                      <div class="text-[10px] text-muted-foreground mt-0.5 pl-5">
+                        Triggered by {{ pipe.trigger }}
+                      </div>
+                      <div
+                        v-if="pipe.status === 'failed'"
+                        class="text-[10px] text-red-600 dark:text-red-400 mt-0.5 pl-5"
+                      >
+                        {{ pipe.trigger }}
                       </div>
                     </div>
-                  </section>
-
+                  </ScrollArea>
                 </div>
-              </ScrollArea>
+
+              </div>
             </TabsContent>
           </Tabs>
         </div>

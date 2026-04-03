@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, computed, reactive } from 'vue'
+import { onMounted, computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTaskStore } from '@/stores/tasks'
 import { cn } from '@/lib/utils'
@@ -14,6 +14,10 @@ import {
   Octagon,
   GitPullRequest,
   ThumbsUp,
+  Plus,
+  Inbox,
+  ArrowRight,
+  X,
 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -22,6 +26,39 @@ const taskStore = useTaskStore()
 onMounted(() => {
   taskStore.fetchTasks()
 })
+
+// --- Inbox / Quick Capture ---
+interface InboxItem {
+  id: number
+  text: string
+  createdAt: string
+}
+
+const inboxItems = reactive<InboxItem[]>([
+  { id: 1, text: 'Look into flaky E2E test on staging', createdAt: '2h ago' },
+  { id: 2, text: 'Ask Alex about token refresh approach', createdAt: '5h ago' },
+  { id: 3, text: 'Review new ADO permissions model doc', createdAt: '1d ago' },
+])
+
+const newInboxText = ref('')
+let nextInboxId = 100
+
+function addInboxItem() {
+  const text = newInboxText.value.trim()
+  if (!text) return
+  inboxItems.unshift({ id: nextInboxId++, text, createdAt: 'just now' })
+  newInboxText.value = ''
+}
+
+function removeInboxItem(id: number) {
+  const idx = inboxItems.findIndex(i => i.id === id)
+  if (idx !== -1) inboxItems.splice(idx, 1)
+}
+
+function promoteToTask(item: InboxItem) {
+  taskStore.createTask(item.text)
+  removeInboxItem(item.id)
+}
 
 // --- PR mock data ---
 interface PR {
@@ -73,9 +110,55 @@ const blockedTasks = computed(() =>
 
 <template>
   <div class="flex-1 flex overflow-hidden">
-    <!-- Left column: Tasks -->
+    <!-- Left column: Tasks + Inbox -->
     <ScrollArea class="flex-1 h-full">
-      <div class="px-4 py-3 space-y-3">
+      <div class="px-4 py-3 space-y-4">
+        <!-- Inbox / Quick Capture -->
+        <div>
+          <div class="flex items-center gap-1.5 mb-2">
+            <Inbox :size="12" class="text-muted-foreground" />
+            <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Inbox</span>
+            <span class="text-[11px] text-muted-foreground/50 tabular-nums">{{ inboxItems.length }}</span>
+          </div>
+          <div class="flex items-center gap-2 mb-1.5">
+            <input
+              v-model="newInboxText"
+              @keydown.enter="addInboxItem"
+              class="flex-1 h-7 text-xs bg-muted/50 border border-border/50 rounded px-2.5 placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/30 text-foreground"
+              placeholder="Quick capture..."
+            />
+            <Button variant="ghost" size="icon" class="h-7 w-7 shrink-0" @click="addInboxItem">
+              <Plus :size="13" />
+            </Button>
+          </div>
+          <div v-if="inboxItems.length > 0" class="space-y-0.5">
+            <div
+              v-for="item in inboxItems"
+              :key="item.id"
+              class="group flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-muted/40 transition-colors"
+            >
+              <span class="text-[12px] text-foreground flex-1 truncate">{{ item.text }}</span>
+              <span class="text-[10px] text-muted-foreground/40 shrink-0">{{ item.createdAt }}</span>
+              <button
+                class="h-5 w-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0 rounded hover:bg-primary/10"
+                title="Convert to task"
+                @click="promoteToTask(item)"
+              >
+                <ArrowRight :size="11" class="text-primary" />
+              </button>
+              <button
+                class="h-5 w-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0 rounded hover:bg-muted"
+                title="Dismiss"
+                @click="removeInboxItem(item.id)"
+              >
+                <X :size="11" class="text-muted-foreground" />
+              </button>
+            </div>
+          </div>
+          <p v-else class="text-[11px] text-muted-foreground/40 py-1 px-2.5">Inbox empty</p>
+        </div>
+
+        <!-- Tasks -->
         <div>
           <div class="flex items-center justify-between mb-2">
             <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Tasks</span>
