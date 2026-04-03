@@ -30,6 +30,7 @@ func main() {
 	taskService := app.NewTaskService(database)
 	projectService := app.NewProjectService(database)
 	depService := app.NewDependencyService(database)
+	adoService := app.NewADOService(database, configService)
 
 	wailsApp := application.New(application.Options{
 		Name:        "team-ado-tool",
@@ -49,6 +50,7 @@ func main() {
 	wailsApp.RegisterService(application.NewService(projectService))
 	wailsApp.RegisterService(application.NewService(depService))
 	wailsApp.RegisterService(application.NewService(authService))
+	wailsApp.RegisterService(application.NewService(adoService))
 
 	// System tray
 	tray := wailsApp.SystemTray.New()

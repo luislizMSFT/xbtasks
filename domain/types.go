@@ -60,3 +60,17 @@ type TaskDep struct {
 	TaskID    int `json:"taskId"`
 	DependsOn int `json:"dependsOn"`
 }
+
+type ADOWorkItem struct {
+	ID          int       `json:"id"`
+	AdoID       string    `json:"adoId"`
+	Title       string    `json:"title"`
+	State       string    `json:"state"`
+	Type        string    `json:"type"`
+	AssignedTo  string    `json:"assignedTo"`
+	Priority    int       `json:"priority"`
+	AreaPath    string    `json:"areaPath"`
+	Description string    `json:"description"`
+	URL         string    `json:"url"`
+	SyncedAt    time.Time `json:"syncedAt"`
+}
