@@ -15,12 +15,41 @@ import (
 
 // PRService fetches pull requests from Azure DevOps via az cli.
 type PRService struct {
-	db  *db.DB
-	cfg *config.ConfigService
+	db       *db.DB
+	cfg      *config.ConfigService
+	meEmail  string // cached identity for --creator/--reviewer
 }
 
 func NewPRService(database *db.DB, cfg *config.ConfigService) *PRService {
 	return &PRService{db: database, cfg: cfg}
+}
+
+// resolveMe gets the current user's email/UPN for PR queries.
+// az repos pr list doesn't support @me, so we resolve it once.
+func (s *PRService) resolveMe() (string, error) {
+	if s.meEmail != "" {
+		return s.meEmail, nil
+	}
+	output, err := s.runAzCli("account", "show", "-o", "json")
+	if err != nil {
+		return "", fmt.Errorf("resolve identity: %w", err)
+	}
+	var acct struct {
+		User struct {
+			Name string `json:"name"`
+		} `json:"user"`
+	}
+	if err := json.Unmarshal(output, &acct); err != nil {
+		return "", err
+	}
+	// Try ad signed-in-user show for UPN
+	upnOutput, err := s.runAzCli("ad", "signed-in-user", "show", "--query", "userPrincipalName", "-o", "tsv")
+	if err == nil && len(strings.TrimSpace(string(upnOutput))) > 0 {
+		s.meEmail = strings.TrimSpace(string(upnOutput))
+	} else {
+		s.meEmail = acct.User.Name
+	}
+	return s.meEmail, nil
 }
 
 func (s *PRService) runAzCli(args ...string) ([]byte, error) {
@@ -142,7 +171,11 @@ func (s *PRService) fetchPRs(extraArgs ...string) ([]domain.PullRequest, error) 
 
 // ListMyPRs returns PRs created by the current user.
 func (s *PRService) ListMyPRs() ([]domain.PullRequest, error) {
-	prs, err := s.fetchPRs("--creator", "@me", "--status", "all", "--top", "50")
+	me, err := s.resolveMe()
+	if err != nil {
+		return nil, fmt.Errorf("list my PRs: %w", err)
+	}
+	prs, err := s.fetchPRs("--creator", me, "--status", "all", "--top", "50")
 	if err != nil {
 		return nil, fmt.Errorf("list my PRs: %w", err)
 	}
@@ -151,7 +184,11 @@ func (s *PRService) ListMyPRs() ([]domain.PullRequest, error) {
 
 // ListReviewPRs returns active PRs where the current user is a reviewer.
 func (s *PRService) ListReviewPRs() ([]domain.PullRequest, error) {
-	prs, err := s.fetchPRs("--reviewer", "@me", "--status", "active", "--top", "50")
+	me, err := s.resolveMe()
+	if err != nil {
+		return nil, fmt.Errorf("list review PRs: %w", err)
+	}
+	prs, err := s.fetchPRs("--reviewer", me, "--status", "active", "--top", "50")
 	if err != nil {
 		return nil, fmt.Errorf("list review PRs: %w", err)
 	}

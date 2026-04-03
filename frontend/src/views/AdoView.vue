@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Card, CardContent } from '@/components/ui/card'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
   AlertCircle,
   Bug,
@@ -26,6 +27,7 @@ import {
   WifiOff,
   Clock,
   Circle,
+  GitMerge,
 } from 'lucide-vue-next'
 
 const adoStore = useADOStore()
@@ -102,6 +104,10 @@ function openItem(item: ADOWorkItem) {
 
 const activeReviewPRs = computed(() =>
   prStore.reviewPRs.filter(pr => pr.status === 'active')
+)
+
+const totalPRCount = computed(() =>
+  activeReviewPRs.value.length + prStore.myPRs.length + prStore.teamPRs.length
 )
 
 function prStatusClasses(status: string) {
@@ -194,7 +200,7 @@ const teamPRsToShow = computed(() =>
       >
         <Wifi v-if="adoStore.connected" :size="10" />
         <WifiOff v-else :size="10" />
-        {{ adoStore.connected ? 'Connected' : 'Cached' }}
+        {{ adoStore.connected ? 'Connected' : 'Offline' }}
       </span>
       <span v-if="lastSyncLabel" class="text-[10px] text-muted-foreground">
         Last synced {{ lastSyncLabel }}
@@ -208,11 +214,11 @@ const teamPRsToShow = computed(() =>
         <span class="text-xs text-destructive truncate">{{ adoStore.error }}</span>
       </div>
       <p class="text-[10px] text-muted-foreground mt-1">
-        Make sure <code class="bg-muted px-1 rounded text-[10px]">az cli</code> is installed and authenticated. Run <code class="bg-muted px-1 rounded text-[10px]">az login</code> then <code class="bg-muted px-1 rounded text-[10px]">az devops configure --defaults organization=https://dev.azure.com/YOUR_ORG project=YOUR_PROJECT</code>
+        Run <code class="bg-muted px-1 rounded text-[10px]">az login</code> then <code class="bg-muted px-1 rounded text-[10px]">az devops configure --defaults organization=https://dev.azure.com/YOUR_ORG project=YOUR_PROJECT</code>
       </p>
     </div>
 
-    <!-- Loading skeleton -->
+    <!-- Loading -->
     <template v-if="adoStore.loading">
       <div class="flex-1 flex items-center justify-center">
         <div class="text-center space-y-2">
@@ -222,107 +228,113 @@ const teamPRsToShow = computed(() =>
       </div>
     </template>
 
-    <!-- Main two-column layout -->
+    <!-- Tabbed content -->
     <template v-else>
-      <div class="flex-1 flex min-h-0">
+      <Tabs default-value="work-items" class="flex-1 flex flex-col min-h-0">
+        <div class="px-4 pt-2 shrink-0">
+          <TabsList class="h-8">
+            <TabsTrigger value="work-items" class="text-xs gap-1.5 px-3">
+              <CheckSquare :size="12" />
+              Work Items
+              <Badge v-if="adoStore.workItems.length" variant="secondary" class="text-[10px] h-4 px-1 ml-0.5">{{ adoStore.workItems.length }}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="pull-requests" class="text-xs gap-1.5 px-3">
+              <GitPullRequest :size="12" />
+              Pull Requests
+              <Badge v-if="totalPRCount" variant="secondary" class="text-[10px] h-4 px-1 ml-0.5">{{ totalPRCount }}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="pipelines" class="text-xs gap-1.5 px-3">
+              <GitMerge :size="12" />
+              Pipelines
+              <Badge v-if="adoStore.pipelines.length" variant="secondary" class="text-[10px] h-4 px-1 ml-0.5">{{ adoStore.pipelines.length }}</Badge>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
-        <!-- Left column: My Work Items (~60%) -->
-        <ScrollArea class="flex-[3] h-full">
-          <div class="px-4 py-3 space-y-3">
-            <div class="flex items-center gap-1.5">
-              <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">My Work Items</span>
-              <span class="text-[11px] text-muted-foreground/50 tabular-nums">{{ adoStore.workItems.length }}</span>
-            </div>
-
-            <template v-for="[state, items] in groupedWorkItems" :key="state">
-              <!-- Closed is collapsible -->
-              <div v-if="state === 'Closed'">
-                <button
-                  class="flex items-center gap-1 text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider hover:text-muted-foreground transition-colors mb-1"
-                  @click="closedExpanded = !closedExpanded"
-                >
-                  <ChevronRight v-if="!closedExpanded" :size="10" />
-                  <ChevronDown v-else :size="10" />
-                  {{ state }}
-                  <span class="normal-case text-muted-foreground/40 tabular-nums">{{ items.length }}</span>
-                </button>
-                <Card v-if="closedExpanded" class="overflow-hidden opacity-70">
-                  <CardContent class="p-0">
-                    <div
-                      v-for="item in items"
-                      :key="item.id"
-                      class="flex items-center gap-2.5 px-3 py-2 cursor-pointer transition-colors hover:bg-muted/50 border-b border-border/50 last:border-b-0"
-                      @click="openItem(item)"
-                    >
-                      <component :is="typeIcon(item.type)" :size="14" :class="['shrink-0', typeColor(item.type)]" />
-                      <span class="text-sm text-foreground flex-1 truncate">{{ item.title }}</span>
-                      <Badge variant="outline" :class="cn('text-[10px] h-4 px-1.5 shrink-0', priorityClasses(item.priority))">
-                        P{{ item.priority }}
-                      </Badge>
-                      <span class="text-[10px] text-muted-foreground truncate max-w-[10rem]">{{ item.areaPath }}</span>
-                      <span class="text-[10px] text-muted-foreground shrink-0">{{ item.assignedTo }}</span>
-                      <ExternalLink :size="10" class="shrink-0 text-muted-foreground/30" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <!-- Non-closed states -->
-              <div v-else>
-                <div class="flex items-center gap-1.5 mb-1">
-                  <Badge variant="outline" :class="cn('text-[10px] h-4 px-1.5', stateClasses(state))">
+        <!-- ═══ Work Items Tab ═══ -->
+        <TabsContent value="work-items" class="flex-1 min-h-0 mt-0">
+          <ScrollArea class="h-full">
+            <div class="px-4 py-3 space-y-3">
+              <template v-for="[state, items] in groupedWorkItems" :key="state">
+                <!-- Closed is collapsible -->
+                <div v-if="state === 'Closed'">
+                  <button
+                    class="flex items-center gap-1 text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider hover:text-muted-foreground transition-colors mb-1"
+                    @click="closedExpanded = !closedExpanded"
+                  >
+                    <ChevronRight v-if="!closedExpanded" :size="10" />
+                    <ChevronDown v-else :size="10" />
                     {{ state }}
-                  </Badge>
-                  <span class="text-[10px] text-muted-foreground/40 tabular-nums">{{ items.length }}</span>
+                    <span class="normal-case text-muted-foreground/40 tabular-nums">{{ items.length }}</span>
+                  </button>
+                  <Card v-if="closedExpanded" class="overflow-hidden opacity-70">
+                    <CardContent class="p-0">
+                      <div
+                        v-for="item in items"
+                        :key="item.id"
+                        class="flex items-center gap-2.5 px-3 py-2 cursor-pointer transition-colors hover:bg-muted/50 border-b border-border/50 last:border-b-0"
+                        @click="openItem(item)"
+                      >
+                        <component :is="typeIcon(item.type)" :size="14" :class="['shrink-0', typeColor(item.type)]" />
+                        <span class="text-sm text-foreground flex-1 truncate">{{ item.title }}</span>
+                        <Badge variant="outline" :class="cn('text-[10px] h-4 px-1.5 shrink-0', priorityClasses(item.priority))">
+                          P{{ item.priority }}
+                        </Badge>
+                        <span class="text-[10px] text-muted-foreground truncate max-w-[10rem]">{{ item.areaPath }}</span>
+                        <span class="text-[10px] text-muted-foreground shrink-0">{{ item.assignedTo }}</span>
+                        <ExternalLink :size="10" class="shrink-0 text-muted-foreground/30" />
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
-                <Card class="overflow-hidden">
-                  <CardContent class="p-0">
-                    <div
-                      v-for="item in items"
-                      :key="item.id"
-                      class="flex items-center gap-2.5 px-3 py-2 cursor-pointer transition-colors hover:bg-muted/50 border-b border-border/50 last:border-b-0"
-                      @click="openItem(item)"
-                    >
-                      <component :is="typeIcon(item.type)" :size="14" :class="['shrink-0', typeColor(item.type)]" />
-                      <span class="text-sm text-foreground flex-1 truncate">{{ item.title }}</span>
-                      <Badge variant="outline" :class="cn('text-[10px] h-4 px-1.5 shrink-0', priorityClasses(item.priority))">
-                        P{{ item.priority }}
-                      </Badge>
-                      <span class="text-[10px] text-muted-foreground truncate max-w-[10rem]">{{ item.areaPath }}</span>
-                      <span class="text-[10px] text-muted-foreground shrink-0">{{ item.assignedTo }}</span>
-                      <ExternalLink :size="10" class="shrink-0 text-muted-foreground/30" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </template>
 
-            <p v-if="adoStore.workItems.length === 0" class="text-[11px] text-muted-foreground/40 py-2 px-1">No work items found</p>
-          </div>
-        </ScrollArea>
+                <!-- Non-closed states -->
+                <div v-else>
+                  <div class="flex items-center gap-1.5 mb-1">
+                    <Badge variant="outline" :class="cn('text-[10px] h-4 px-1.5', stateClasses(state))">
+                      {{ state }}
+                    </Badge>
+                    <span class="text-[10px] text-muted-foreground/40 tabular-nums">{{ items.length }}</span>
+                  </div>
+                  <Card class="overflow-hidden">
+                    <CardContent class="p-0">
+                      <div
+                        v-for="item in items"
+                        :key="item.id"
+                        class="flex items-center gap-2.5 px-3 py-2 cursor-pointer transition-colors hover:bg-muted/50 border-b border-border/50 last:border-b-0"
+                        @click="openItem(item)"
+                      >
+                        <component :is="typeIcon(item.type)" :size="14" :class="['shrink-0', typeColor(item.type)]" />
+                        <span class="text-sm text-foreground flex-1 truncate">{{ item.title }}</span>
+                        <Badge variant="outline" :class="cn('text-[10px] h-4 px-1.5 shrink-0', priorityClasses(item.priority))">
+                          P{{ item.priority }}
+                        </Badge>
+                        <span class="text-[10px] text-muted-foreground truncate max-w-[10rem]">{{ item.areaPath }}</span>
+                        <span class="text-[10px] text-muted-foreground shrink-0">{{ item.assignedTo }}</span>
+                        <ExternalLink :size="10" class="shrink-0 text-muted-foreground/30" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </template>
 
-        <!-- Right column: PRs + Pipelines (~40%) -->
-        <ScrollArea class="flex-[2] h-full border-l border-border">
-          <div class="px-4 py-3 space-y-3">
-
-            <!-- Pull Requests -->
-            <div class="flex items-center gap-1.5">
-              <GitPullRequest :size="14" class="text-muted-foreground" />
-              <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Pull Requests</span>
+              <p v-if="adoStore.workItems.length === 0" class="text-[11px] text-muted-foreground/40 py-4 text-center">No work items assigned to you</p>
             </div>
+          </ScrollArea>
+        </TabsContent>
 
-            <!-- Loading skeleton for PRs -->
-            <template v-if="prStore.loading">
-              <div class="space-y-2">
-                <div v-for="i in 3" :key="i" class="h-10 rounded bg-muted/50 animate-pulse" />
-              </div>
-            </template>
+        <!-- ═══ Pull Requests Tab ═══ -->
+        <TabsContent value="pull-requests" class="flex-1 min-h-0 mt-0">
+          <ScrollArea class="h-full">
+            <div class="px-4 py-3 space-y-4">
 
-            <template v-else>
-              <!-- Review Requests -->
+              <!-- Needs Your Review -->
               <div>
-                <span class="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">Needs Your Review</span>
-                <Card v-if="activeReviewPRs.length > 0" class="mt-1.5 overflow-hidden">
+                <div class="flex items-center gap-1.5 mb-1.5">
+                  <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Needs Your Review</span>
+                  <Badge v-if="activeReviewPRs.length" variant="secondary" class="text-[10px] h-4 px-1">{{ activeReviewPRs.length }}</Badge>
+                </div>
+                <Card v-if="activeReviewPRs.length > 0" class="overflow-hidden">
                   <CardContent class="p-0">
                     <div
                       v-for="pr in activeReviewPRs"
@@ -332,18 +344,15 @@ const teamPRsToShow = computed(() =>
                     >
                       <div class="flex items-center gap-2">
                         <span class="text-sm text-foreground flex-1 truncate">{{ pr.title }}</span>
-                        <Badge variant="outline" :class="cn('text-[10px] px-1.5 py-0 capitalize shrink-0', prStatusClasses(pr.status))">
-                          {{ pr.status }}
-                        </Badge>
+                        <Badge variant="outline" :class="cn('text-[10px] px-1.5 py-0 capitalize shrink-0', prStatusClasses(pr.status))">{{ pr.status }}</Badge>
                       </div>
                       <div class="flex items-center gap-2 text-[10px] text-muted-foreground/60">
                         <span class="font-medium">{{ pr.repo }}</span>
                         <span>{{ branchName(pr.sourceBranch) }} → {{ branchName(pr.targetBranch) }}</span>
+                        <span v-if="pr.createdBy" class="italic">by {{ pr.createdBy }}</span>
                         <span class="ml-auto flex items-center gap-1">
                           <template v-for="reviewer in parseReviewers(pr.reviewers)" :key="reviewer.uniqueName">
-                            <span v-if="reviewer.vote !== 0" :title="`${reviewer.displayName}: ${voteIcon(reviewer.vote)}`">
-                              {{ voteIcon(reviewer.vote) }}
-                            </span>
+                            <span v-if="reviewer.vote !== 0" :title="`${reviewer.displayName}: ${voteIcon(reviewer.vote)}`">{{ voteIcon(reviewer.vote) }}</span>
                           </template>
                         </span>
                         <span class="tabular-nums shrink-0">{{ relativeTime(pr.updatedAt) }}</span>
@@ -356,8 +365,11 @@ const teamPRsToShow = computed(() =>
 
               <!-- Your PRs -->
               <div>
-                <span class="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">Your PRs</span>
-                <Card v-if="prStore.myPRs.length > 0" class="mt-1.5 overflow-hidden">
+                <div class="flex items-center gap-1.5 mb-1.5">
+                  <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Your PRs</span>
+                  <Badge v-if="prStore.myPRs.length" variant="secondary" class="text-[10px] h-4 px-1">{{ prStore.myPRs.length }}</Badge>
+                </div>
+                <Card v-if="prStore.myPRs.length > 0" class="overflow-hidden">
                   <CardContent class="p-0">
                     <div
                       v-for="pr in prStore.myPRs"
@@ -367,23 +379,15 @@ const teamPRsToShow = computed(() =>
                     >
                       <div class="flex items-center gap-2">
                         <span class="text-sm text-foreground flex-1 truncate">{{ pr.title }}</span>
-                        <Badge variant="outline" :class="cn('text-[10px] px-1.5 py-0 capitalize shrink-0', prStatusClasses(pr.status))">
-                          {{ pr.status }}
-                        </Badge>
+                        <Badge variant="outline" :class="cn('text-[10px] px-1.5 py-0 capitalize shrink-0', prStatusClasses(pr.status))">{{ pr.status }}</Badge>
                       </div>
                       <div class="flex items-center gap-2 text-[10px] text-muted-foreground/60">
                         <span class="font-medium">{{ pr.repo }}</span>
                         <span>{{ branchName(pr.sourceBranch) }} → {{ branchName(pr.targetBranch) }}</span>
                         <div class="ml-auto flex items-center gap-1">
                           <template v-for="reviewer in parseReviewers(pr.reviewers)" :key="reviewer.uniqueName">
-                            <span v-if="reviewer.vote !== 0" :title="`${reviewer.displayName}: ${voteIcon(reviewer.vote)}`">
-                              {{ voteIcon(reviewer.vote) }}
-                            </span>
-                            <div
-                              v-else
-                              class="w-4 h-4 rounded-full bg-muted border border-background flex items-center justify-center"
-                              :title="reviewer.displayName"
-                            >
+                            <span v-if="reviewer.vote !== 0" :title="`${reviewer.displayName}: ${voteIcon(reviewer.vote)}`">{{ voteIcon(reviewer.vote) }}</span>
+                            <div v-else class="w-4 h-4 rounded-full bg-muted border border-background flex items-center justify-center" :title="reviewer.displayName">
                               <span class="text-[7px] font-medium text-muted-foreground">{{ getInitials(reviewer.displayName) }}</span>
                             </div>
                           </template>
@@ -393,16 +397,62 @@ const teamPRsToShow = computed(() =>
                     </div>
                   </CardContent>
                 </Card>
-                <p v-else class="text-[11px] text-muted-foreground/40 py-2 px-1">You have no active PRs</p>
+                <p v-else class="text-[11px] text-muted-foreground/40 py-2 px-1">You have no PRs</p>
               </div>
-            </template>
 
-            <!-- Pipelines -->
-            <div class="pt-2">
-              <div class="flex items-center gap-1.5 mb-1.5">
-                <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Pipelines</span>
-                <span class="text-[11px] text-muted-foreground/50 tabular-nums">{{ adoStore.pipelines.length }}</span>
+              <!-- Team Activity -->
+              <div>
+                <div class="flex items-center gap-1.5 mb-1.5">
+                  <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Team Activity</span>
+                  <Badge v-if="prStore.teamPRs.length" variant="secondary" class="text-[10px] h-4 px-1">{{ prStore.teamPRs.length }}</Badge>
+                </div>
+                <Card v-if="prStore.teamPRs.length > 0" class="overflow-hidden">
+                  <CardContent class="p-0">
+                    <div
+                      v-for="pr in teamPRsToShow"
+                      :key="pr.id"
+                      class="flex flex-col gap-1 px-3 py-2 cursor-pointer transition-colors hover:bg-muted/50 border-b border-border/50 last:border-b-0"
+                      @click="openPR(pr)"
+                    >
+                      <div class="flex items-center gap-2">
+                        <span class="text-sm text-foreground flex-1 truncate">{{ pr.title }}</span>
+                        <Badge variant="outline" :class="cn('text-[10px] px-1.5 py-0 capitalize shrink-0', prStatusClasses(pr.status))">{{ pr.status }}</Badge>
+                      </div>
+                      <div class="flex items-center gap-2 text-[10px] text-muted-foreground/60">
+                        <span class="font-medium">{{ pr.repo }}</span>
+                        <span v-if="pr.createdBy" class="italic">by {{ pr.createdBy }}</span>
+                        <span>{{ branchName(pr.sourceBranch) }} → {{ branchName(pr.targetBranch) }}</span>
+                        <div class="ml-auto flex items-center gap-1">
+                          <template v-for="reviewer in parseReviewers(pr.reviewers)" :key="reviewer.uniqueName">
+                            <span v-if="reviewer.vote !== 0" :title="`${reviewer.displayName}: ${voteIcon(reviewer.vote)}`">{{ voteIcon(reviewer.vote) }}</span>
+                            <div v-else class="w-4 h-4 rounded-full bg-muted border border-background flex items-center justify-center" :title="reviewer.displayName">
+                              <span class="text-[7px] font-medium text-muted-foreground">{{ getInitials(reviewer.displayName) }}</span>
+                            </div>
+                          </template>
+                        </div>
+                        <span class="tabular-nums shrink-0">{{ relativeTime(pr.updatedAt) }}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <p v-else class="text-[11px] text-muted-foreground/40 py-2 px-1">No team PRs found</p>
+                <Button
+                  v-if="prStore.teamPRs.length > 5 && !showAllTeamPRs"
+                  variant="ghost" size="sm"
+                  class="w-full text-xs h-7 mt-1"
+                  @click="showAllTeamPRs = true"
+                >
+                  Show all {{ prStore.teamPRs.length }} team PRs
+                </Button>
               </div>
+            </div>
+          </ScrollArea>
+        </TabsContent>
+
+        <!-- ═══ Pipelines Tab ═══ -->
+        <TabsContent value="pipelines" class="flex-1 min-h-0 mt-0">
+          <ScrollArea class="h-full">
+            <div class="px-4 py-3 space-y-3">
               <Card v-if="adoStore.pipelines.length > 0" class="overflow-hidden">
                 <CardContent class="p-0">
                   <div
@@ -438,7 +488,7 @@ const teamPRsToShow = computed(() =>
                   </div>
                 </CardContent>
               </Card>
-              <p v-else class="text-[11px] text-muted-foreground/40 py-2 px-1">No pipeline runs found</p>
+              <p v-else class="text-[11px] text-muted-foreground/40 py-4 text-center">No pipeline runs found</p>
               <Button
                 v-if="adoStore.pipelines.length > 5 && !showAllPipelines"
                 variant="ghost" size="sm"
@@ -448,64 +498,9 @@ const teamPRsToShow = computed(() =>
                 Show all {{ adoStore.pipelines.length }} pipelines
               </Button>
             </div>
-
-            <!-- Team Activity -->
-            <div class="pt-2">
-              <div class="flex items-center gap-1.5 mb-1.5">
-                <GitPullRequest :size="14" class="text-muted-foreground" />
-                <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Team Activity</span>
-                <span class="text-[11px] text-muted-foreground/50 tabular-nums">{{ prStore.teamPRs.length }}</span>
-              </div>
-              <Card v-if="prStore.teamPRs.length > 0" class="overflow-hidden">
-                <CardContent class="p-0">
-                  <div
-                    v-for="pr in teamPRsToShow"
-                    :key="pr.id"
-                    class="flex flex-col gap-1 px-3 py-2 cursor-pointer transition-colors hover:bg-muted/50 border-b border-border/50 last:border-b-0"
-                    @click="openPR(pr)"
-                  >
-                    <div class="flex items-center gap-2">
-                      <span class="text-sm text-foreground flex-1 truncate">{{ pr.title }}</span>
-                      <Badge variant="outline" :class="cn('text-[10px] px-1.5 py-0 capitalize shrink-0', prStatusClasses(pr.status))">
-                        {{ pr.status }}
-                      </Badge>
-                    </div>
-                    <div class="flex items-center gap-2 text-[10px] text-muted-foreground/60">
-                      <span class="font-medium">{{ pr.repo }}</span>
-                      <span>{{ branchName(pr.sourceBranch) }} → {{ branchName(pr.targetBranch) }}</span>
-                      <div class="ml-auto flex items-center gap-1">
-                        <template v-for="reviewer in parseReviewers(pr.reviewers)" :key="reviewer.uniqueName">
-                          <span v-if="reviewer.vote !== 0" :title="`${reviewer.displayName}: ${voteIcon(reviewer.vote)}`">
-                            {{ voteIcon(reviewer.vote) }}
-                          </span>
-                          <div
-                            v-else
-                            class="w-4 h-4 rounded-full bg-muted border border-background flex items-center justify-center"
-                            :title="reviewer.displayName"
-                          >
-                            <span class="text-[7px] font-medium text-muted-foreground">{{ getInitials(reviewer.displayName) }}</span>
-                          </div>
-                        </template>
-                      </div>
-                      <span class="tabular-nums shrink-0">{{ relativeTime(pr.updatedAt) }}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <p v-else class="text-[11px] text-muted-foreground/40 py-2 px-1">No team PRs found</p>
-              <Button
-                v-if="prStore.teamPRs.length > 5 && !showAllTeamPRs"
-                variant="ghost" size="sm"
-                class="w-full text-xs h-7 mt-1"
-                @click="showAllTeamPRs = true"
-              >
-                Show all {{ prStore.teamPRs.length }} team PRs
-              </Button>
-            </div>
-
-          </div>
-        </ScrollArea>
-      </div>
+          </ScrollArea>
+        </TabsContent>
+      </Tabs>
     </template>
   </div>
 </template>
