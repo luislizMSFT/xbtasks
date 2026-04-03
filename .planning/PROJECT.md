@@ -16,16 +16,19 @@ One pane of glass for all your work — personal tasks linked to ADO items, PRs,
 
 ### Active
 
-- [ ] Unified dashboard showing all work in one view (ADO items, PRs, personal tasks)
-- [ ] Personal task management with create, edit, prioritize, subtask support
-- [ ] Bidirectional ADO linking — promote local task → ADO work item, pull ADO item → local task
+- [ ] Unified list view showing all tasks (personal + public/ADO-linked) with visual badge distinguishing them
+- [ ] Personal task management with create (quick-add + expand), edit, prioritize, subtask support, dependencies
+- [ ] Personal→public task model: tasks start local-only, become ADO-synced when linked/promoted
+- [ ] Bidirectional ADO linking — promote local task → ADO work item, pull ADO item → local task, link to existing
+- [ ] ADO browser view — browse assigned items, see linked status, toggle hide linked, import from here
 - [ ] ADO work items surfaced with status, priority, assignment
-- [ ] ADO PRs surfaced with review status and comment threads
-- [ ] PR comment threads viewable in-app (ADO-style)
+- [ ] Bidirectional sync — auto-pull silently, outbound requires preview diff + user confirmation
+- [ ] Per-field conflict resolution when both sides changed a linked item
 - [ ] Tasks linkable to ADO deliverables/scenarios with clear visual indication
 - [ ] User can set personal priority and notes on any linked item
-- [ ] Auth via Microsoft identity (ADO/Entra ID)
-- [ ] Multi-role support — ICs, infra engineers, managers all find value
+- [ ] Auth via abstracted token provider (az cli initially, swappable for PAT/OAuth)
+- [ ] List view filterable by status, priority, project, due date, ADO link status
+- [ ] Subtasks of public tasks stay personal unless individually linked to ADO
 
 ### Out of Scope
 
@@ -36,6 +39,10 @@ One pane of glass for all your work — personal tasks linked to ADO items, PRs,
 - Linkwarden integration — personal power feature, not team dependency
 - Real-time collaboration — not competing with Teams/Slack
 - Mobile app — web-first
+- PR monitoring & review — deferred to Phase 3; focus on task lifecycle + ADO sync first
+- Pipeline status — deferred to Phase 3
+- Personal/life tasks — work tasks only (dev + non-dev like meetings, docs, reviews)
+- Auto-push to ADO — all outbound changes require user confirmation
 
 ## Context
 
@@ -50,13 +57,15 @@ One pane of glass for all your work — personal tasks linked to ADO items, PRs,
 
 ## Constraints
 
-- **Auth**: Must use Microsoft identity / Entra ID — team is on Microsoft ecosystem. PAT fallback for simplicity.
-- **ADO API**: Azure DevOps REST API is the primary integration surface; must handle rate limits and pagination
+- **Auth**: Abstracted token provider — az cli `get-access-token` initially, swappable for PAT or Entra ID OAuth later. Team is on Microsoft ecosystem.
+- **ADO API**: Direct ADO REST API calls from Go using token from provider — no shelling out to az cli per query. Must handle rate limits and pagination.
+- **Sync safety**: All outbound changes to ADO require preview diff + user confirmation. Never auto-push. Subtasks/personal breakdowns never pushed unless individually linked.
 - **Audience**: Start with Luis (dogfooding), grow to team — must be useful for one person before it scales
-- **Stack**: Wails v3 (Go) + Vue 3 (thin shell) + SQLite — native desktop app, not a web app
+- **Stack**: Wails v3 (Go) + Vue 3 (thin shell) + SQLite — native desktop app, not a web app. Design for future VS Code/MCP extension integration.
 - **No XAML, no React, no C#**: Team prefers Go backend with lightweight web frontend in native shell
 - **Vue is thin shell**: All logic lives in Go. Vue is display + interaction only.
 - **Local-first**: SQLite per user, no server dependency for core functionality
+- **Work tasks only**: Dev and non-dev work tasks (meetings, docs, reviews) — not personal/life tasks
 
 ## Key Decisions
 
@@ -66,6 +75,12 @@ One pane of glass for all your work — personal tasks linked to ADO items, PRs,
 | Wails v3 + Vue + Go + SQLite | Go backend (port xl), Vue thin shell, native desktop, local-first SQLite | — Pending |
 | Native desktop app over web app | System tray, notifications, offline-capable, no browser dependency | — Pending |
 | Bidirectional task linking (not just read-only ADO view) | Users need to promote/pull tasks, not just see them | — Pending |
+| Personal→public task model | Tasks start local-only, become ADO-synced when explicitly linked/promoted. Subtasks stay personal unless individually linked. | — Decided 2026-04-03 |
+| Outbound sync requires confirmation | Preview diff before any push to ADO — prevents accidental updates, protects personal breakdowns | — Decided 2026-04-03 |
+| Abstracted token provider (az cli first) | az cli is easiest auth path; abstract so PAT/OAuth can swap in later | — Decided 2026-04-03 |
+| Direct ADO REST API from Go | Grab token from provider, call REST directly — no shelling out per query | — Decided 2026-04-03 |
+| PRs deferred to Phase 3 | Focus on task lifecycle + ADO sync first; PRs are additive, not core | — Decided 2026-04-03 |
+| Design for future VS Code/MCP integration | Desktop app primary, but architecture should support other surfaces | — Decided 2026-04-03 |
 
 ## Evolution
 
@@ -85,4 +100,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-31 after initialization*
+*Last updated: 2026-04-03 — restructured per workflow discussion (personal/public model, sync confirmation, ADO browser, auth via az cli token, PRs deferred)*

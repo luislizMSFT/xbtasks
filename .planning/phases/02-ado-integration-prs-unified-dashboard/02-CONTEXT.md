@@ -1,12 +1,18 @@
-# Phase 2: ADO Integration, PRs & Unified Dashboard - Context
+# Phase 2: ADO Integration & Sync Workflow - Context
 
-**Gathered:** 2026-04-02
+**Gathered:** 2026-04-03 (updated from 2026-04-02 discussion)
 **Status:** Ready for planning
 
 <domain>
 ## Phase Boundary
 
-Bridge local tasks ↔ ADO items, surface PRs under tasks, add comments/timeline to tasks, and deliver a unified dashboard. ADO is a management/linking layer — the primary experience is the user's own tasks, projects, and notes. ADO answers "is this tracked upstream?" not "what should I work on?"
+Authenticate to ADO, implement the personal→public task model, build the ADO browser view, and deliver safe bidirectional sync with user confirmation for all outbound changes. PRs are deferred to Phase 3.
+
+**Core mental model:**
+- **Personal tasks** — Local-only, fully private, never touch ADO. Can have subtasks and dependencies.
+- **Public tasks** — Linked to ADO (via link, promote, or import). Title, status, and description sync bidirectionally. Show in same list but visually distinguished (badge/icon).
+- **Transition** — A personal task becomes public when the user explicitly links/promotes it to ADO (with confirmation). Once public, it stays synced.
+- **Subtasks of public tasks** — Remain personal unless individually linked. User can break down an ADO item locally without cluttering the ADO board.
 
 Our domain: **Projects** and **Tasks** (with subtasks). ADO has its own hierarchy (Scenario → Deliverable → Task/Bug/Story) but we don't replicate that in our domain. Users **link** our projects/tasks to any ADO item they choose.
 
@@ -15,58 +21,69 @@ Our domain: **Projects** and **Tasks** (with subtasks). ADO has its own hierarch
 <decisions>
 ## Implementation Decisions
 
-### ADO Tree & Bulk Linking
-- **D-01:** ADO Items tab shows full tree hierarchy — expandable Scenario → Deliverable → Task/Bug/Story with type icons (🐛 Bug, ✅ Task, 📖 Story, 📦 Deliverable, 🎯 Scenario)
-- **D-02:** Tree scope: sync items assigned to me + their parent chain (Deliverable → Scenario context). Full team items visible in ADO Items tab.
-- **D-03:** Auto-sync on configurable interval (default 15min via Viper) + manual refresh button
-- **D-04:** Bulk linking via checkboxes on tree nodes → confirm view showing selected items
-- **D-05:** Bulk confirm is a table with smart auto-match — suggest links based on title similarity, user confirms/overrides. Per-item actions: Track (import as new local task), Link (to existing task/project), Skip
-- **D-06:** Tree search: hybrid — instant search of local SQLite cache + "Search all ADO" button for live API query. Results show in-tree with highlights OR flat list with breadcrumb paths (toggle between views). Recursive search through full hierarchy.
-- **D-07:** ADO bugs can be linked as tasks — they keep their bug icon (🐛) throughout the app
+### Authentication & ADO Client
+- **D-01:** Abstracted token provider interface in Go — implementations: az cli (`az account get-access-token`), PAT (from keyring), future OAuth
+- **D-02:** Token auto-refreshes transparently; cached with TTL, re-fetched when expired
+- **D-03:** Direct ADO REST API calls from Go using token from provider — no shelling out to az cli per query
+- **D-04:** ADO client package (`pkg/ado/`) — stateless HTTP client accepting token, handles pagination, rate limits, WIQL queries, JSON Patch
 
-### PRs Under Tasks
-- **D-08:** PRs belong under tasks, not a separate view. Task detail has a collapsible PR section + PRs appear in the activity timeline
-- **D-09:** Tasks can have multiple PRs. Each PR row is expandable: compact by default (title, status badge, vote summary), click to expand (repo, branches, all reviewers, comment count)
-- **D-10:** PR association: auto-link from ADO (if PR references a linked work item) + manual add for unlinked PRs
-- **D-11:** Click PR title → deep link opens ADO PR page in browser (no in-app diff viewer)
-- **D-12:** Sync all team PRs from configured repos. Dashboard shows personal PRs (authored + assigned for review + followed). ADO Items tab shows all team PRs.
-- **D-13:** PR mark-as-viewed: unread dot on PR rows, click to mark viewed. "X unread" counter on dashboard
+### Personal → Public Task Model
+- **D-05:** Tasks have a computed "public" status derived from whether they have an entry in `task_ado_links` table
+- **D-06:** Unified list view shows personal + public tasks together; public tasks have a filled ADO badge, personal have hollow/empty badge
+- **D-07:** Quick-add: create task with just a title (all other fields optional, filled in later)
+- **D-08:** Subtasks of a public (linked) task remain personal unless the user explicitly links them individually
+- **D-09:** When promoting a personal task to ADO, only title/status/description are pushed — subtasks, personal priority, local notes stay local
 
-### Comments & Timeline
-- **D-14:** No standalone "notes" entity. Two concepts: **Comments** on tasks (thread style) and **Description** field
-- **D-15:** Comments have two tabs: **Personal** (local only, private) and **ADO** (synced to linked ADO work item)
-- **D-16:** Task description can optionally sync to ADO linked work item
-- **D-17:** Rich text WYSIWYG for comments and descriptions (bold, italic, links, code blocks, lists)
-- **D-18:** Full activity timeline per task — comments, status changes, PR events, ADO sync events, all chronological in detail panel
-- **D-19:** @mention syntax for quick linking (type @task-123 or #ADO-4829) + toolbar button for search-based linking within comments
-- **D-20:** Project-level timeline: aggregates all child task activity into one chronological stream
+### ADO Browser View
+- **D-10:** Dedicated view showing all ADO work items assigned to the user (fetched via ADO REST API)
+- **D-11:** Each item shows whether it's already linked to a local task (visual indicator)
+- **D-12:** Toggle to hide already-linked items (so user only sees what's not imported yet)
+- **D-13:** From this view, user can select items to import (create local task) or link (to existing local task)
+- **D-14:** ADO tree hierarchy — expandable Scenario → Deliverable → Task/Bug/Story with type icons
+- **D-15:** Tree scope: sync items assigned to me + their parent chain for context
+- **D-16:** Tree search: instant search of local SQLite cache + "Search all ADO" button for live API query
 
-### Dashboard
-- **D-21:** Fixed widget/card grid layout (no customization for v1). PRs on top.
-- **D-22:** Dashboard is personal: my PRs (authored + reviewing + followed), my focus tasks, stats, blocked items
-- **D-23:** ADO Items tab is the team-wide view — all team PRs + all ADO items
+### ADO Linking (3 Flows)
+- **D-17:** **Link** — Connect local task to existing ADO item (search by ID or title)
+- **D-18:** **Promote** — Create new ADO work item from local task (preview diff of what will be created, confirm)
+- **D-19:** **Import** — Pull ADO work item into local task list (creates new local task with ADO link)
+- **D-20:** Task row ADO icon: hollow/empty if unlinked, filled with ADO type icon if linked. Click hollow → opens link dialog
 
-### Task Detail Panel Reorg
-- **D-24:** Top: Title (editable) → Subtasks with progress bar → PR section (collapsible)
-- **D-25:** Middle: Description (rich text, optional ADO sync) → Comments (Personal | ADO tabs) → Activity Timeline
-- **D-26:** Bottom: Configuration (status, priority, tags, due date, project, ADO link) → Delete
-- **D-27:** Progress bar on task rows and in detail panel (X of Y subtasks complete)
+### Sync Behavior
+- **D-21:** Background auto-sync pulls ADO changes to linked items silently on configurable timer (default 15 min via Viper) + manual refresh button
+- **D-22:** All outbound pushes to ADO require user confirmation via preview diff — shows exactly what fields will change (title, status, description), user confirms or cancels
+- **D-23:** Never auto-push to ADO. Every outbound change is explicit and confirmed.
+- **D-24:** Linked fields that sync: title, status (with ADO state mapping), description
+- **D-25:** Fields that never sync: subtasks, personal priority, local notes/comments, tags
 
-### ADO Linking UX
-- **D-28:** Task row ADO icon: hollow/empty if unlinked, filled with ADO type icon if linked. Click hollow → opens link dialog
-- **D-29:** Projects can be linked to ADO Scenarios or Deliverables — user's choice, we don't enforce hierarchy
+### Conflict Resolution
+- **D-26:** When both local and ADO changed the same linked item, show conflict to user
+- **D-27:** Per-field conflict resolution — user picks local or ADO value for each conflicting field
+- **D-28:** Non-conflicting fields merge silently (e.g., only title changed locally, only status changed in ADO)
+
+### Dashboard & Filters
+- **D-29:** Unified list view (not kanban) as primary task view
+- **D-30:** Filter dimensions: status, priority, project, due date, ADO link status (personal/public)
+- **D-31:** Sortable by all filter dimensions
+- **D-32:** No tag-based filtering for v1 (tags exist on tasks but not a filter dimension)
 
 ### Agent's Discretion
-- Rich text editor library choice (Tiptap, ProseMirror, etc.)
-- Activity timeline event rendering design
-- Smart auto-match algorithm for bulk linking
-- PR sync implementation (ADO REST API, polling strategy)
-- Dashboard card layout/sizing
+- ADO REST API client library design (package structure, error handling)
+- Token caching strategy and TTL
+- Preview diff UI component design
+- Conflict resolution UI design
+- ADO state mapping (todo→Proposed, in_progress→Active, done→Completed, blocked→Blocked)
+- Bulk import UX from ADO browser view
+- Search implementation (local cache vs live API)
 
 ### Deferred Ideas
-- Customizable dashboard widget grid (drag to rearrange) — v2
-- Upcoming/reminder widget on dashboard — v2
-- Xbox splash screen with zoom animation — v2
+- PR monitoring under tasks — Phase 3
+- Pipeline status — Phase 3
+- Customizable dashboard widget grid — v2
+- Rich text WYSIWYG for comments — v2
+- Activity timeline per task — v2
+- @mention syntax for quick linking — v2
+- Bulk linking with smart auto-match — v2
 - In-app PR diff viewer — if needed later
 
 </decisions>
@@ -77,8 +94,8 @@ Our domain: **Projects** and **Tasks** (with subtasks). ADO has its own hierarch
 **Downstream agents MUST read these before planning or implementing.**
 
 ### Project Context
-- `.planning/PROJECT.md` — Full project vision, xl porting context (ADO integration patterns, WIQL queries, JSON Patch, state mapping), key decisions
-- `.planning/REQUIREMENTS.md` — ADO-01 through ADO-05, PR-01 through PR-03, DASH-01 through DASH-03
+- `.planning/PROJECT.md` — Full project vision, personal→public model, sync safety constraints, key decisions
+- `.planning/REQUIREMENTS.md` — AUTH-01 through AUTH-03, TASK-08/09, ADO-01 through ADO-08, SYNC-01 through SYNC-04, DASH-01 through DASH-03
 - `.planning/ROADMAP.md` — Phase 2 success criteria and scope boundary
 
 ### Phase 1 Context
@@ -89,11 +106,11 @@ Our domain: **Projects** and **Tasks** (with subtasks). ADO has its own hierarch
 
 ### Existing Code
 - `internal/db/db.go` — SQLite schema with tables: ado_work_items, task_ado_links, pull_requests (already created in Phase 1)
+- `internal/app/adoservice.go` — Current ADO service (shells out to az cli — needs refactoring to use token + REST)
 - `internal/config/config.go` — Viper config with ado.organization, ado.project, sync.interval_minutes
 - `internal/config/service.go` — ConfigService exposed to frontend via Wails bindings
 - `frontend/src/stores/tasks.ts` — Task store with mock data, binding fallback pattern
-- `frontend/src/views/TasksView.vue` — Current task list with status sections (needs ADO Items tab)
-- `frontend/src/components/TaskDetail.vue` — Current detail panel (needs PR section, comments, timeline)
+- `frontend/src/views/TasksView.vue` — Current task list (needs personal/public badges, filters)
 
 </canonical_refs>
 
@@ -101,23 +118,25 @@ Our domain: **Projects** and **Tasks** (with subtasks). ADO has its own hierarch
 ## Existing Code Insights
 
 ### Reusable Assets
-- `internal/db/db.go` schema already has: `ado_work_items` (ado_id, title, state, type, assigned_to, priority, area_path, url), `task_ado_links` (task_id, ado_id, direction), `pull_requests` (title, pr_url, repo, task_id, ado_id, status, reviewers, votes, branches)
+- `internal/db/db.go` schema already has: `ado_work_items` (ado_id, title, state, type, assigned_to, priority, area_path, url), `task_ado_links` (task_id, ado_id, direction), `pull_requests` (deferred to Phase 3)
 - `internal/config/` — Viper config with ADO org/project/sync interval, ConfigService for frontend
 - `frontend/src/components/ui/` — Full shadcn-vue library (79 components): button, badge, card, select, input, textarea, separator, tooltip, scroll-area, dialog, dropdown-menu, command, tabs
 - `frontend/src/lib/utils.ts` — `cn()` utility for class merging
-- `frontend/src/components/ui/AdoBadge.vue` — Existing ADO badge component (needs type icon variants)
+- `pkg/ado/` — Empty placeholder, ready for ADO REST client implementation
 
 ### Established Patterns
-- **Wails service binding:** Go structs → frontend via `application.NewService()`. Add ADOService, PRService
+- **Wails service binding:** Go structs → frontend via `application.NewService()`. Refactor ADOService to use REST.
 - **Store pattern:** Pinia stores with `useMock` flag, try bindings → catch fallback to mock
 - **shadcn-vue tokens:** bg-primary/text-primary-foreground for blue, bg-muted for subtle, text-foreground/text-muted-foreground
 
 ### Integration Points
-- `main.go` — Register new services (ADOService, PRService)
-- `frontend/src/router/index.ts` — No new routes needed (ADO Items is a tab within Tasks page)
-- `frontend/src/views/TasksView.vue` — Add ADO Items, Linked tabs via shadcn Tabs
-- `frontend/src/components/TaskDetail.vue` — Add PR section, comments, timeline
-- `frontend/src/views/DashboardView.vue` — Add PR widget, redesign as card grid
+- `main.go` — Register refactored ADOService with token provider
+- `pkg/ado/` — New ADO REST client package (token provider interface, HTTP client, WIQL, JSON Patch)
+- `internal/auth/` — Refactor to implement token provider interface (az cli, PAT, future OAuth)
+- `frontend/src/views/TasksView.vue` — Add personal/public badges, filters, quick-add
+- `frontend/src/views/AdoView.vue` — ADO browser (browse items, linked status, import/link)
+- `frontend/src/components/SyncConfirmDialog.vue` — Preview diff + confirm for outbound changes
+- `frontend/src/components/ConflictResolver.vue` — Per-field conflict resolution UI
 
 </code_context>
 
@@ -125,16 +144,16 @@ Our domain: **Projects** and **Tasks** (with subtasks). ADO has its own hierarch
 ## Specific Ideas
 
 - ADO bugs can be tasks — they keep their bug icon throughout
-- Smart auto-match for bulk linking uses title similarity to suggest which local task to link to
 - "Search all ADO" button in tree search for items outside your assignments
-- Comments are distinguished by tab (Personal vs ADO), not by a separate notes entity
-- Dashboard is the personal view; ADO Items tab is the team-wide view
-- Breadcrumb paths in flat search results (Scenario › Deliverable › Task)
-- Progress bar: thin (2-3px), colored by status, on both task rows and detail panel
+- Task row ADO badge: hollow = personal, filled with type icon = public/linked
+- Quick-add input at top of task list — just type and press Enter
+- Preview diff shows side-by-side: "Local value" vs "Will push to ADO"
+- Conflict resolution shows: "Local value" / "ADO value" / pick buttons per field
+- Token provider logs which source it's using (az cli / PAT / OAuth) for debugging
 
 </specifics>
 
 ---
 
-*Phase: 02-ado-integration-prs-unified-dashboard*
-*Context gathered: 2026-04-02*
+*Phase: 02-ado-integration-sync-workflow*
+*Context gathered: 2026-04-03 (restructured from original 2026-04-02 discussion)*
