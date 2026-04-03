@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
 import { useTaskStore, type Task } from '@/stores/tasks'
+import { useProjectStore } from '@/stores/projects'
+import { usePRStore } from '@/stores/prs'
 import TagChip from '@/components/ui/TagChip.vue'
 import AzureDevOpsIcon from '@/components/icons/AzureDevOpsIcon.vue'
 import { Button } from '@/components/ui/button'
@@ -35,6 +37,8 @@ import { cn } from '@/lib/utils'
 
 // ── Store & emits ──
 const taskStore = useTaskStore()
+const projectStore = useProjectStore()
+const prStore = usePRStore()
 const emit = defineEmits<{ close: [] }>()
 
 // ── Editable fields ──
@@ -49,7 +53,6 @@ const newTag = ref('')
 
 const statuses = ['todo', 'in_progress', 'in_review', 'done', 'blocked', 'cancelled']
 const priorities = ['P0', 'P1', 'P2', 'P3']
-const mockProjects = ['xb-tasks', 'xb-services', 'xb-infra', 'xb-docs']
 
 const task = computed(() => taskStore.selectedTask)
 
@@ -111,73 +114,103 @@ function removeTag(tag: string) {
   save()
 }
 
+// ── Helpers ──
+function openUrl(url: string) { window.open(url, '_blank') }
+
 // ── Discussion panel ──
 const showDiscussion = ref(false)
 
-// ── Subtasks (mock) ──
-interface Subtask { id: number; title: string; done: boolean }
-const mockSubtasks = ref<Subtask[]>([
-  { id: 1, title: 'Identify refresh token edge case', done: true },
-  { id: 2, title: 'Add token expiry middleware', done: true },
-  { id: 3, title: 'Update error handling in auth callback', done: false },
-  { id: 4, title: 'Add E2E test for token refresh', done: false },
-])
+// ── Subtasks (real) ──
+const subtasks = ref<Task[]>([])
 const newSubtaskTitle = ref('')
 
+async function loadSubtasks() {
+  if (!task.value) return
+  try {
+    const { GetSubtasks } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/taskservice')
+    subtasks.value = await GetSubtasks(task.value.id) as Task[]
+  } catch {
+    subtasks.value = []
+  }
+}
+
 const subtaskProgress = computed(() => {
-  const total = mockSubtasks.value.length
-  const done = mockSubtasks.value.filter(s => s.done).length
+  const total = subtasks.value.length
+  const done = subtasks.value.filter(s => s.status === 'done').length
   return { done, total, percent: total ? (done / total) * 100 : 0 }
 })
 
-function toggleSubtask(id: number) {
-  const st = mockSubtasks.value.find(s => s.id === id)
-  if (st) st.done = !st.done
+async function toggleSubtask(id: number) {
+  const st = subtasks.value.find(s => s.id === id)
+  if (!st) return
+  const newStatus = st.status === 'done' ? 'todo' : 'done'
+  try {
+    const { SetStatus } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/taskservice')
+    await SetStatus(id, newStatus)
+    st.status = newStatus
+  } catch {
+    st.status = newStatus // optimistic update
+  }
 }
 
-function addSubtask() {
-  const title = newSubtaskTitle.value.trim()
-  if (!title) return
-  mockSubtasks.value.push({
-    id: Math.max(0, ...mockSubtasks.value.map(s => s.id)) + 1,
-    title,
-    done: false,
-  })
-  newSubtaskTitle.value = ''
+async function addSubtask() {
+  if (!task.value || !newSubtaskTitle.value.trim()) return
+  try {
+    const { CreateSubtask } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/taskservice')
+    const sub = await CreateSubtask(task.value.id, newSubtaskTitle.value.trim(), '', 'P2') as Task
+    subtasks.value.push(sub)
+    newSubtaskTitle.value = ''
+  } catch {
+    subtasks.value.push({
+      id: Date.now(),
+      title: newSubtaskTitle.value.trim(),
+      status: 'todo',
+    } as Task)
+    newSubtaskTitle.value = ''
+  }
 }
 
-// ── Pull Requests (mock) ──
-interface MockPR {
-  id: number
-  title: string
-  status: 'active' | 'merged' | 'draft'
-  repo: string
-  additions: number
-  deletions: number
-}
-const mockPRs = ref<MockPR[]>([
-  { id: 234, title: 'Fix auth redirect loop', status: 'active', repo: 'xb-services', additions: 400, deletions: 120 },
-  { id: 240, title: 'Add token expiry middleware', status: 'merged', repo: 'xb-services', additions: 80, deletions: 10 },
-])
+watch(task, () => { loadSubtasks() }, { immediate: true })
+
+// ── Pull Requests (from store) ──
+const taskPRs = computed(() => {
+  if (!task.value) return []
+  return [...prStore.myPRs, ...prStore.reviewPRs].filter(pr =>
+    pr.taskId === task.value!.id ||
+    (task.value!.adoId && pr.adoId === task.value!.adoId)
+  )
+})
 const prsOpen = ref(false)
 
 function prIconColor(status: string) {
-  return status === 'merged' ? 'text-violet-500' : 'text-emerald-500'
+  return status === 'completed' ? 'text-violet-500' : status === 'draft' ? 'text-zinc-400' : 'text-emerald-500'
 }
 
 function prStatusClasses(status: string) {
   switch (status) {
     case 'active': return 'bg-emerald-500/15 text-emerald-600 border-emerald-500/20'
-    case 'merged': return 'bg-violet-500/15 text-violet-600 border-violet-500/20'
+    case 'completed': return 'bg-violet-500/15 text-violet-600 border-violet-500/20'
     case 'draft': return 'bg-zinc-500/15 text-muted-foreground border-zinc-500/20'
+    case 'abandoned': return 'bg-red-500/15 text-red-600 border-red-500/20'
     default: return 'bg-zinc-500/15 text-muted-foreground border-zinc-500/20'
   }
 }
+
+function prStatusLabel(status: string) {
+  if (status === 'completed') return 'merged'
+  return status
+}
+
+onMounted(() => {
+  projectStore.fetchProjects()
+  prStore.fetchAll()
+})
 
 // ── Description ──
 const descriptionOpen = ref(true)
 
 // ── Comments (mock) ──
+// TODO: Wire to real comment backend when available
 interface MockComment { id: number; author: string; initials: string; text: string; time: string }
 const mockNotes = ref<MockComment[]>([
   { id: 1, author: 'You', initials: 'LL', text: 'Root cause is in the token refresh — concurrent requests cause a race condition.', time: '25m ago' },
@@ -203,6 +236,7 @@ function addNote() {
 }
 
 // ── Activity (mock) ──
+// TODO: Wire to real activity backend when available
 const mockActivity = [
   { event: 'Status changed to In Progress', time: '2d ago' },
   { event: 'Linked to ADO Bug #48291', time: '2d ago' },
@@ -322,7 +356,7 @@ const timeUpdated = computed(() => {
         </div>
 
         <!-- Subtask progress bar -->
-        <div v-if="mockSubtasks.length > 0" class="mt-2.5">
+        <div v-if="subtasks.length > 0" class="mt-2.5">
           <div class="h-1 w-full rounded-full bg-muted">
             <div
               class="h-1 rounded-full bg-blue-500 transition-all duration-300"
@@ -348,7 +382,7 @@ const timeUpdated = computed(() => {
                 </div>
                 <div class="flex flex-col gap-0.5">
                   <button
-                    v-for="st in mockSubtasks"
+                    v-for="st in subtasks"
                     :key="st.id"
                     class="flex items-center gap-2 py-1.5 px-1 rounded hover:bg-muted/50 transition-colors"
                     @click="toggleSubtask(st.id)"
@@ -356,16 +390,16 @@ const timeUpdated = computed(() => {
                     <span
                       :class="cn(
                         'size-3.5 rounded-[3px] border-[1.5px] shrink-0 flex items-center justify-center',
-                        st.done
+                        st.status === 'done'
                           ? 'bg-emerald-500 border-emerald-500'
                           : 'border-muted-foreground/40'
                       )"
                     >
-                      <svg v-if="st.done" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" class="size-2.5 text-white" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <svg v-if="st.status === 'done'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" class="size-2.5 text-white" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="2 6 5 9 10 3" />
                       </svg>
                     </span>
-                    <span :class="cn('text-[13px]', st.done && 'line-through text-muted-foreground')">
+                    <span :class="cn('text-[13px]', st.status === 'done' && 'line-through text-muted-foreground')">
                       {{ st.title }}
                     </span>
                   </button>
@@ -402,29 +436,30 @@ const timeUpdated = computed(() => {
                   <ChevronRight v-else :size="14" class="text-muted-foreground" />
                   <span class="font-semibold text-xs">Pull Requests</span>
                   <Badge variant="secondary" class="h-4 text-[10px] px-1.5 ml-1">
-                    {{ mockPRs.length }}
+                    {{ taskPRs.length }}
                   </Badge>
                 </button>
                 <div v-if="prsOpen" class="flex flex-col mt-2 gap-1">
                   <div
-                    v-for="pr in mockPRs"
+                    v-for="pr in taskPRs"
                     :key="pr.id"
-                    class="flex items-center gap-2 py-1.5 px-1 rounded hover:bg-muted/50 transition-colors"
+                    class="flex items-center gap-2 py-1.5 px-1 rounded hover:bg-muted/50 transition-colors cursor-pointer"
+                    @click="pr.prUrl && openUrl(pr.prUrl)"
                   >
                     <GitPullRequest :size="14" :class="cn('shrink-0', prIconColor(pr.status))" />
                     <span class="text-[13px] truncate flex-1">{{ pr.title }}</span>
-                    <span class="text-[11px] text-muted-foreground shrink-0">#{{ pr.id }}</span>
-                    <span class="flex items-center gap-1 text-[10px] shrink-0">
-                      <span class="text-emerald-500">+{{ pr.additions }}</span>
-                      <span class="text-red-500">-{{ pr.deletions }}</span>
-                    </span>
+                    <span class="text-[11px] text-muted-foreground shrink-0">#{{ pr.prNumber }}</span>
+                    <span class="text-[10px] text-muted-foreground shrink-0 truncate max-w-[100px]">{{ pr.repo }}</span>
                     <Badge
                       variant="outline"
                       :class="cn('text-[10px] capitalize shrink-0 h-4 px-1.5', prStatusClasses(pr.status))"
                     >
-                      {{ pr.status }}
+                      {{ prStatusLabel(pr.status) }}
                     </Badge>
                   </div>
+                  <p v-if="taskPRs.length === 0" class="text-xs text-muted-foreground italic py-1 px-1">
+                    No linked pull requests
+                  </p>
                 </div>
               </div>
 
@@ -494,8 +529,8 @@ const timeUpdated = computed(() => {
                   </span>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem v-for="proj in mockProjects" :key="proj" :value="proj">
-                    {{ proj }}
+                  <SelectItem v-for="proj in projectStore.projects" :key="proj.id" :value="String(proj.id)">
+                    {{ proj.name }}
                   </SelectItem>
                 </SelectContent>
               </Select>
