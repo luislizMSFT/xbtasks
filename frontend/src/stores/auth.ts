@@ -29,8 +29,8 @@ export const useAuthStore = defineStore('auth', () => {
         const { SignIn } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/auth/authservice')
         const u = await SignIn()
         user.value = u as User
-      } catch {
-        // Mock auth for development
+      } catch (e) {
+        console.warn('[AuthStore] Wails binding unavailable, using mock auth:', e)
         user.value = {
           id: 'mock-user-1',
           displayName: 'Dev User',
@@ -49,8 +49,8 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const { SignOut } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/auth/authservice')
       await SignOut()
-    } catch {
-      // ignore
+    } catch (e) {
+      console.warn('[AuthStore] Wails signOut binding unavailable:', e)
     }
     user.value = null
   }
@@ -60,8 +60,8 @@ export const useAuthStore = defineStore('auth', () => {
       const { GetCurrentUser } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/auth/authservice')
       const u = await GetCurrentUser()
       if (u) user.value = u as User
-    } catch {
-      // No session to restore — that's fine
+    } catch (e) {
+      console.warn('[AuthStore] Wails restore binding unavailable:', e)
     }
   }
 

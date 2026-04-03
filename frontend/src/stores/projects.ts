@@ -24,7 +24,7 @@ const MOCK_PROJECTS: Project[] = [
   },
 ]
 
-let useMock = true
+let useMock = false
 
 export const useProjectStore = defineStore('projects', () => {
   const projects = ref<Project[]>([])
@@ -40,7 +40,8 @@ export const useProjectStore = defineStore('projects', () => {
         await new Promise(r => setTimeout(r, 150))
         projects.value = [...MOCK_PROJECTS]
       }
-    } catch {
+    } catch (e) {
+      console.warn('[ProjectStore] Wails binding unavailable, using mock data:', e)
       useMock = true
       projects.value = [...MOCK_PROJECTS]
     } finally {

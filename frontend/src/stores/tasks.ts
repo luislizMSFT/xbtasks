@@ -107,7 +107,7 @@ const MOCK_TASKS: Task[] = [
   },
 ]
 
-let useMock = true
+let useMock = false
 
 export const useTaskStore = defineStore('tasks', () => {
   const tasks = ref<Task[]>([])
@@ -164,7 +164,8 @@ export const useTaskStore = defineStore('tasks', () => {
         await new Promise(r => setTimeout(r, 200)) // simulate network
         tasks.value = [...MOCK_TASKS]
       }
-    } catch {
+    } catch (e) {
+      console.warn('[TaskStore] Wails binding unavailable, using mock data:', e)
       useMock = true
       tasks.value = [...MOCK_TASKS]
     } finally {
