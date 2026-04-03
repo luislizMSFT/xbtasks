@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Card, CardContent } from '@/components/ui/card'
 import {
+  AlertCircle,
   Bug,
   BookOpen,
   CheckSquare,
@@ -31,6 +32,8 @@ const adoStore = useADOStore()
 const prStore = usePRStore()
 
 const closedExpanded = ref(false)
+const showAllPipelines = ref(false)
+const showAllTeamPRs = ref(false)
 
 onMounted(async () => {
   await Promise.all([
@@ -156,6 +159,14 @@ const lastSyncLabel = computed(() => {
   if (!adoStore.lastSyncedAt) return ''
   return relativeTime(adoStore.lastSyncedAt)
 })
+
+const pipelinesToShow = computed(() =>
+  showAllPipelines.value ? adoStore.pipelines : adoStore.pipelines.slice(0, 5)
+)
+
+const teamPRsToShow = computed(() =>
+  showAllTeamPRs.value ? prStore.teamPRs : prStore.teamPRs.slice(0, 5)
+)
 </script>
 
 <template>
@@ -188,6 +199,17 @@ const lastSyncLabel = computed(() => {
       <span v-if="lastSyncLabel" class="text-[10px] text-muted-foreground">
         Last synced {{ lastSyncLabel }}
       </span>
+    </div>
+
+    <!-- Error banner -->
+    <div v-if="adoStore.error && !adoStore.loading" class="mx-4 mt-2 px-3 py-2 rounded-md bg-destructive/10 border border-destructive/20">
+      <div class="flex items-center gap-2">
+        <AlertCircle :size="14" class="text-destructive shrink-0" />
+        <span class="text-xs text-destructive truncate">{{ adoStore.error }}</span>
+      </div>
+      <p class="text-[10px] text-muted-foreground mt-1">
+        Make sure <code class="bg-muted px-1 rounded text-[10px]">az cli</code> is installed and authenticated. Run <code class="bg-muted px-1 rounded text-[10px]">az login</code> then <code class="bg-muted px-1 rounded text-[10px]">az devops configure --defaults organization=https://dev.azure.com/YOUR_ORG project=YOUR_PROJECT</code>
+      </p>
     </div>
 
     <!-- Loading skeleton -->
@@ -384,7 +406,7 @@ const lastSyncLabel = computed(() => {
               <Card v-if="adoStore.pipelines.length > 0" class="overflow-hidden">
                 <CardContent class="p-0">
                   <div
-                    v-for="pipe in adoStore.pipelines"
+                    v-for="pipe in pipelinesToShow"
                     :key="pipe.id"
                     class="px-3 py-2 border-b border-border/50 last:border-b-0 hover:bg-muted/50 cursor-pointer transition-colors"
                     @click="openPipeline(pipe)"
@@ -417,6 +439,68 @@ const lastSyncLabel = computed(() => {
                 </CardContent>
               </Card>
               <p v-else class="text-[11px] text-muted-foreground/40 py-2 px-1">No pipeline runs found</p>
+              <Button
+                v-if="adoStore.pipelines.length > 5 && !showAllPipelines"
+                variant="ghost" size="sm"
+                class="w-full text-xs h-7 mt-1"
+                @click="showAllPipelines = true"
+              >
+                Show all {{ adoStore.pipelines.length }} pipelines
+              </Button>
+            </div>
+
+            <!-- Team Activity -->
+            <div class="pt-2">
+              <div class="flex items-center gap-1.5 mb-1.5">
+                <GitPullRequest :size="14" class="text-muted-foreground" />
+                <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Team Activity</span>
+                <span class="text-[11px] text-muted-foreground/50 tabular-nums">{{ prStore.teamPRs.length }}</span>
+              </div>
+              <Card v-if="prStore.teamPRs.length > 0" class="overflow-hidden">
+                <CardContent class="p-0">
+                  <div
+                    v-for="pr in teamPRsToShow"
+                    :key="pr.id"
+                    class="flex flex-col gap-1 px-3 py-2 cursor-pointer transition-colors hover:bg-muted/50 border-b border-border/50 last:border-b-0"
+                    @click="openPR(pr)"
+                  >
+                    <div class="flex items-center gap-2">
+                      <span class="text-sm text-foreground flex-1 truncate">{{ pr.title }}</span>
+                      <Badge variant="outline" :class="cn('text-[10px] px-1.5 py-0 capitalize shrink-0', prStatusClasses(pr.status))">
+                        {{ pr.status }}
+                      </Badge>
+                    </div>
+                    <div class="flex items-center gap-2 text-[10px] text-muted-foreground/60">
+                      <span class="font-medium">{{ pr.repo }}</span>
+                      <span>{{ branchName(pr.sourceBranch) }} → {{ branchName(pr.targetBranch) }}</span>
+                      <div class="ml-auto flex items-center gap-1">
+                        <template v-for="reviewer in parseReviewers(pr.reviewers)" :key="reviewer.uniqueName">
+                          <span v-if="reviewer.vote !== 0" :title="`${reviewer.displayName}: ${voteIcon(reviewer.vote)}`">
+                            {{ voteIcon(reviewer.vote) }}
+                          </span>
+                          <div
+                            v-else
+                            class="w-4 h-4 rounded-full bg-muted border border-background flex items-center justify-center"
+                            :title="reviewer.displayName"
+                          >
+                            <span class="text-[7px] font-medium text-muted-foreground">{{ getInitials(reviewer.displayName) }}</span>
+                          </div>
+                        </template>
+                      </div>
+                      <span class="tabular-nums shrink-0">{{ relativeTime(pr.updatedAt) }}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <p v-else class="text-[11px] text-muted-foreground/40 py-2 px-1">No team PRs found</p>
+              <Button
+                v-if="prStore.teamPRs.length > 5 && !showAllTeamPRs"
+                variant="ghost" size="sm"
+                class="w-full text-xs h-7 mt-1"
+                @click="showAllTeamPRs = true"
+              >
+                Show all {{ prStore.teamPRs.length }} team PRs
+              </Button>
             </div>
 
           </div>
