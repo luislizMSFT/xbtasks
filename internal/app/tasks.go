@@ -237,6 +237,61 @@ func (s *TaskService) ListFiltered(status, projectID, parentID, tag string) ([]d
 	return tasks, nil
 }
 
+// ---------------------------------------------------------------------------
+// ADO link operations — LOCAL ONLY
+// These methods manage task↔ADO associations in the local SQLite database.
+// They do NOT create, modify, or delete anything in Azure DevOps.
+// ---------------------------------------------------------------------------
+
+// LinkTaskToADO associates a task with an ADO work item (local only, does NOT modify ADO).
+func (s *TaskService) LinkTaskToADO(taskID int, adoID string, direction string) error {
+	_, err := s.db.Exec(
+		`INSERT OR IGNORE INTO task_ado_links (task_id, ado_id, direction) VALUES (?, ?, ?)`,
+		taskID, adoID, direction)
+	if err != nil {
+		return fmt.Errorf("link task %d to ADO %s: %w", taskID, adoID, err)
+	}
+	// Also update the task's ado_id field for quick access
+	_, err = s.db.Exec(`UPDATE tasks SET ado_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, adoID, taskID)
+	return err
+}
+
+// UnlinkTaskFromADO removes a task-ADO association (local only, ADO work item is untouched).
+func (s *TaskService) UnlinkTaskFromADO(taskID int, adoID string) error {
+	_, err := s.db.Exec(`DELETE FROM task_ado_links WHERE task_id = ? AND ado_id = ?`, taskID, adoID)
+	if err != nil {
+		return fmt.Errorf("unlink task %d from ADO %s: %w", taskID, adoID, err)
+	}
+	// Clear the task's ado_id if no links remain
+	var remaining int
+	_ = s.db.QueryRow(`SELECT COUNT(*) FROM task_ado_links WHERE task_id = ?`, taskID).Scan(&remaining)
+	if remaining == 0 {
+		_, err = s.db.Exec(`UPDATE tasks SET ado_id = '', updated_at = CURRENT_TIMESTAMP WHERE id = ?`, taskID)
+	}
+	return err
+}
+
+// GetADOLinks returns all ADO links for a task (local read only).
+func (s *TaskService) GetADOLinks(taskID int) ([]domain.TaskADOLink, error) {
+	rows, err := s.db.Query(
+		`SELECT task_id, ado_id, direction, created_at FROM task_ado_links WHERE task_id = ?`, taskID)
+	if err != nil {
+		return nil, fmt.Errorf("get ADO links for task %d: %w", taskID, err)
+	}
+	defer rows.Close()
+
+	var links []domain.TaskADOLink
+	for rows.Next() {
+		var l domain.TaskADOLink
+		if err := rows.Scan(&l.TaskID, &l.AdoID, &l.Direction, &l.CreatedAt); err != nil {
+			log.Printf("scan ADO link row: %v", err)
+			continue
+		}
+		links = append(links, l)
+	}
+	return links, nil
+}
+
 // GetAllTags returns all unique tags used across tasks, sorted alphabetically.
 func (s *TaskService) GetAllTags() ([]string, error) {
 	rows, err := s.db.Query(`SELECT DISTINCT tags FROM tasks WHERE tags != ''`)

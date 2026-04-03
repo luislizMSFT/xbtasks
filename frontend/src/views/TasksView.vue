@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useTaskStore, type Task } from '@/stores/tasks'
+import { usePRStore } from '@/stores/prs'
 import TaskDetail from '@/components/TaskDetail.vue'
 import { cn } from '@/lib/utils'
 import {
@@ -15,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import PageHeader from '@/components/PageHeader.vue'
 
 const taskStore = useTaskStore()
+const prStore = usePRStore()
 
 const showNewTask = ref(false)
 const newTaskTitle = ref('')
@@ -38,33 +40,51 @@ const sectionMeta: Record<string, { label: string; dot: string }> = {
   done:        { label: 'Done',        dot: 'bg-emerald-500' },
 }
 
-// Mock subtasks per task (until real subtask backend)
-const mockSubtasks: Record<number, { id: number; title: string; done: boolean }[]> = {
-  1: [
-    { id: 101, title: 'Identify refresh token edge case', done: true },
-    { id: 102, title: 'Add token expiry middleware', done: true },
-    { id: 103, title: 'Update error handling in auth callback', done: false },
-    { id: 104, title: 'Add E2E test for token refresh', done: false },
-  ],
-  4: [
-    { id: 401, title: 'Test Create method', done: false },
-    { id: 402, title: 'Test Delete method', done: false },
-    { id: 403, title: 'Test GetBlockers method', done: false },
-  ],
-}
+// Compute subtask counts from task store (tasks with parentId matching)
+const subtaskCounts = computed(() => {
+  const counts: Record<number, { done: number; total: number }> = {}
+  for (const t of taskStore.tasks) {
+    if (t.parentId) {
+      if (!counts[t.parentId]) counts[t.parentId] = { done: 0, total: 0 }
+      counts[t.parentId].total++
+      if (t.status === 'done') counts[t.parentId].done++
+    }
+  }
+  return counts
+})
 
-// Mock PR counts per task
-const mockPrCounts: Record<number, number> = { 1: 2, 3: 1 }
+// PR counts per task from PR store
+const prCounts = computed(() => {
+  const counts: Record<number, number> = {}
+  const allPRs = [...prStore.myPRs, ...prStore.reviewPRs]
+  for (const pr of allPRs) {
+    if (pr.taskId) {
+      counts[pr.taskId] = (counts[pr.taskId] || 0) + 1
+    }
+  }
+  return counts
+})
 
-function subtasksFor(taskId: number) {
-  return mockSubtasks[taskId] || []
+// Real subtasks from the task store (children of a given parent)
+const subtasksByParent = computed(() => {
+  const map: Record<number, Task[]> = {}
+  for (const t of taskStore.tasks) {
+    if (t.parentId) {
+      if (!map[t.parentId]) map[t.parentId] = []
+      map[t.parentId].push(t)
+    }
+  }
+  return map
+})
+
+function subtasksFor(taskId: number): Task[] {
+  return subtasksByParent.value[taskId] || []
 }
 
 function subtaskProgress(taskId: number) {
-  const subs = subtasksFor(taskId)
-  if (!subs.length) return null
-  const done = subs.filter(s => s.done).length
-  return { done, total: subs.length, pct: Math.round((done / subs.length) * 100) }
+  const counts = subtaskCounts.value[taskId]
+  if (!counts || counts.total === 0) return null
+  return { done: counts.done, total: counts.total, pct: Math.round((counts.done / counts.total) * 100) }
 }
 
 function toggleSubtasks(taskId: number) {
@@ -75,11 +95,11 @@ function toggleSubtasks(taskId: number) {
   }
 }
 
-function toggleSubtaskDone(taskId: number, subId: number) {
-  const subs = mockSubtasks[taskId]
-  if (!subs) return
-  const sub = subs.find(s => s.id === subId)
-  if (sub) sub.done = !sub.done
+async function toggleSubtaskDone(taskId: number, subId: number) {
+  const sub = subtasksFor(taskId).find(s => s.id === subId)
+  if (!sub) return
+  const newStatus = sub.status === 'done' ? 'todo' : 'done'
+  await taskStore.setStatus(subId, newStatus)
 }
 
 const visibleSections = computed(() => {
@@ -129,7 +149,10 @@ function timeAgo(dateStr: string) {
 const hasAnyTasks = computed(() => taskStore.tasks.length > 0)
 
 onMounted(async () => {
-  await taskStore.fetchTasks()
+  await Promise.all([
+    taskStore.fetchTasks(),
+    prStore.fetchAll(),
+  ])
   // Auto-select first task so detail panel is always visible
   if (taskStore.tasks.length > 0 && !taskStore.selectedTaskId) {
     taskStore.selectTask(taskStore.tasks[0].id)
@@ -288,11 +311,11 @@ onMounted(async () => {
 
                   <!-- PR count -->
                   <span
-                    v-if="mockPrCounts[task.id]"
+                    v-if="prCounts[task.id]"
                     class="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0"
                   >
                     <GitPullRequest :size="10" />
-                    {{ mockPrCounts[task.id] }}
+                    {{ prCounts[task.id] }}
                   </span>
 
                   <!-- Blocked reason -->
@@ -320,17 +343,17 @@ onMounted(async () => {
                       @click="toggleSubtaskDone(task.id, sub.id)"
                       :class="cn(
                         'size-[14px] rounded-[3px] border-[1.5px] shrink-0 flex items-center justify-center transition-all hover:scale-110',
-                        sub.done
+                        sub.status === 'done'
                           ? 'bg-emerald-500 border-emerald-500'
                           : 'border-muted-foreground/25 hover:border-muted-foreground/50'
                       )"
                     >
-                      <CheckCircle2 v-if="sub.done" :size="8" class="text-white" :stroke-width="3" />
+                      <CheckCircle2 v-if="sub.status === 'done'" :size="8" class="text-white" :stroke-width="3" />
                     </button>
                     <span
                       :class="cn(
                         'text-[12px]',
-                        sub.done ? 'text-muted-foreground/50 line-through decoration-muted-foreground/20' : 'text-muted-foreground'
+                        sub.status === 'done' ? 'text-muted-foreground/50 line-through decoration-muted-foreground/20' : 'text-muted-foreground'
                       )"
                     >
                       {{ sub.title }}
