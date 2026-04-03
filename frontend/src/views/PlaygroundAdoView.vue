@@ -615,8 +615,6 @@ function getPendingTooltip(itemId: number): string {
             <TabsTrigger value="devops" class="text-xs px-3 h-7">DevOps</TabsTrigger>
           </TabsList>
         </div>
-            </div>
-          </div>
 
           <!-- Tabs container -->
           <Tabs default-value="management" class="flex-1 flex flex-col min-h-0">
