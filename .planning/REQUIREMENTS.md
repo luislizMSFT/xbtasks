@@ -35,6 +35,20 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **ADO-06**: ADO browser view — browse all assigned ADO items, show which are already linked to local tasks, toggle to hide already-linked items, select items to import/link
 - [ ] **ADO-07**: All outbound changes to ADO (push, promote, update) require a preview diff showing what will change, with user confirmation before applying
 - [ ] **ADO-08**: Direct ADO REST API calls from Go using token from abstracted provider — no shelling out to az cli per query
+- [ ] **ADO-09**: User can configure multiple ADO orgs, then pick specific projects within each org to follow
+- [ ] **ADO-10**: Items from all configured org/project pairs appear in a unified list with org/project label; toggleable group-by-project view
+
+### External Links & Context
+
+- [ ] **LINK-01**: User can attach external URLs to any task (ICMs, dashboards, wiki pages, etc.) as structured links with label
+- [ ] **LINK-02**: Auto-detect known URL patterns (ICM → incident icon, Grafana → dashboard icon, ADO → work item icon, Wiki) with fallback to manual label
+- [ ] **LINK-03**: Links displayed in a dedicated section on task detail — clickable, labeled, with type icon
+
+### Comments & Sync
+
+- [ ] **CMT-01**: User can add local comments to any task (private, never pushed to ADO by default)
+- [ ] **CMT-02**: User can selectively push a comment to linked ADO work item (with confirmation); synced comments clearly marked as public
+- [ ] **CMT-03**: User can update task description locally, then confirm-push to ADO (preview diff)
 
 ### ADO Sync
 
@@ -144,19 +158,27 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ADO-06 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | ADO-07 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | ADO-08 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| ADO-09 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| ADO-10 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | SYNC-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | SYNC-02 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | SYNC-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | SYNC-04 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| LINK-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| LINK-02 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| LINK-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| CMT-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| CMT-02 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| CMT-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | DASH-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | DASH-02 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | DASH-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
 
 **Coverage:**
-- v1 requirements: 27 total
-- Mapped to phases: 27 ✓
+- v1 requirements: 35 total
+- Mapped to phases: 35 ✓
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-31*
-*Last updated: 2026-04-03 — restructured per workflow discussion (personal/public model, sync confirmation, ADO browser, PRs deferred to v2)*
+*Last updated: 2026-04-03 — added multi-org (ADO-09/10), external links (LINK-01/02/03), comments sync (CMT-01/02/03)*

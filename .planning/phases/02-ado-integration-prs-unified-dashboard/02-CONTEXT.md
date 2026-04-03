@@ -26,6 +26,14 @@ Our domain: **Projects** and **Tasks** (with subtasks). ADO has its own hierarch
 - **D-02:** Token auto-refreshes transparently; cached with TTL, re-fetched when expired
 - **D-03:** Direct ADO REST API calls from Go using token from provider — no shelling out to az cli per query
 - **D-04:** ADO client package (`pkg/ado/`) — stateless HTTP client accepting token, handles pagination, rate limits, WIQL queries, JSON Patch
+- **D-04a:** Single token assumed to work across all configured orgs (same Azure tenant). Multi-tenant support deferred.
+
+### Multi-Org Configuration
+- **D-04b:** Config supports a list of org/project pairs (replaces single `ado.organization` / `ado.project`)
+- **D-04c:** User configures orgs first, then picks specific projects within each org to follow
+- **D-04d:** All configured org/project pairs are synced — work items and ADO browser aggregate across all of them
+- **D-04e:** Each item carries its org/project origin as metadata (shown as badge/label in UI)
+- **D-04f:** Unified list is default; user can toggle group-by-project view (collapsible sections per org/project)
 
 ### Personal → Public Task Model
 - **D-05:** Tasks have a computed "public" status derived from whether they have an entry in `task_ado_links` table
@@ -54,7 +62,23 @@ Our domain: **Projects** and **Tasks** (with subtasks). ADO has its own hierarch
 - **D-22:** All outbound pushes to ADO require user confirmation via preview diff — shows exactly what fields will change (title, status, description), user confirms or cancels
 - **D-23:** Never auto-push to ADO. Every outbound change is explicit and confirmed.
 - **D-24:** Linked fields that sync: title, status (with ADO state mapping), description
-- **D-25:** Fields that never sync: subtasks, personal priority, local notes/comments, tags
+- **D-25:** Fields that never sync: subtasks, personal priority, local notes/comments, tags, external links
+
+### External Links
+- **D-25a:** Tasks have a `links` section — structured list of URLs with label and type
+- **D-25b:** Auto-detect known URL patterns: `portal.microsofticm.com` → ICM incident, Grafana URLs → dashboard, ADO URLs → work item, Wiki URLs → wiki page. Fallback to user-provided label.
+- **D-25c:** Links stored locally in SQLite — never pushed to ADO. They're personal context.
+- **D-25d:** Task detail shows links section with type icon, label, and clickable URL
+
+### Comments
+- **D-25e:** Comments are local by default (private, never auto-pushed)
+- **D-25f:** User can selectively push a comment to the linked ADO work item (requires confirmation)
+- **D-25g:** Synced/public comments are visually marked (e.g., ADO icon, "synced" badge) so user always knows what's public vs private
+- **D-25h:** Description field can be edited locally, then confirm-pushed to ADO (preview diff shows old vs new)
+
+### Investigation Workflow
+- **D-25i:** Task flow is bidirectional: user can start with a local investigation task, then link/promote to ADO when a bug is created. Or import an existing ADO bug and enrich locally.
+- **D-25j:** A linked task becomes an "investigation hub" — ADO bug context + ICM links + dashboard links + local subtasks + private notes, all in one place
 
 ### Conflict Resolution
 - **D-26:** When both local and ADO changed the same linked item, show conflict to user
@@ -80,11 +104,13 @@ Our domain: **Projects** and **Tasks** (with subtasks). ADO has its own hierarch
 - PR monitoring under tasks — Phase 3
 - Pipeline status — Phase 3
 - Customizable dashboard widget grid — v2
-- Rich text WYSIWYG for comments — v2
-- Activity timeline per task — v2
+- Rich text WYSIWYG for comments — v2 (plain text for v1)
+- Activity timeline per task (chronological events) — v2
 - @mention syntax for quick linking — v2
 - Bulk linking with smart auto-match — v2
 - In-app PR diff viewer — if needed later
+- Multi-tenant auth (different tokens per org) — if needed later
+- Syncing external links to ADO — links stay local for now
 
 </decisions>
 

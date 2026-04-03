@@ -22,6 +22,10 @@ One pane of glass for all your work — personal tasks linked to ADO items, PRs,
 - [ ] Bidirectional ADO linking — promote local task → ADO work item, pull ADO item → local task, link to existing
 - [ ] ADO browser view — browse assigned items, see linked status, toggle hide linked, import from here
 - [ ] ADO work items surfaced with status, priority, assignment
+- [ ] Multi-org support — configure multiple ADO orgs/projects, unified view with group-by-project toggle
+- [ ] External links on tasks — attach ICMs, Grafana dashboards, wiki pages with auto-detected type icons
+- [ ] Local comments (private) with selective push to ADO (clearly marked as public)
+- [ ] Investigation hub workflow — start local or import ADO bug, enrich with links/subtasks/notes, link to ADO anytime
 - [ ] Bidirectional sync — auto-pull silently, outbound requires preview diff + user confirmation
 - [ ] Per-field conflict resolution when both sides changed a linked item
 - [ ] Tasks linkable to ADO deliverables/scenarios with clear visual indication
@@ -58,7 +62,7 @@ One pane of glass for all your work — personal tasks linked to ADO items, PRs,
 ## Constraints
 
 - **Auth**: Abstracted token provider — az cli `get-access-token` initially, swappable for PAT or Entra ID OAuth later. Team is on Microsoft ecosystem.
-- **ADO API**: Direct ADO REST API calls from Go using token from provider — no shelling out to az cli per query. Must handle rate limits and pagination.
+- **ADO API**: Direct ADO REST API calls from Go using token from provider — no shelling out to az cli per query. Must handle rate limits and pagination. Supports multiple org/project pairs.
 - **Sync safety**: All outbound changes to ADO require preview diff + user confirmation. Never auto-push. Subtasks/personal breakdowns never pushed unless individually linked.
 - **Audience**: Start with Luis (dogfooding), grow to team — must be useful for one person before it scales
 - **Stack**: Wails v3 (Go) + Vue 3 (thin shell) + SQLite — native desktop app, not a web app. Design for future VS Code/MCP extension integration.
@@ -80,6 +84,7 @@ One pane of glass for all your work — personal tasks linked to ADO items, PRs,
 | Abstracted token provider (az cli first) | az cli is easiest auth path; abstract so PAT/OAuth can swap in later | — Decided 2026-04-03 |
 | Direct ADO REST API from Go | Grab token from provider, call REST directly — no shelling out per query | — Decided 2026-04-03 |
 | PRs deferred to Phase 3 | Focus on task lifecycle + ADO sync first; PRs are additive, not core | — Decided 2026-04-03 |
+| Multi-org support | Team members work across multiple ADO orgs/projects; configure orgs → pick projects, unified view | — Decided 2026-04-03 |
 | Design for future VS Code/MCP integration | Desktop app primary, but architecture should support other surfaces | — Decided 2026-04-03 |
 
 ## Evolution

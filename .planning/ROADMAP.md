@@ -34,17 +34,20 @@ Decimal phases appear between their surrounding integers in numeric order.
 ### Phase 2: ADO Integration & Sync Workflow
 **Goal**: User can authenticate via az cli, browse ADO items, link/promote/import tasks with the personal→public model, and bidirectionally sync with safe confirmation before any outbound changes
 **Depends on**: Phase 1
-**Requirements**: AUTH-01, AUTH-02, AUTH-03, TASK-08, TASK-09, ADO-01, ADO-02, ADO-03, ADO-04, ADO-05, ADO-06, ADO-07, ADO-08, SYNC-01, SYNC-02, SYNC-03, SYNC-04, DASH-01, DASH-02, DASH-03
+**Requirements**: AUTH-01, AUTH-02, AUTH-03, TASK-08, TASK-09, ADO-01, ADO-02, ADO-03, ADO-04, ADO-05, ADO-06, ADO-07, ADO-08, ADO-09, ADO-10, SYNC-01, SYNC-02, SYNC-03, SYNC-04, LINK-01, LINK-02, LINK-03, CMT-01, CMT-02, CMT-03, DASH-01, DASH-02, DASH-03
 **Success Criteria** (what must be TRUE):
   1. App authenticates to ADO via abstracted token provider (az cli initially); token auto-refreshes
-  2. Tasks start as personal (local-only). Linking or promoting makes them "public" (ADO-synced). Unified list view shows both with visual distinction (badge/icon)
-  3. User can quick-add a task with just a title, then expand with full details later
-  4. ADO browser view shows all assigned ADO items, indicates which are already linked, allows toggling to hide linked items, and supports selecting items to import/link
-  5. User can link a personal task to an existing ADO item, promote a task to a new ADO work item, or import an ADO item as a local task — all three flows work
-  6. Background auto-sync pulls ADO changes silently on a timer + manual refresh. All outbound pushes show a preview diff of what will change and require user confirmation — never auto-push
-  7. When both local and ADO changed the same linked item, user sees per-field conflict resolution
-  8. Linked tasks sync title, status, and description to ADO. Subtasks stay personal unless individually linked
-  9. List view filterable by status, priority, project, due date, and ADO link status
+  2. User can configure multiple ADO orgs and pick specific projects within each. Items from all org/project pairs appear in a unified list with org/project labels; toggleable group-by-project view
+  3. Tasks start as personal (local-only). Linking or promoting makes them "public" (ADO-synced). Unified list view shows both with visual distinction (badge/icon)
+  4. User can quick-add a task with just a title, then expand with full details later
+  5. ADO browser view shows all assigned ADO items across all configured orgs, indicates which are already linked, allows toggling to hide linked items, and supports selecting items to import/link
+  6. User can link a personal task to an existing ADO item, promote a task to a new ADO work item, or import an ADO item as a local task — all three flows work
+  7. Background auto-sync pulls ADO changes silently on a timer + manual refresh. All outbound pushes show a preview diff of what will change and require user confirmation — never auto-push
+  8. When both local and ADO changed the same linked item, user sees per-field conflict resolution
+  9. Linked tasks sync title, status, and description to ADO. Subtasks stay personal unless individually linked
+  10. User can attach external URLs (ICMs, Grafana dashboards, wikis) to any task with auto-detected type icons and fallback manual labels
+  11. User can add local comments (private) and selectively push comments to ADO (clearly marked as public)
+  12. List view filterable by status, priority, project, due date, and ADO link status
 **Plans**: TBD
 **UI hint**: yes
 
