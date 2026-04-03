@@ -545,132 +545,129 @@ const timeUpdated = computed(() => {
                 </Tabs>
               </div>
 
-              <Separator />
-
-              <!-- Activity Timeline -->
-              <div class="px-4 pb-4">
-                <div class="flex items-center gap-1.5 mb-3">
-                  <Activity :size="13" class="text-muted-foreground" />
-                  <span class="font-semibold text-xs">Activity</span>
-                </div>
-                <div class="flex flex-col">
-                  <div
-                    v-for="(item, i) in mockActivity"
-                    :key="'act' + i"
-                    class="flex gap-2.5 relative"
-                  >
-                    <div class="flex flex-col items-center w-3 shrink-0">
-                      <div class="size-1.5 rounded-full bg-muted-foreground/50 mt-[7px] shrink-0 z-10" />
-                      <div
-                        v-if="i < mockActivity.length - 1"
-                        class="w-px flex-1 bg-border"
-                      />
-                    </div>
-                    <div class="flex-1 min-w-0 pb-3">
-                      <span class="text-[13px] text-muted-foreground">{{ item.event }}</span>
-                      <span class="text-[10px] text-muted-foreground/60 ml-1.5">&mdash; {{ item.time }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               <div class="h-4" />
             </div>
           </TabsContent>
         </ScrollArea>
       </Tabs>
 
-      <!-- ─── Sticky Config Footer ───────────────────────── -->
+      <!-- ─── Activity Bar ─────────────────────────────── -->
+      <div v-if="mockActivity.length > 0" class="shrink-0 border-t border-border px-4 py-1.5">
+        <div class="flex items-center gap-2 overflow-x-auto scrollbar-none">
+          <Activity :size="12" class="text-muted-foreground shrink-0" />
+          <div class="flex items-center gap-3 text-[11px] text-muted-foreground whitespace-nowrap">
+            <span v-for="(item, i) in mockActivity" :key="'act' + i" class="inline-flex items-center gap-1">
+              <span class="size-1 rounded-full bg-muted-foreground/50 shrink-0" />
+              {{ item.event }}
+              <span class="text-muted-foreground/50">{{ item.time }}</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── Details Footer ─────────────────────────────── -->
       <div class="shrink-0 border-t border-border">
         <div class="px-4 py-2">
-          <span class="font-semibold text-xs mb-1.5 block">Details</span>
-          <div class="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-1.5">
+          <span class="font-semibold text-xs mb-2 block">Details</span>
+          <div class="grid grid-cols-2 gap-x-4 gap-y-3">
 
             <!-- Status -->
-            <span class="text-muted-foreground text-[13px]">Status</span>
-            <Select :model-value="editStatus" @update:model-value="(v) => onStatusChange(String(v))">
-              <SelectTrigger class="h-7 text-[13px] border-none shadow-none px-1 -ml-1">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="s in statuses" :key="s" :value="s">
-                  {{ statusLabel[s] ?? s }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
+            <div class="flex flex-col gap-0.5">
+              <span class="text-muted-foreground text-[11px] font-medium">Status</span>
+              <Select :model-value="editStatus" @update:model-value="(v) => onStatusChange(String(v))">
+                <SelectTrigger class="h-7 text-[13px] border-none shadow-none px-1 -ml-1">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="s in statuses" :key="s" :value="s">
+                    {{ statusLabel[s] ?? s }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             <!-- Priority -->
-            <span class="text-muted-foreground text-[13px]">Priority</span>
-            <Select :model-value="editPriority" @update:model-value="(v) => onPriorityChange(String(v))">
-              <SelectTrigger class="h-7 text-[13px] border-none shadow-none px-1 -ml-1">
-                <SelectValue placeholder="Priority" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="p in priorities" :key="p" :value="p">{{ p }}</SelectItem>
-              </SelectContent>
-            </Select>
+            <div class="flex flex-col gap-0.5">
+              <span class="text-muted-foreground text-[11px] font-medium">Priority</span>
+              <Select :model-value="editPriority" @update:model-value="(v) => onPriorityChange(String(v))">
+                <SelectTrigger class="h-7 text-[13px] border-none shadow-none px-1 -ml-1">
+                  <SelectValue placeholder="Priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="p in priorities" :key="p" :value="p">{{ p }}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             <!-- Project -->
-            <span class="text-muted-foreground text-[13px]">Project</span>
-            <Select v-model="editProject">
-              <SelectTrigger class="h-7 text-[13px] border-none shadow-none px-1 -ml-1">
-                <span class="flex items-center gap-1.5">
-                  <Folder :size="12" class="text-muted-foreground" />
-                  <SelectValue placeholder="Select project..." />
-                </span>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="proj in mockProjects" :key="proj" :value="proj">
-                  {{ proj }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
+            <div class="flex flex-col gap-0.5">
+              <span class="text-muted-foreground text-[11px] font-medium">Project</span>
+              <Select v-model="editProject">
+                <SelectTrigger class="h-7 text-[13px] border-none shadow-none px-1 -ml-1">
+                  <span class="flex items-center gap-1.5">
+                    <Folder :size="12" class="text-muted-foreground" />
+                    <SelectValue placeholder="Select project..." />
+                  </span>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="proj in mockProjects" :key="proj" :value="proj">
+                    {{ proj }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             <!-- Due Date -->
-            <span class="text-muted-foreground text-[13px]">Due Date</span>
-            <div class="flex items-center gap-1.5">
-              <CalendarDays :size="12" class="text-muted-foreground" />
-              <Input
-                v-model="editDueDate"
-                type="date"
-                @change="save"
-                class="h-7 text-[13px] border-none shadow-none px-1 -ml-1 flex-1"
-              />
+            <div class="flex flex-col gap-0.5">
+              <span class="text-muted-foreground text-[11px] font-medium">Due Date</span>
+              <div class="flex items-center gap-1.5">
+                <CalendarDays :size="12" class="text-muted-foreground" />
+                <Input
+                  v-model="editDueDate"
+                  type="date"
+                  @change="save"
+                  class="h-7 text-[13px] border-none shadow-none px-1 -ml-1 flex-1"
+                />
+              </div>
             </div>
 
-            <!-- Tags -->
-            <span class="text-muted-foreground text-[13px]">Tags</span>
-            <div class="flex items-center gap-1 flex-wrap">
-              <span
-                v-for="tag in editTags"
-                :key="tag"
-                class="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] group"
-              >
-                <Tag :size="10" class="text-muted-foreground" />
-                {{ tag }}
-                <button
-                  class="opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-500 ml-0.5"
-                  @click="removeTag(tag)"
+            <!-- Tags (full width) -->
+            <div class="flex flex-col gap-0.5 col-span-2">
+              <span class="text-muted-foreground text-[11px] font-medium">Tags</span>
+              <div class="flex items-center gap-1 flex-wrap">
+                <span
+                  v-for="tag in editTags"
+                  :key="tag"
+                  class="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] group"
                 >
-                  <X :size="8" />
-                </button>
-              </span>
-              <Input
-                v-model="newTag"
-                @keydown.enter.prevent="addTag"
-                class="inline-flex h-5 w-16 px-1 text-[11px] border-none shadow-none focus-visible:ring-0 bg-transparent"
-                placeholder="+ tag"
-              />
+                  <Tag :size="10" class="text-muted-foreground" />
+                  {{ tag }}
+                  <button
+                    class="opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-500 ml-0.5"
+                    @click="removeTag(tag)"
+                  >
+                    <X :size="8" />
+                  </button>
+                </span>
+                <Input
+                  v-model="newTag"
+                  @keydown.enter.prevent="addTag"
+                  class="inline-flex h-5 w-16 px-1 text-[11px] border-none shadow-none focus-visible:ring-0 bg-transparent"
+                  placeholder="+ tag"
+                />
+              </div>
             </div>
 
-            <!-- ADO Link -->
-            <span class="text-muted-foreground text-[13px]">ADO Link</span>
-            <span v-if="task.adoId" class="flex items-center gap-1.5 text-blue-500 cursor-pointer hover:underline text-[13px]">
-              <AzureDevOpsIcon :size="12" />
-              {{ adoNumber(task.adoId) }}
-              <ExternalLink :size="10" />
-            </span>
-            <span v-else class="text-muted-foreground text-[13px]">Not linked</span>
+            <!-- ADO Link (full width) -->
+            <div class="flex flex-col gap-0.5 col-span-2">
+              <span class="text-muted-foreground text-[11px] font-medium">ADO Link</span>
+              <span v-if="task.adoId" class="flex items-center gap-1.5 text-blue-500 cursor-pointer hover:underline text-[13px]">
+                <AzureDevOpsIcon :size="12" />
+                {{ adoNumber(task.adoId) }}
+                <ExternalLink :size="10" />
+              </span>
+              <span v-else class="text-muted-foreground text-[13px]">Not linked</span>
+            </div>
           </div>
         </div>
 
