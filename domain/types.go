@@ -74,6 +74,7 @@ type PullRequest struct {
 	SourceBranch string     `json:"sourceBranch"`
 	TargetBranch string     `json:"targetBranch"`
 	Votes        int        `json:"votes"`
+	CreatedBy    string     `json:"createdBy"`
 	CreatedAt    time.Time  `json:"createdAt"`
 	UpdatedAt    time.Time  `json:"updatedAt"`
 	MergedAt     *time.Time `json:"mergedAt"`

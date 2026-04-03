@@ -38,7 +38,14 @@ func Open(dbPath string) (*DB, error) {
 
 func (db *DB) migrate() error {
 	_, err := db.Exec(schema)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Add created_by column if missing (added after initial schema)
+	db.Exec(`ALTER TABLE pull_requests ADD COLUMN created_by TEXT DEFAULT ''`)
+
+	return nil
 }
 
 const schema = `

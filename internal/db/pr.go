@@ -8,8 +8,8 @@ import (
 
 func (db *DB) UpsertPullRequest(pr domain.PullRequest) error {
 	_, err := db.Exec(`
-		INSERT INTO pull_requests (title, pr_url, pr_number, repo, task_id, ado_id, status, reviewers, source_branch, target_branch, votes, created_at, updated_at, merged_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO pull_requests (title, pr_url, pr_number, repo, task_id, ado_id, status, reviewers, source_branch, target_branch, votes, created_by, created_at, updated_at, merged_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(pr_number, repo) DO UPDATE SET
 			title         = excluded.title,
 			pr_url        = excluded.pr_url,
@@ -18,11 +18,12 @@ func (db *DB) UpsertPullRequest(pr domain.PullRequest) error {
 			source_branch = excluded.source_branch,
 			target_branch = excluded.target_branch,
 			votes         = excluded.votes,
+			created_by    = excluded.created_by,
 			updated_at    = CURRENT_TIMESTAMP,
 			merged_at     = excluded.merged_at`,
 		pr.Title, pr.PRURL, pr.PRNumber, pr.Repo, pr.TaskID, pr.AdoID,
 		pr.Status, pr.Reviewers, pr.SourceBranch, pr.TargetBranch, pr.Votes,
-		pr.CreatedAt, pr.UpdatedAt, pr.MergedAt,
+		pr.CreatedBy, pr.CreatedAt, pr.UpdatedAt, pr.MergedAt,
 	)
 	return err
 }
@@ -30,7 +31,7 @@ func (db *DB) UpsertPullRequest(pr domain.PullRequest) error {
 func (db *DB) ListPullRequests() ([]domain.PullRequest, error) {
 	return db.queryPRs(`
 		SELECT id, title, pr_url, pr_number, repo, task_id, ado_id, status, reviewers,
-		       source_branch, target_branch, votes, created_at, updated_at, merged_at
+		       source_branch, target_branch, votes, created_by, created_at, updated_at, merged_at
 		FROM pull_requests
 		ORDER BY created_at DESC`)
 }
@@ -38,7 +39,7 @@ func (db *DB) ListPullRequests() ([]domain.PullRequest, error) {
 func (db *DB) ListPullRequestsByStatus(status string) ([]domain.PullRequest, error) {
 	return db.queryPRs(`
 		SELECT id, title, pr_url, pr_number, repo, task_id, ado_id, status, reviewers,
-		       source_branch, target_branch, votes, created_at, updated_at, merged_at
+		       source_branch, target_branch, votes, created_by, created_at, updated_at, merged_at
 		FROM pull_requests
 		WHERE status = ?
 		ORDER BY created_at DESC`, status)
@@ -60,7 +61,7 @@ func (db *DB) queryPRs(query string, args ...any) ([]domain.PullRequest, error) 
 			&pr.ID, &pr.Title, &pr.PRURL, &pr.PRNumber, &pr.Repo,
 			&taskID, &pr.AdoID, &pr.Status, &pr.Reviewers,
 			&pr.SourceBranch, &pr.TargetBranch, &pr.Votes,
-			&pr.CreatedAt, &pr.UpdatedAt, &mergedAt,
+			&pr.CreatedBy, &pr.CreatedAt, &pr.UpdatedAt, &mergedAt,
 		); err != nil {
 			return nil, err
 		}
