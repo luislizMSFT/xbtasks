@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+
 import {
   Select,
   SelectContent,
@@ -26,10 +26,8 @@ import {
   ExternalLink,
   GitPullRequest,
   MessageSquare,
-  ListTodo,
   Activity,
   Send,
-  Tag,
   Folder,
   CalendarDays,
 } from 'lucide-vue-next'
@@ -113,9 +111,8 @@ function removeTag(tag: string) {
   save()
 }
 
-// ── Tabs ──
-const detailTab = ref('work')
-const commentTab = ref('notes')
+// ── Discussion panel ──
+const showDiscussion = ref(false)
 
 // ── Subtasks (mock) ──
 interface Subtask { id: number; title: string; done: boolean }
@@ -272,7 +269,7 @@ const timeUpdated = computed(() => {
   >
     <aside
       v-if="task"
-      class="border-l border-border bg-background flex flex-col h-full min-h-0"
+      class="border-l border-border bg-background flex flex-col h-full min-h-0 relative"
     >
       <!-- ─── Header (shrink-0, border-b) ─────────────────── -->
       <div class="shrink-0 border-b border-border px-4 pt-3 pb-3">
@@ -294,14 +291,26 @@ const timeUpdated = computed(() => {
 
         <!-- Badges row -->
         <div class="flex items-center gap-2 mt-2 flex-wrap">
-          <span class="inline-flex items-center gap-1.5 text-xs font-medium border border-border rounded-full px-2 py-0.5">
-            <span :class="cn('size-2 rounded-full', statusColor[editStatus] ?? 'bg-zinc-400')" />
-            {{ statusLabel[editStatus] ?? editStatus }}
-          </span>
-          <span class="inline-flex items-center gap-1.5 text-xs font-medium border border-border rounded-full px-2 py-0.5">
-            <span :class="cn('size-2 rounded-full', priorityDot[editPriority] ?? 'bg-zinc-400')" />
-            {{ editPriority }}
-          </span>
+          <Select :model-value="editStatus" @update:model-value="(v) => onStatusChange(String(v))">
+            <SelectTrigger class="inline-flex items-center gap-1.5 text-xs font-medium rounded-full pl-2 pr-1.5 py-0.5 h-auto border-border shadow-none [&_svg.lucide-chevron-down]:size-3">
+              <span :class="cn('size-2 rounded-full', statusColor[editStatus] ?? 'bg-zinc-400')" />
+              <span>{{ statusLabel[editStatus] ?? editStatus }}</span>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="s in statuses" :key="s" :value="s">
+                {{ statusLabel[s] ?? s }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <Select :model-value="editPriority" @update:model-value="(v) => onPriorityChange(String(v))">
+            <SelectTrigger class="inline-flex items-center gap-1.5 text-xs font-medium rounded-full pl-2 pr-1.5 py-0.5 h-auto border-border shadow-none [&_svg.lucide-chevron-down]:size-3">
+              <span :class="cn('size-2 rounded-full', priorityDot[editPriority] ?? 'bg-zinc-400')" />
+              <span>{{ editPriority }}</span>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="p in priorities" :key="p" :value="p">{{ p }}</SelectItem>
+            </SelectContent>
+          </Select>
           <span
             v-if="task.adoId"
             class="inline-flex items-center gap-1.5 text-xs font-medium text-blue-500 border border-blue-500/30 rounded-full px-2 py-0.5 cursor-pointer hover:bg-blue-500/10 transition-colors"
@@ -323,27 +332,9 @@ const timeUpdated = computed(() => {
         </div>
       </div>
 
-      <!-- ─── Tabs: Work / Discussion ────────────────────── -->
-      <Tabs v-model="detailTab" class="flex flex-col flex-1 min-h-0">
-        <div class="shrink-0 px-4 border-b border-border">
-          <TabsList class="h-8 w-full">
-            <TabsTrigger value="work" class="text-xs h-6 flex-1 gap-1">
-              <ListTodo :size="13" />
-              Work
-            </TabsTrigger>
-            <TabsTrigger value="discussion" class="text-xs h-6 flex-1 gap-1">
-              <MessageSquare :size="13" />
-              Discussion
-            </TabsTrigger>
-          </TabsList>
-        </div>
-
-        <!-- Scrollable tab content -->
-        <ScrollArea class="flex-1 min-h-0">
-
-          <!-- ── Work tab ──────────────────────────────── -->
-          <TabsContent value="work" class="mt-0 p-0">
-            <div class="flex flex-col space-y-2">
+      <!-- ─── Main Content ─────────────────────────────── -->
+      <ScrollArea class="flex-1 min-h-0">
+        <div class="flex flex-col space-y-2">
 
               <!-- Subtasks -->
               <div class="px-4 pt-3">
@@ -456,100 +447,21 @@ const timeUpdated = computed(() => {
                 />
               </div>
 
-              <div class="h-4" />
-            </div>
-          </TabsContent>
-
-          <!-- ── Discussion tab ────────────────────────── -->
-          <TabsContent value="discussion" class="mt-0 p-0">
-            <div class="flex flex-col space-y-2">
-
-              <!-- Comments (Notes / ADO sub-tabs) -->
-              <div class="px-4 pt-3">
-                <Tabs v-model="commentTab" class="w-full">
-                  <TabsList class="h-7 w-full">
-                    <TabsTrigger value="notes" class="text-[11px] h-5 flex-1 gap-1">
-                      <MessageSquare :size="11" />
-                      Notes
-                      <Badge v-if="mockNotes.length > 0" variant="secondary" class="h-3.5 text-[9px] px-1">
-                        {{ mockNotes.length }}
-                      </Badge>
-                    </TabsTrigger>
-                    <TabsTrigger value="ado" class="text-[11px] h-5 flex-1 gap-1">
-                      <AzureDevOpsIcon :size="11" />
-                      ADO Comments
-                      <Badge v-if="mockAdoComments.length > 0" variant="secondary" class="h-3.5 text-[9px] px-1">
-                        {{ mockAdoComments.length }}
-                      </Badge>
-                    </TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="notes" class="mt-2">
-                    <div class="flex flex-col gap-2.5">
-                      <div
-                        v-for="c in mockNotes"
-                        :key="'n' + c.id"
-                        class="flex gap-2"
-                      >
-                        <div class="size-6 rounded-full bg-muted flex items-center justify-center shrink-0">
-                          <span class="text-[9px] font-semibold text-muted-foreground">{{ c.initials }}</span>
-                        </div>
-                        <div class="flex-1 min-w-0">
-                          <div class="flex items-baseline gap-2">
-                            <span class="font-medium text-[13px]">{{ c.author }}</span>
-                            <span class="text-muted-foreground text-[10px]">{{ c.time }}</span>
-                          </div>
-                          <p class="text-muted-foreground mt-0.5 text-[13px]">{{ c.text }}</p>
-                        </div>
-                      </div>
-                      <p v-if="mockNotes.length === 0" class="text-xs text-muted-foreground italic">
-                        No notes yet.
-                      </p>
-                    </div>
-                    <div class="flex items-center gap-2 mt-3">
-                      <Input
-                        v-model="noteText"
-                        placeholder="Add a note..."
-                        class="h-7 text-xs flex-1"
-                        @keydown.enter.prevent="addNote"
-                      />
-                      <Button variant="ghost" size="icon" class="size-7 shrink-0" @click="addNote">
-                        <Send :size="13" />
-                      </Button>
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="ado" class="mt-2">
-                    <div class="flex flex-col gap-2.5">
-                      <div
-                        v-for="c in mockAdoComments"
-                        :key="'a' + c.id"
-                        class="flex gap-2"
-                      >
-                        <div class="size-6 rounded-full bg-muted flex items-center justify-center shrink-0">
-                          <span class="text-[9px] font-semibold text-muted-foreground">{{ c.initials }}</span>
-                        </div>
-                        <div class="flex-1 min-w-0">
-                          <div class="flex items-baseline gap-2">
-                            <span class="font-medium text-[13px]">{{ c.author }}</span>
-                            <span class="text-muted-foreground text-[10px]">{{ c.time }}</span>
-                          </div>
-                          <p class="text-muted-foreground mt-0.5 text-[13px]">{{ c.text }}</p>
-                        </div>
-                      </div>
-                      <p v-if="mockAdoComments.length === 0" class="text-xs text-muted-foreground italic">
-                        No ADO comments synced.
-                      </p>
-                    </div>
-                  </TabsContent>
-                </Tabs>
+              <!-- Discussion trigger -->
+              <div class="px-4 pb-3">
+                <button
+                  class="flex items-center gap-2 w-full text-xs text-muted-foreground hover:text-foreground transition-colors py-2 px-3 rounded-md hover:bg-muted/50 border border-border"
+                  @click="showDiscussion = true"
+                >
+                  <MessageSquare :size="14" />
+                  <span class="font-medium">Discussion</span>
+                  <Badge variant="secondary" class="h-4 text-[10px] px-1.5 ml-auto">
+                    {{ mockNotes.length + mockAdoComments.length }}
+                  </Badge>
+                </button>
               </div>
-
-              <div class="h-4" />
-            </div>
-          </TabsContent>
-        </ScrollArea>
-      </Tabs>
+        </div>
+      </ScrollArea>
 
       <!-- ─── Activity Bar ─────────────────────────────── -->
       <div v-if="mockActivity.length > 0" class="shrink-0 border-t border-border px-4 py-1.5">
@@ -570,34 +482,6 @@ const timeUpdated = computed(() => {
         <div class="px-4 py-2">
           <span class="font-semibold text-xs mb-2 block">Details</span>
           <div class="grid grid-cols-2 gap-x-4 gap-y-3">
-
-            <!-- Status -->
-            <div class="flex flex-col gap-0.5">
-              <span class="text-muted-foreground text-[11px] font-medium">Status</span>
-              <Select :model-value="editStatus" @update:model-value="(v) => onStatusChange(String(v))">
-                <SelectTrigger class="h-7 text-[13px] border-none shadow-none px-1 -ml-1">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="s in statuses" :key="s" :value="s">
-                    {{ statusLabel[s] ?? s }}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <!-- Priority -->
-            <div class="flex flex-col gap-0.5">
-              <span class="text-muted-foreground text-[11px] font-medium">Priority</span>
-              <Select :model-value="editPriority" @update:model-value="(v) => onPriorityChange(String(v))">
-                <SelectTrigger class="h-7 text-[13px] border-none shadow-none px-1 -ml-1">
-                  <SelectValue placeholder="Priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="p in priorities" :key="p" :value="p">{{ p }}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
 
             <!-- Project -->
             <div class="flex flex-col gap-0.5">
@@ -631,33 +515,6 @@ const timeUpdated = computed(() => {
               </div>
             </div>
 
-            <!-- Tags (full width) -->
-            <div class="flex flex-col gap-0.5 col-span-2">
-              <span class="text-muted-foreground text-[11px] font-medium">Tags</span>
-              <div class="flex items-center gap-1 flex-wrap">
-                <span
-                  v-for="tag in editTags"
-                  :key="tag"
-                  class="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] group"
-                >
-                  <Tag :size="10" class="text-muted-foreground" />
-                  {{ tag }}
-                  <button
-                    class="opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-500 ml-0.5"
-                    @click="removeTag(tag)"
-                  >
-                    <X :size="8" />
-                  </button>
-                </span>
-                <Input
-                  v-model="newTag"
-                  @keydown.enter.prevent="addTag"
-                  class="inline-flex h-5 w-16 px-1 text-[11px] border-none shadow-none focus-visible:ring-0 bg-transparent"
-                  placeholder="+ tag"
-                />
-              </div>
-            </div>
-
             <!-- ADO Link (full width) -->
             <div class="flex flex-col gap-0.5 col-span-2">
               <span class="text-muted-foreground text-[11px] font-medium">ADO Link</span>
@@ -687,6 +544,131 @@ const timeUpdated = computed(() => {
           </Button>
         </div>
       </div>
+
+      <!-- ─── Discussion Slide-up Panel ───────────────────── -->
+      <Transition
+        enter-active-class="transition-transform duration-300 ease-out"
+        enter-from-class="translate-y-full"
+        enter-to-class="translate-y-0"
+        leave-active-class="transition-transform duration-200 ease-in"
+        leave-from-class="translate-y-0"
+        leave-to-class="translate-y-full"
+      >
+        <div v-if="showDiscussion" class="absolute inset-0 bg-background flex flex-col z-50">
+          <!-- Panel header -->
+          <div class="shrink-0 flex items-center justify-between border-b border-border px-4 py-2.5">
+            <div class="flex items-center gap-2">
+              <MessageSquare :size="14" />
+              <span class="font-semibold text-sm">Discussion</span>
+            </div>
+            <Button variant="ghost" size="icon" class="h-7 w-7 shrink-0" @click="showDiscussion = false">
+              <ChevronDown :size="16" />
+            </Button>
+          </div>
+
+          <!-- Scrollable discussion content -->
+          <ScrollArea class="flex-1 min-h-0">
+            <!-- Notes section -->
+            <div class="px-4 pt-3">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="font-semibold text-xs">Notes</span>
+                <Badge v-if="mockNotes.length > 0" variant="secondary" class="h-4 text-[10px] px-1.5">
+                  {{ mockNotes.length }}
+                </Badge>
+              </div>
+              <div class="flex flex-col gap-2.5">
+                <div
+                  v-for="c in mockNotes"
+                  :key="'n' + c.id"
+                  class="flex gap-2"
+                >
+                  <div class="size-6 rounded-full bg-muted flex items-center justify-center shrink-0">
+                    <span class="text-[9px] font-semibold text-muted-foreground">{{ c.initials }}</span>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-baseline gap-2">
+                      <span class="font-medium text-[13px]">{{ c.author }}</span>
+                      <span class="text-muted-foreground text-[10px]">{{ c.time }}</span>
+                    </div>
+                    <p class="text-muted-foreground mt-0.5 text-[13px]">{{ c.text }}</p>
+                  </div>
+                </div>
+                <p v-if="mockNotes.length === 0" class="text-xs text-muted-foreground italic">
+                  No notes yet.
+                </p>
+              </div>
+            </div>
+
+            <Separator class="my-3" />
+
+            <!-- ADO Comments section -->
+            <div class="px-4">
+              <div class="flex items-center gap-2 mb-2">
+                <AzureDevOpsIcon :size="12" />
+                <span class="font-semibold text-xs">ADO Comments</span>
+                <Badge v-if="mockAdoComments.length > 0" variant="secondary" class="h-4 text-[10px] px-1.5">
+                  {{ mockAdoComments.length }}
+                </Badge>
+              </div>
+              <div class="flex flex-col gap-2.5">
+                <div
+                  v-for="c in mockAdoComments"
+                  :key="'a' + c.id"
+                  class="flex gap-2"
+                >
+                  <div class="size-6 rounded-full bg-muted flex items-center justify-center shrink-0">
+                    <span class="text-[9px] font-semibold text-muted-foreground">{{ c.initials }}</span>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-baseline gap-2">
+                      <span class="font-medium text-[13px]">{{ c.author }}</span>
+                      <span class="text-muted-foreground text-[10px]">{{ c.time }}</span>
+                    </div>
+                    <p class="text-muted-foreground mt-0.5 text-[13px]">{{ c.text }}</p>
+                  </div>
+                </div>
+                <p v-if="mockAdoComments.length === 0" class="text-xs text-muted-foreground italic">
+                  No ADO comments synced.
+                </p>
+              </div>
+            </div>
+
+            <Separator class="my-3" />
+
+            <!-- Activity timeline -->
+            <div class="px-4 pb-4">
+              <div class="flex items-center gap-2 mb-2">
+                <Activity :size="12" class="text-muted-foreground" />
+                <span class="font-semibold text-xs">Activity</span>
+              </div>
+              <div class="flex flex-col gap-2">
+                <div v-for="(item, i) in mockActivity" :key="'disc-act' + i" class="flex items-start gap-2">
+                  <span class="size-1.5 rounded-full bg-muted-foreground/50 shrink-0 mt-1.5" />
+                  <div class="flex-1 min-w-0">
+                    <span class="text-[13px]">{{ item.event }}</span>
+                    <span class="text-muted-foreground text-[10px] ml-2">{{ item.time }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
+
+          <!-- Note input at bottom -->
+          <div class="shrink-0 border-t border-border px-4 py-2.5">
+            <div class="flex items-center gap-2">
+              <Input
+                v-model="noteText"
+                placeholder="Add a note..."
+                class="h-7 text-xs flex-1"
+                @keydown.enter.prevent="addNote"
+              />
+              <Button variant="ghost" size="icon" class="size-7 shrink-0" @click="addNote">
+                <Send :size="13" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Transition>
     </aside>
   </Transition>
 </template>
