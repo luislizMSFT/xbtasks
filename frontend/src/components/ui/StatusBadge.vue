@@ -13,23 +13,31 @@ import {
 
 const props = defineProps<{ status: string }>()
 
+// Uses semantic --color-status-* tokens from UI-SPEC (defined in style.css @theme)
 const config = computed(() => {
   switch (props.status) {
-    case 'todo': return { icon: Circle, variant: 'outline' as const, classes: 'bg-zinc-500/15 text-zinc-500 border-zinc-500/20', label: 'To Do' }
-    case 'in_progress': return { icon: CircleDot, variant: 'default' as const, classes: 'bg-blue-500/15 text-blue-600 border-blue-500/20', label: 'In Progress' }
-    case 'in_review': return { icon: Eye, variant: 'default' as const, classes: 'bg-violet-500/15 text-violet-600 border-violet-500/20', label: 'In Review' }
-    case 'done': return { icon: CheckCircle2, variant: 'default' as const, classes: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/20', label: 'Done' }
-    case 'blocked': return { icon: Octagon, variant: 'default' as const, classes: 'bg-red-500/15 text-red-600 border-red-500/20', label: 'Blocked' }
-    case 'cancelled': return { icon: XCircle, variant: 'outline' as const, classes: 'bg-zinc-500/15 text-muted-foreground border-zinc-500/20', label: 'Cancelled' }
-    default: return { icon: Circle, variant: 'outline' as const, classes: 'bg-zinc-500/15 text-zinc-500 border-zinc-500/20', label: props.status }
+    case 'todo': return { icon: Circle, variant: 'outline' as const, label: 'To Do', colorVar: '--color-status-todo' }
+    case 'in_progress': return { icon: CircleDot, variant: 'default' as const, label: 'In Progress', colorVar: '--color-status-in-progress' }
+    case 'in_review': return { icon: Eye, variant: 'default' as const, label: 'In Review', colorVar: '--color-status-in-review' }
+    case 'done': return { icon: CheckCircle2, variant: 'default' as const, label: 'Done', colorVar: '--color-status-done' }
+    case 'blocked': return { icon: Octagon, variant: 'default' as const, label: 'Blocked', colorVar: '--color-status-blocked' }
+    case 'cancelled': return { icon: XCircle, variant: 'outline' as const, label: 'Cancelled', colorVar: '--color-status-cancelled' }
+    default: return { icon: Circle, variant: 'outline' as const, label: props.status, colorVar: '--color-status-todo' }
   }
 })
+
+const badgeStyle = computed(() => ({
+  color: `var(${config.value.colorVar})`,
+  backgroundColor: `color-mix(in srgb, var(${config.value.colorVar}) 10%, transparent)`,
+  borderColor: `color-mix(in srgb, var(${config.value.colorVar}) 20%, transparent)`,
+}))
 </script>
 
 <template>
   <Badge
     :variant="config.variant"
-    :class="cn('inline-flex items-center gap-1 text-[11px] font-medium', config.classes)"
+    :class="cn('inline-flex items-center gap-1 text-[11px] font-medium border', '')"
+    :style="badgeStyle"
   >
     <component :is="config.icon" :size="13" :stroke-width="2" />
     <span class="leading-none">{{ config.label }}</span>
