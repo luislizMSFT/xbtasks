@@ -9,8 +9,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Authentication
 
-- [ ] **AUTH-01**: App authenticates to ADO via abstracted token provider — az cli `get-access-token` initially, swappable for PAT or OAuth later
-- [ ] **AUTH-02**: Token auto-refreshes transparently; user doesn't need to re-auth unless az cli session expires
+- [x] **AUTH-01**: App authenticates to ADO via abstracted token provider — az cli `get-access-token` initially, swappable for PAT or OAuth later
+- [x] **AUTH-02**: Token auto-refreshes transparently; user doesn't need to re-auth unless az cli session expires
 - [ ] **AUTH-03**: Token provider abstraction allows future swap to Entra ID OAuth2 PKCE or PAT without changing consuming code
 
 ### Personal Tasks
@@ -166,8 +166,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| AUTH-02 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| AUTH-01 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| AUTH-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | AUTH-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | TASK-01 | Phase 1: Foundation, Auth & Personal Tasks | Complete |
 | TASK-02 | Phase 1: Foundation, Auth & Personal Tasks | Complete |

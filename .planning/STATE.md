@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Phase 2 UI iteration — playgrounds + real views
-last_updated: "2026-04-03T00:30:00.000Z"
+status: Deep UI iteration — playgrounds built, real views being refined
+stopped_at: Completed 01-03-PLAN.md
+last_updated: "2026-04-04T00:04:22.371Z"
 last_activity: 2026-04-03
 progress:
-  total_phases: 2
-  completed_phases: 1
+  total_phases: 3
+  completed_phases: 0
   total_plans: 6
-  completed_plans: 6
+  completed_plans: 3
   percent: 50
 ---
 
@@ -92,6 +92,8 @@ Progress: [█████░░░░░] 50%
 - Quick-add: title-only capture, expand later
 - Work tasks only (dev + non-dev) — not personal/life tasks
 - Desktop app primary, design for future VS Code/MCP integration
+- [Phase 01]: Semantic status/priority CSS custom properties added to style.css for UI-SPEC color contract
+- [Phase 01]: Accent color uses hex values from UI-SPEC (blue-600 light, blue-500 dark)
 
 ### Pending Todos
 
@@ -118,6 +120,6 @@ Progress: [█████░░░░░] 50%
 
 ## Session Continuity
 
-Last session: 2026-04-03T00:30:00.000Z
-Stopped at: Phase 2 UI iteration — playgrounds + real views
+Last session: 2026-04-04T00:04:22.367Z
+Stopped at: Completed 01-03-PLAN.md
 Resume: Continue refining shell header, then wire backend services
