@@ -113,6 +113,41 @@ export const useTaskStore = defineStore('tasks', () => {
     if (selectedTaskId.value === id) selectedTaskId.value = null
   }
 
+  async function setPersonalPriority(id: number, priority: string) {
+    const { SetPersonalPriority } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/taskservice')
+    const updated = await SetPersonalPriority(id, priority) as Task
+    const idx = tasks.value.findIndex(t => t.id === id)
+    if (idx !== -1) tasks.value[idx] = updated
+    if (selectedTaskId.value === id) { /* reactive via computed */ }
+    return updated
+  }
+
+  async function getSubtasks(parentID: number): Promise<Task[]> {
+    const { GetSubtasks } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/taskservice')
+    return (await GetSubtasks(parentID)) as Task[]
+  }
+
+  // DependencyService — task-to-task dependency management
+  async function getDependencies(taskID: number): Promise<Task[]> {
+    const { GetDependencies } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/dependencyservice')
+    return (await GetDependencies(taskID)) as Task[]
+  }
+
+  async function addDependency(taskID: number, dependsOn: number) {
+    const { AddDependency } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/dependencyservice')
+    await AddDependency(taskID, dependsOn)
+  }
+
+  async function removeDependency(taskID: number, dependsOn: number) {
+    const { RemoveDependency } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/dependencyservice')
+    await RemoveDependency(taskID, dependsOn)
+  }
+
+  async function getAllTags(): Promise<string[]> {
+    const { GetAllTags } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/taskservice')
+    return (await GetAllTags()) as string[]
+  }
+
   function selectTask(id: number | null) {
     selectedTaskId.value = id
   }
@@ -121,5 +156,8 @@ export const useTaskStore = defineStore('tasks', () => {
     tasks, loading, selectedTaskId, filterStatus,
     selectedTask, filteredTasks, grouped, stats,
     fetchTasks, createTask, updateTask, setStatus, deleteTask, selectTask,
+    setPersonalPriority, getSubtasks,
+    getDependencies, addDependency, removeDependency,
+    getAllTags,
   }
 })
