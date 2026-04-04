@@ -10,7 +10,24 @@
   --color-border-default: var(--border-default);
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
   --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-destructive-hover: var(--destructive-hover);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  /* Semantic status colors (UI-SPEC) */
+  --color-status-todo: var(--status-todo);
+  --color-status-in-progress: var(--status-in-progress);
+  --color-status-in-review: var(--status-in-review);
+  --color-status-done: var(--status-done);
+  --color-status-blocked: var(--status-blocked);
+  --color-status-cancelled: var(--status-cancelled);
+  /* Priority colors (UI-SPEC) */
+  --color-priority-p0: var(--priority-p0);
+  --color-priority-p1: var(--priority-p1);
+  --color-priority-p2: var(--priority-p2);
+  --color-priority-p3: var(--priority-p3);
 }
 
 :root {
@@ -20,7 +37,24 @@
   --border-default: #E4E4E7;
   --text-primary: #18181B;
   --text-secondary: #71717A;
-  --accent: oklch(0.967 0.001 286.375);
+  --text-tertiary: #A1A1AA;
+  --accent: #2563EB;
+  --accent-hover: #1D4ED8;
+  --destructive-hover: #B91C1C;
+  --success: #059669;
+  --warning: #D97706;
+  /* Status colors — light mode (UI-SPEC) */
+  --status-todo: #71717A;
+  --status-in-progress: #2563EB;
+  --status-in-review: #7C3AED;
+  --status-done: #059669;
+  --status-blocked: #DC2626;
+  --status-cancelled: #A1A1AA;
+  /* Priority colors — light mode (UI-SPEC) */
+  --priority-p0: #DC2626;
+  --priority-p1: #EA580C;
+  --priority-p2: #D97706;
+  --priority-p3: #A1A1AA;
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -66,7 +100,24 @@
   --border-default: rgba(63, 63, 70, 0.5);
   --text-primary: #F4F4F5;
   --text-secondary: #A1A1AA;
-  --accent: oklch(0.274 0.006 286.033);
+  --text-tertiary: #71717A;
+  --accent: #3B82F6;
+  --accent-hover: #60A5FA;
+  --destructive-hover: #F87171;
+  --success: #10B981;
+  --warning: #F59E0B;
+  /* Status colors — dark mode (UI-SPEC) */
+  --status-todo: #A1A1AA;
+  --status-in-progress: #3B82F6;
+  --status-in-review: #8B5CF6;
+  --status-done: #10B981;
+  --status-blocked: #EF4444;
+  --status-cancelled: #71717A;
+  /* Priority colors — dark mode (UI-SPEC) */
+  --priority-p0: #EF4444;
+  --priority-p1: #F97316;
+  --priority-p2: #F59E0B;
+  --priority-p3: #71717A;
   --background: oklch(0.141 0.005 285.823);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.21 0.006 285.885);
