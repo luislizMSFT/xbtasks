@@ -22,7 +22,8 @@ async function signInWithMicrosoft() {
 async function signInWithPAT() {
   const token = patInput.value.trim()
   if (!token) return
-  authStore.signIn()
+  // TODO: Call AuthService.SignInWithPAT(token) when binding is ready
+  await authStore.signIn()
   if (authStore.isAuthenticated) {
     router.push('/tasks')
   }
@@ -41,14 +42,14 @@ async function signInWithPAT() {
             </svg>
           </div>
         </div>
-        <CardTitle class="text-xl">Team ADO Tool</CardTitle>
-        <CardDescription>Tasks · ADO · PRs — one pane of glass</CardDescription>
+        <CardTitle class="text-[20px] font-semibold">Team ADO Tool</CardTitle>
+        <CardDescription class="text-[14px] font-normal text-muted-foreground">All your work in one place</CardDescription>
       </CardHeader>
 
       <CardContent class="space-y-4">
         <!-- Error -->
-        <div v-if="authStore.error" class="px-3 py-2 rounded-md text-sm bg-destructive/10 text-destructive border border-destructive/20">
-          {{ authStore.error }}
+        <div v-if="authStore.error" class="px-3 py-2 rounded-md text-[12px] font-semibold bg-destructive/10 text-destructive border border-destructive/20">
+          Authentication failed — check your network connection and try again.
         </div>
 
         <!-- Sign in buttons -->
@@ -60,6 +61,7 @@ async function signInWithPAT() {
             size="lg"
           >
             <Loader2 v-if="authStore.loading" :size="16" class="animate-spin" />
+            <template v-if="authStore.loading">Signing in...</template>
             <template v-else>
               <svg class="w-4 h-4" viewBox="0 0 21 21" fill="none">
                 <rect width="10" height="10" fill="#F25022"/>
@@ -74,9 +76,10 @@ async function signInWithPAT() {
           <Button
             v-if="!showPAT"
             @click="showPAT = true"
-            variant="outline"
+            variant="ghost"
             class="w-full"
             size="lg"
+            :disabled="authStore.loading"
           >
             <KeyRound :size="16" />
             Use Personal Access Token
@@ -108,10 +111,13 @@ async function signInWithPAT() {
                 </Button>
                 <Button
                   @click="signInWithPAT"
+                  :disabled="authStore.loading || !patInput.trim()"
                   size="sm"
                   class="flex-1"
                 >
-                  Sign In
+                  <Loader2 v-if="authStore.loading" :size="14" class="animate-spin" />
+                  <template v-if="authStore.loading">Signing in...</template>
+                  <template v-else>Connect</template>
                 </Button>
               </div>
             </div>
