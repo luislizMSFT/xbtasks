@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Deep UI iteration — playgrounds built, real views being refined
-stopped_at: Completed 01-05-PLAN.md
-last_updated: "2026-04-04T00:11:55.767Z"
+stopped_at: Completed 01-04-PLAN.md
+last_updated: "2026-04-04T00:14:17.384Z"
 last_activity: 2026-04-03
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 6
-  completed_plans: 4
+  completed_plans: 5
   percent: 50
 ---
 
@@ -97,6 +97,9 @@ Progress: [█████░░░░░] 50%
 - [Phase 01]: Badge components use CSS custom properties via inline style binding for UI-SPEC color contract (not Tailwind utility classes)
 - [Phase 01]: color-mix(in srgb, ...) for opacity variants on semantic tokens
 - [Phase 01]: PAT button uses ghost variant per UI-SPEC
+- [Phase 01]: Kept AppShell in layouts/ directory (Vue convention) rather than components/
+- [Phase 01]: Auth guard in App.vue with tryRestore() on mount for session persistence
+- [Phase 01]: shadcn-vue Command (cmdk-vue) preferred over raw Headless UI Dialog+Combobox for command palette
 
 ### Pending Todos
 
@@ -123,6 +126,6 @@ Progress: [█████░░░░░] 50%
 
 ## Session Continuity
 
-Last session: 2026-04-04T00:11:55.763Z
-Stopped at: Completed 01-05-PLAN.md
+Last session: 2026-04-04T00:14:09.750Z
+Stopped at: Completed 01-04-PLAN.md
 Resume: Continue refining shell header, then wire backend services
