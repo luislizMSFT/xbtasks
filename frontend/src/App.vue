@@ -1,17 +1,22 @@
 <script setup lang="ts">
-import { useRoute } from 'vue-router'
-import { computed } from 'vue'
+import { onMounted } from 'vue'
 import { useTheme } from './composables/useTheme'
+import { useAuthStore } from './stores/auth'
 import AppShell from './layouts/AppShell.vue'
+import LoginView from './views/LoginView.vue'
 
 useTheme()
-const route = useRoute()
-const hideShell = computed(() => route.meta?.hideShell === true)
+const authStore = useAuthStore()
+
+onMounted(async () => {
+  // Try to restore session from existing token/keychain
+  await authStore.tryRestore()
+})
 </script>
 
 <template>
-  <AppShell v-if="!hideShell">
+  <LoginView v-if="!authStore.isAuthenticated" />
+  <AppShell v-else>
     <router-view />
   </AppShell>
-  <router-view v-else />
 </template>
