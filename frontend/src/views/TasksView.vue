@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import { useMagicKeys, whenever } from '@vueuse/core'
 import { useTaskStore, type Task } from '@/stores/tasks'
 import { usePRStore } from '@/stores/prs'
 import TaskDetail from '@/components/TaskDetail.vue'
+import TaskRow from '@/components/TaskRow.vue'
 import { cn } from '@/lib/utils'
 import {
   Filter, ArrowUpDown, ChevronDown, ChevronRight,
@@ -15,6 +18,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Input } from '@/components/ui/input'
 import PageHeader from '@/components/PageHeader.vue'
 
+const route = useRoute()
 const taskStore = useTaskStore()
 const prStore = usePRStore()
 
@@ -23,9 +27,46 @@ const newTaskTitle = ref('')
 const newTaskInput = ref<HTMLInputElement | null>(null)
 const expandedSubtasks = ref<Set<number>>(new Set())
 
+// Keyboard shortcuts: ⌘N / Ctrl+N to toggle create form, Escape to close panels
+const { Meta_n, Ctrl_n } = useMagicKeys()
+
+whenever(Meta_n, () => {
+  if (taskStore.selectedTaskId) {
+    closeDetail()
+  } else {
+    startInlineCreate()
+  }
+})
+
+whenever(Ctrl_n, () => {
+  if (taskStore.selectedTaskId) {
+    closeDetail()
+  } else {
+    startInlineCreate()
+  }
+})
+
+// Handle Escape: close detail panel first, then create form
+function onEscape() {
+  if (taskStore.selectedTaskId) {
+    closeDetail()
+  } else if (showNewTask.value) {
+    showNewTask.value = false
+  }
+}
+
+// Handle ?create=1 query param from Dashboard "Create Task" button
+watch(() => route.query.create, (val) => {
+  if (val === '1') {
+    startInlineCreate()
+  }
+}, { immediate: true })
+
 const tabs = [
   { id: 'all', label: 'All' },
-  { id: 'active', label: 'Active' },
+  { id: 'todo', label: 'Todo' },
+  { id: 'in_progress', label: 'In Progress' },
+  { id: 'in_review', label: 'In Review' },
   { id: 'done', label: 'Done' },
   { id: 'blocked', label: 'Blocked' },
 ]
@@ -161,7 +202,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="flex-1 flex overflow-hidden">
+  <div class="flex-1 flex overflow-hidden" @keydown.esc="onEscape" tabindex="-1">
     <!-- Left: Task list -->
     <div class="flex-1 flex flex-col min-w-0 w-[55%]">
       <PageHeader>
@@ -195,7 +236,7 @@ onMounted(async () => {
         <!-- Empty state -->
         <div v-else-if="!hasAnyTasks" class="flex flex-col items-center justify-center py-20 gap-3">
           <p class="text-sm font-medium text-foreground">No tasks yet</p>
-          <p class="text-xs text-muted-foreground">Create your first task to get started</p>
+          <p class="text-xs text-muted-foreground">Create your first task to start tracking your work. Press ⌘N or click Create Task above.</p>
           <Button class="mt-2" @click="startInlineCreate">Create Task</Button>
         </div>
 
