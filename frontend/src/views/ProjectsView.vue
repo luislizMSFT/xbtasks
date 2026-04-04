@@ -249,6 +249,7 @@ function timeAgo(dateStr: string) {
               'hover:bg-muted/40',
               selectedProjectId === project.id ? 'bg-primary/[0.06]' : ''
             )"
+            :style="{ background: selectedProjectId === project.id ? undefined : 'var(--color-bg-secondary)' }"
           >
             <span
               class="w-2 h-2 rounded-full shrink-0"
@@ -277,11 +278,11 @@ function timeAgo(dateStr: string) {
           </div>
         </div>
 
-        <!-- Empty state -->
+        <!-- Empty state (per UI-SPEC copywriting contract) -->
         <div v-else-if="!projectStore.loading" class="flex flex-col items-center justify-center py-16 gap-2">
           <Folder :size="24" class="text-muted-foreground/40" />
-          <p class="text-sm font-medium text-foreground">No projects yet</p>
-          <p class="text-xs text-muted-foreground">Create a project to get started</p>
+          <p class="text-sm font-medium" style="color: var(--color-text-primary)">No projects yet</p>
+          <p class="text-xs" style="color: var(--color-text-secondary)">Projects help you group related tasks. Create one to get organized.</p>
           <Button size="sm" class="mt-2" @click="showCreate = true">Create Project</Button>
         </div>
 
