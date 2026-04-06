@@ -73,11 +73,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Projects
 
-- [ ] **PROJ-01**: Projects page — card grid layout. Each card: name, ADO badge (filled if linked to scenario/deliverable, hollow if local), dual progress (ADO children % + local tasks %), task count
+- [x] **PROJ-01**: Projects page — card grid layout. Each card: name, ADO badge (filled if linked to scenario/deliverable, hollow if local), dual progress (ADO children % + local tasks %), task count
 - [x] **PROJ-02**: Pin/star favorite projects to top of the grid
-- [ ] **PROJ-03**: Projects are flat (no sub-projects). Hierarchy lives at the task level (subtasks/dependencies)
+- [x] **PROJ-03**: Projects are flat (no sub-projects). Hierarchy lives at the task level (subtasks/dependencies)
 - [x] **PROJ-04**: Projects can be local-only groupings or linked to ADO scenarios/deliverables (same personal/public model as tasks)
-- [ ] **PROJ-05**: Click project card → project dashboard: stats, ADO progress, linked ADO context, then tasks filtered to that project
+- [x] **PROJ-05**: Click project card → project dashboard: stats, ADO progress, linked ADO context, then tasks filtered to that project
 - [x] **PROJ-06**: Project progress shows two indicators: ADO children completion (from linked ADO item) and local task completion (personal tasks under project) — kept separate, never mixed
 - [x] **PROJ-07**: User can link a project to an ADO scenario or deliverable; user can unlink with same keep/delete option as tasks
 
@@ -206,11 +206,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TL-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | TL-04 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | TL-05 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| PROJ-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| PROJ-01 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | PROJ-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
-| PROJ-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| PROJ-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | PROJ-04 | Phase 2: ADO Integration & Sync Workflow | Complete |
-| PROJ-05 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| PROJ-05 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | PROJ-06 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | PROJ-07 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | UX-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
