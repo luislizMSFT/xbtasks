@@ -41,21 +41,21 @@ Requirements for initial release. Each maps to roadmap phases.
 ### External Links & Context
 
 - [x] **LINK-01**: User can attach external URLs to any task (ICMs, dashboards, wiki pages, etc.) as structured links with label
-- [ ] **LINK-02**: Auto-detect known URL patterns (ICM → incident icon, Grafana → dashboard icon, ADO → work item icon, Wiki) with fallback to manual label
+- [x] **LINK-02**: Auto-detect known URL patterns (ICM → incident icon, Grafana → dashboard icon, ADO → work item icon, Wiki) with fallback to manual label
 - [ ] **LINK-03**: Links displayed in a dedicated section on task detail — clickable, labeled, with type icon
 
 ### Comments & Sync
 
 - [x] **CMT-01**: User can add local comments to any task (private, never pushed to ADO by default)
-- [ ] **CMT-02**: User can selectively push a comment to linked ADO work item (with confirmation); synced comments clearly marked as public
-- [ ] **CMT-03**: User can update task description locally, then confirm-push to ADO (preview diff)
+- [x] **CMT-02**: User can selectively push a comment to linked ADO work item (with confirmation); synced comments clearly marked as public
+- [x] **CMT-03**: User can update task description locally, then confirm-push to ADO (preview diff)
 
 ### ADO Sync
 
-- [ ] **SYNC-01**: Background auto-sync pulls ADO changes to linked items silently on configurable timer (default 15 min) + manual refresh trigger
+- [x] **SYNC-01**: Background auto-sync pulls ADO changes to linked items silently on configurable timer (default 15 min) + manual refresh trigger
 - [x] **SYNC-02**: All outbound pushes to ADO require user confirmation via preview diff — never auto-push
 - [x] **SYNC-03**: Per-field conflict resolution when both local and ADO sides changed the same linked item — user picks per field
-- [ ] **SYNC-04**: Linked task syncs title, status, and description to ADO; subtasks and personal breakdowns never pushed unless individually linked
+- [x] **SYNC-04**: Linked task syncs title, status, and description to ADO; subtasks and personal breakdowns never pushed unless individually linked
 
 ### Dashboard & Views
 
@@ -76,10 +76,10 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **PROJ-01**: Projects page — card grid layout. Each card: name, ADO badge (filled if linked to scenario/deliverable, hollow if local), dual progress (ADO children % + local tasks %), task count
 - [x] **PROJ-02**: Pin/star favorite projects to top of the grid
 - [ ] **PROJ-03**: Projects are flat (no sub-projects). Hierarchy lives at the task level (subtasks/dependencies)
-- [ ] **PROJ-04**: Projects can be local-only groupings or linked to ADO scenarios/deliverables (same personal/public model as tasks)
+- [x] **PROJ-04**: Projects can be local-only groupings or linked to ADO scenarios/deliverables (same personal/public model as tasks)
 - [ ] **PROJ-05**: Click project card → project dashboard: stats, ADO progress, linked ADO context, then tasks filtered to that project
-- [ ] **PROJ-06**: Project progress shows two indicators: ADO children completion (from linked ADO item) and local task completion (personal tasks under project) — kept separate, never mixed
-- [ ] **PROJ-07**: User can link a project to an ADO scenario or deliverable; user can unlink with same keep/delete option as tasks
+- [x] **PROJ-06**: Project progress shows two indicators: ADO children completion (from linked ADO item) and local task completion (personal tasks under project) — kept separate, never mixed
+- [x] **PROJ-07**: User can link a project to an ADO scenario or deliverable; user can unlink with same keep/delete option as tasks
 
 ### UX Patterns
 
@@ -188,16 +188,16 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ADO-08 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | ADO-09 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | ADO-10 | Phase 2: ADO Integration & Sync Workflow | Complete |
-| SYNC-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| SYNC-01 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | SYNC-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | SYNC-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
-| SYNC-04 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| SYNC-04 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | LINK-01 | Phase 2: ADO Integration & Sync Workflow | Complete |
-| LINK-02 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| LINK-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | LINK-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | CMT-01 | Phase 2: ADO Integration & Sync Workflow | Complete |
-| CMT-02 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| CMT-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| CMT-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| CMT-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | DASH-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | DASH-02 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | DASH-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
@@ -209,10 +209,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PROJ-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | PROJ-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | PROJ-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| PROJ-04 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| PROJ-04 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | PROJ-05 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| PROJ-06 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| PROJ-07 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| PROJ-06 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| PROJ-07 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | UX-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | UX-02 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | UX-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
