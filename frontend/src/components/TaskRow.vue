@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import type { Task } from '@/stores/tasks'
 import PriorityBadge from '@/components/ui/PriorityBadge.vue'
 import TagChip from '@/components/ui/TagChip.vue'
-import AdoBadge from '@/components/ui/AdoBadge.vue'
+import AzureDevOpsIcon from '@/components/icons/AzureDevOpsIcon.vue'
 import {
   Circle,
   CircleDot,
@@ -11,16 +11,20 @@ import {
   CheckCircle2,
   Octagon,
   XCircle,
+  CalendarDays,
 } from 'lucide-vue-next'
 
 const props = defineProps<{
   task: Task
   selected?: boolean
+  isPublic?: boolean
+  projectName?: string
 }>()
 
 const emit = defineEmits<{
   select: [id: number]
   toggleStatus: [id: number]
+  'link-task': [id: number]
 }>()
 
 const statusIcon = computed(() => {
@@ -68,9 +72,33 @@ const timeAgo = computed(() => {
 
 const isDone = computed(() => props.task.status === 'done' || props.task.status === 'cancelled')
 
+const dueDateDisplay = computed(() => {
+  if (!props.task.dueDate) return null
+  const d = new Date(props.task.dueDate)
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const tomorrow = new Date(today)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  if (d < today) return { text: formatDate(d), overdue: true }
+  if (d >= today && d < tomorrow) return { text: 'Today', overdue: false }
+  return { text: formatDate(d), overdue: false }
+})
+
+function formatDate(d: Date) {
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  return `${months[d.getMonth()]} ${d.getDate()}`
+}
+
 function onCheckClick(e: Event) {
   e.stopPropagation()
   emit('toggleStatus', props.task.id)
+}
+
+function onAdoBadgeClick(e: Event) {
+  e.stopPropagation()
+  if (!props.isPublic) {
+    emit('link-task', props.task.id)
+  }
 }
 </script>
 
@@ -108,7 +136,28 @@ function onCheckClick(e: Event) {
 
         <!-- Right side badges -->
         <div class="flex items-center gap-1.5 flex-shrink-0">
+          <!-- ADO Badge: filled if public, hollow if personal -->
+          <button
+            @click="onAdoBadgeClick"
+            class="inline-flex items-center justify-center rounded-full shrink-0 transition-colors"
+            :class="isPublic
+              ? 'w-5 h-5 bg-blue-500/10 text-blue-500 border border-blue-500/30 hover:bg-blue-500/20'
+              : 'w-5 h-5 border border-dashed border-muted-foreground/30 text-muted-foreground/30 hover:border-muted-foreground/60 hover:text-muted-foreground/60'"
+            :title="isPublic ? 'Linked to ADO' : 'Personal — click to link'"
+          >
+            <AzureDevOpsIcon v-if="isPublic" :size="12" />
+            <Circle v-else :size="10" :stroke-width="1.5" />
+          </button>
+
           <PriorityBadge :priority="task.priority" />
+
+          <!-- Project tag -->
+          <span
+            v-if="projectName"
+            class="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground truncate max-w-[6rem] shrink-0"
+          >
+            {{ projectName }}
+          </span>
 
           <TagChip v-for="tag in visibleTags" :key="tag" :tag="tag" />
           <span
@@ -118,7 +167,15 @@ function onCheckClick(e: Event) {
             +{{ overflowCount }}
           </span>
 
-          <AdoBadge :ado-id="task.adoId" />
+          <!-- Due date -->
+          <span
+            v-if="dueDateDisplay"
+            class="inline-flex items-center gap-0.5 text-[10px] shrink-0"
+            :class="dueDateDisplay.overdue ? 'text-red-500' : 'text-muted-foreground'"
+          >
+            <CalendarDays :size="10" />
+            {{ dueDateDisplay.text }}
+          </span>
 
           <span class="text-[11px] text-muted-foreground ml-1 tabular-nums whitespace-nowrap">
             {{ timeAgo }}
@@ -126,12 +183,20 @@ function onCheckClick(e: Event) {
         </div>
       </div>
 
+      <!-- Description preview (1 line) -->
+      <div
+        v-if="task.description && !isDone"
+        class="mt-0.5 text-xs text-muted-foreground/60 truncate"
+      >
+        {{ task.description }}
+      </div>
+
       <!-- Blocked subtitle -->
       <div
         v-if="task.status === 'blocked' && task.blockedReason"
         class="mt-0.5 text-xs text-red-500/80 truncate"
       >
-        ⊘ {{ task.blockedReason }}
+        {{ task.blockedReason }}
       </div>
     </div>
   </div>
