@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import type { AcceptableValue } from 'reka-ui'
 import { cn } from '@/lib/utils'
 import { useADOStore } from '@/stores/ado'
 import type { ADOWorkItem, ADOPipeline } from '@/stores/ado'
@@ -140,13 +141,18 @@ function onLinked() {
 // --- Saved query picker ---
 const selectedQueryId = ref('__my_assignments__')
 
-async function onQueryChange(queryId: string) {
+async function onQueryChange(queryId: AcceptableValue) {
+  if (typeof queryId !== 'string') return
   selectedQueryId.value = queryId
   if (queryId === '__my_assignments__') {
     await adoStore.fetchWorkItemTree()
   } else {
     await adoStore.runSavedQuery(queryId)
   }
+}
+
+function openExternal(url: string) {
+  window.open(url, '_blank')
 }
 
 // --- PR helpers ---
@@ -488,7 +494,7 @@ const teamPRsToShow = computed(() =>
                       variant="outline"
                       size="sm"
                       class="h-7 text-xs gap-1.5 ml-auto"
-                      @click="window.open(adoStore.selectedItem!.url, '_blank')"
+                      @click="openExternal(adoStore.selectedItem!.url)"
                     >
                       <ExternalLink :size="12" />
                       Open in ADO
