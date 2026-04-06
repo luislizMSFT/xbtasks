@@ -1,171 +1,125 @@
 package app
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
-	"os/exec"
 	"strconv"
 
 	"dev.azure.com/xbox/xb-tasks/domain"
+	"dev.azure.com/xbox/xb-tasks/internal/auth"
 	"dev.azure.com/xbox/xb-tasks/internal/config"
 	"dev.azure.com/xbox/xb-tasks/internal/db"
+	"dev.azure.com/xbox/xb-tasks/pkg/ado"
 )
 
-// ADOService fetches Azure DevOps data by shelling out to az cli.
+// ADOService fetches Azure DevOps data via REST client with Bearer token.
 type ADOService struct {
-	db  *db.DB
-	cfg *config.ConfigService
+	db        *db.DB
+	cfg       *config.ConfigService
+	tokenProv auth.TokenProvider
 }
 
-func NewADOService(database *db.DB, cfg *config.ConfigService) *ADOService {
-	return &ADOService{db: database, cfg: cfg}
+// NewADOService creates an ADOService using a TokenProvider for auth.
+func NewADOService(database *db.DB, cfg *config.ConfigService, tokenProv auth.TokenProvider) *ADOService {
+	return &ADOService{db: database, cfg: cfg, tokenProv: tokenProv}
 }
 
-// runAzCli executes an az cli command and returns stdout bytes.
-func (s *ADOService) runAzCli(args ...string) ([]byte, error) {
-	cmd := exec.Command("az", args...)
-	output, err := cmd.Output()
+// getClients returns REST clients for all configured org/project pairs.
+func (s *ADOService) getClients() ([]*ado.Client, error) {
+	token, err := s.tokenProv.GetToken()
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			return nil, fmt.Errorf("az cli error: %s", string(exitErr.Stderr))
+		return nil, fmt.Errorf("get token: %w", err)
+	}
+	orgProjects := config.GetOrgProjects()
+	if len(orgProjects) == 0 {
+		return nil, fmt.Errorf("no ADO orgs configured — go to Settings to add org/project pairs")
+	}
+	var adoOPs []ado.OrgProject
+	for _, op := range orgProjects {
+		for _, proj := range op.Projects {
+			adoOPs = append(adoOPs, ado.OrgProject{Org: op.Org, Project: proj})
 		}
-		return nil, fmt.Errorf("az cli not found or failed: %w", err)
 	}
-	return output, nil
+	return ado.NewMultiOrgClients(adoOPs, token), nil
 }
 
-// appendOrgProject conditionally adds --organization and --project flags
-// when config values are set. When empty, az cli uses its own defaults.
-func (s *ADOService) appendOrgProject(args []string) []string {
-	if org := s.cfg.GetADOOrg(); org != "" {
-		args = append(args, "--organization", "https://dev.azure.com/"+org)
-	}
-	if proj := s.cfg.GetADOProject(); proj != "" {
-		args = append(args, "--project", proj)
-	}
-	return args
-}
-
-// CheckConnection verifies az cli is available and authenticated.
-// Returns the authenticated user's display name, or error.
+// CheckConnection verifies the token provider is authenticated.
+// Returns a status string describing the auth method.
 func (s *ADOService) CheckConnection() (string, error) {
-	output, err := s.runAzCli("account", "show", "-o", "json")
+	_, err := s.tokenProv.GetToken()
 	if err != nil {
-		return "", fmt.Errorf("az cli not authenticated: %w", err)
+		return "", fmt.Errorf("not authenticated: %w", err)
 	}
-	var acct struct {
-		User struct {
-			Name string `json:"name"`
-		} `json:"user"`
-	}
-	if err := json.Unmarshal(output, &acct); err != nil {
-		return "", err
-	}
-	return acct.User.Name, nil
+	return fmt.Sprintf("Authenticated via %s", s.tokenProv.Name()), nil
 }
 
-// azQueryResult represents one item returned by az boards query.
-type azQueryResult struct {
-	ID     int                    `json:"id"`
-	URL    string                 `json:"url"`
-	Fields map[string]interface{} `json:"fields"`
-}
-
-func parseWorkItem(r azQueryResult) domain.ADOWorkItem {
-	str := func(key string) string {
-		if v, ok := r.Fields[key]; ok {
-			switch t := v.(type) {
-			case string:
-				return t
-			case map[string]interface{}:
-				if dn, ok := t["displayName"].(string); ok {
-					return dn
-				}
-			}
-		}
-		return ""
-	}
-	priority := 2
-	if v, ok := r.Fields["Microsoft.VSTS.Common.Priority"]; ok {
-		switch t := v.(type) {
-		case float64:
-			priority = int(t)
-		case json.Number:
-			if n, err := t.Int64(); err == nil {
-				priority = int(n)
-			}
-		}
-	}
-
+// adoWorkItemToDomain converts a pkg/ado.WorkItem to domain.ADOWorkItem.
+func adoWorkItemToDomain(w ado.WorkItem) domain.ADOWorkItem {
 	return domain.ADOWorkItem{
-		AdoID:       strconv.Itoa(r.ID),
-		Title:       str("System.Title"),
-		State:       str("System.State"),
-		Type:        str("System.WorkItemType"),
-		AssignedTo:  str("System.AssignedTo"),
-		Priority:    priority,
-		AreaPath:    str("System.AreaPath"),
-		Description: str("System.Description"),
-		URL:         r.URL,
+		AdoID:       fmt.Sprintf("%d", w.ID),
+		Title:       w.Title,
+		State:       w.State,
+		Type:        w.Type,
+		AssignedTo:  w.AssignedTo,
+		Priority:    w.Priority,
+		AreaPath:    w.AreaPath,
+		Description: w.Description,
+		URL:         w.URL,
+		Org:         w.Org,
+		Project:     w.Project,
+		ParentID:    w.ParentID,
+		ChangedDate: w.ChangedDate,
 	}
 }
 
-// ListMyWorkItems queries ADO for work items assigned to the current user.
+// ListMyWorkItems queries ADO for work items assigned to the current user
+// across all configured org/project pairs.
 func (s *ADOService) ListMyWorkItems() ([]domain.ADOWorkItem, error) {
-	wiql := `SELECT [System.Id],[System.Title],[System.State],[System.WorkItemType],` +
-		`[System.AssignedTo],[Microsoft.VSTS.Common.Priority],[System.AreaPath],[System.Description] ` +
-		`FROM WorkItems WHERE [System.AssignedTo] = @Me ` +
-		`ORDER BY [Microsoft.VSTS.Common.Priority] ASC, [System.ChangedDate] DESC`
-
-	args := s.appendOrgProject([]string{
-		"boards", "query",
-		"--wiql", wiql,
-		"-o", "json",
-	})
-	output, err := s.runAzCli(args...)
+	clients, err := s.getClients()
 	if err != nil {
-		return nil, fmt.Errorf("list my work items: %w", err)
+		return nil, err
 	}
-
-	var results []azQueryResult
-	if err := json.Unmarshal(output, &results); err != nil {
-		return nil, fmt.Errorf("parse az output: %w", err)
+	var all []domain.ADOWorkItem
+	for _, c := range clients {
+		items, err := ado.QueryMyWorkItems(c)
+		if err != nil {
+			log.Printf("[ado] query %s/%s failed: %v", c.Org(), c.Project(), err)
+			continue
+		}
+		for _, item := range items {
+			all = append(all, adoWorkItemToDomain(item))
+		}
 	}
-
-	items := make([]domain.ADOWorkItem, 0, len(results))
-	for _, r := range results {
-		items = append(items, parseWorkItem(r))
-	}
-	return items, nil
+	return all, nil
 }
 
-// GetWorkItem fetches a single work item from ADO by its ID.
+// GetWorkItem fetches a single work item from ADO by its string ID.
+// Tries each configured org/project client until found.
 func (s *ADOService) GetWorkItem(adoID string) (domain.ADOWorkItem, error) {
-	args := s.appendOrgProject([]string{
-		"boards", "work-item", "show",
-		"--id", adoID,
-		"-o", "json",
-	})
-	output, err := s.runAzCli(args...)
+	id, err := strconv.Atoi(adoID)
 	if err != nil {
-		return domain.ADOWorkItem{}, fmt.Errorf("get work item %s: %w", adoID, err)
+		return domain.ADOWorkItem{}, fmt.Errorf("invalid ADO ID %q: %w", adoID, err)
 	}
-
-	var result azQueryResult
-	if err := json.Unmarshal(output, &result); err != nil {
-		return domain.ADOWorkItem{}, fmt.Errorf("parse az output: %w", err)
+	clients, err := s.getClients()
+	if err != nil {
+		return domain.ADOWorkItem{}, err
 	}
-	return parseWorkItem(result), nil
+	for _, c := range clients {
+		wi, err := ado.GetWorkItem(c, id)
+		if err != nil {
+			continue // try next org/project
+		}
+		return adoWorkItemToDomain(*wi), nil
+	}
+	return domain.ADOWorkItem{}, fmt.Errorf("work item %s not found in any configured org/project", adoID)
 }
 
-// SyncWorkItems fetches work items from ADO and upserts them into SQLite.
+// SyncWorkItems fetches work items from all orgs and upserts them into SQLite.
 func (s *ADOService) SyncWorkItems() error {
 	items, err := s.ListMyWorkItems()
 	if err != nil {
 		return fmt.Errorf("sync work items: %w", err)
 	}
-
 	for _, item := range items {
 		if err := s.db.UpsertADOWorkItem(item); err != nil {
 			log.Printf("upsert work item %s: %v", item.AdoID, err)
@@ -174,7 +128,66 @@ func (s *ADOService) SyncWorkItems() error {
 	return nil
 }
 
-// GetCachedWorkItems returns work items from the SQLite cache without calling az cli.
+// GetCachedWorkItems returns work items from the SQLite cache without calling ADO.
 func (s *ADOService) GetCachedWorkItems() ([]domain.ADOWorkItem, error) {
 	return s.db.ListADOWorkItems()
+}
+
+// GetWorkItemTree fetches assigned items and their parent hierarchy for ADO browser.
+// Returns a flat list with ParentID relationships for frontend tree rendering.
+func (s *ADOService) GetWorkItemTree() ([]domain.ADOWorkItem, error) {
+	items, err := s.ListMyWorkItems()
+	if err != nil {
+		return nil, fmt.Errorf("get work item tree: %w", err)
+	}
+
+	clients, err := s.getClients()
+	if err != nil {
+		return nil, err
+	}
+
+	// Collect parent IDs that need fetching (not already in the list)
+	existing := make(map[string]bool)
+	for _, item := range items {
+		existing[item.AdoID] = true
+	}
+
+	// Fetch parents up to 3 levels deep
+	toFetch := make(map[int]bool)
+	for _, item := range items {
+		if item.ParentID > 0 && !existing[fmt.Sprintf("%d", item.ParentID)] {
+			toFetch[item.ParentID] = true
+		}
+	}
+
+	for level := 0; level < 3 && len(toFetch) > 0; level++ {
+		ids := make([]int, 0, len(toFetch))
+		for id := range toFetch {
+			ids = append(ids, id)
+		}
+
+		var fetched []ado.WorkItem
+		for _, c := range clients {
+			batch, err := ado.GetWorkItemsByIDs(c, ids)
+			if err != nil {
+				log.Printf("[ado] batch fetch parents from %s/%s failed: %v", c.Org(), c.Project(), err)
+				continue
+			}
+			fetched = append(fetched, batch...)
+		}
+
+		toFetch = make(map[int]bool)
+		for _, wi := range fetched {
+			adoID := fmt.Sprintf("%d", wi.ID)
+			if !existing[adoID] {
+				items = append(items, adoWorkItemToDomain(wi))
+				existing[adoID] = true
+			}
+			if wi.ParentID > 0 && !existing[fmt.Sprintf("%d", wi.ParentID)] {
+				toFetch[wi.ParentID] = true
+			}
+		}
+	}
+
+	return items, nil
 }
