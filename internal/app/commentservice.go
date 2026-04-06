@@ -79,7 +79,10 @@ func (s *CommentService) PushCommentToADO(commentID int) error {
 	}
 
 	// Push comment to ADO
-	adoIDInt, _ := strconv.Atoi(adoID)
+	adoIDInt, err := strconv.Atoi(adoID)
+	if err != nil {
+		return fmt.Errorf("invalid ADO work item ID %q for task %d: %w", adoID, comment.TaskID, err)
+	}
 	adoComment, err := ado.AddComment(client, adoIDInt, comment.Content)
 	if err != nil {
 		return fmt.Errorf("push comment to ADO work item %s: %w", adoID, err)
