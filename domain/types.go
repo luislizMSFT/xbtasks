@@ -24,6 +24,7 @@ type Project struct {
 	Name        string        `json:"name"`
 	Description string        `json:"description"`
 	Status      ProjectStatus `json:"status"` // active, paused, completed, archived
+	IsPinned    bool          `json:"isPinned"`
 	CreatedAt   time.Time     `json:"createdAt"`
 	UpdatedAt   time.Time     `json:"updatedAt"`
 }
@@ -102,5 +103,57 @@ type ADOWorkItem struct {
 	AreaPath    string    `json:"areaPath"`
 	Description string    `json:"description"`
 	URL         string    `json:"url"`
+	Org         string    `json:"org"`
+	Project     string    `json:"project"`
+	ParentID    int       `json:"parentId"`
+	ChangedDate time.Time `json:"changedDate"`
 	SyncedAt    time.Time `json:"syncedAt"`
+}
+
+// TaskLink represents an external URL attached to a task (LINK-01)
+type TaskLink struct {
+	ID        int       `json:"id"`
+	TaskID    int       `json:"taskId"`
+	URL       string    `json:"url"`
+	Label     string    `json:"label"`
+	Type      string    `json:"type"` // url, icm, grafana, ado, wiki
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+// TaskComment represents a local comment on a task (CMT-01)
+type TaskComment struct {
+	ID           int       `json:"id"`
+	TaskID       int       `json:"taskId"`
+	Content      string    `json:"content"`
+	IsPublic     bool      `json:"isPublic"`    // true if pushed to ADO
+	AdoCommentID string    `json:"adoCommentId"` // ADO comment ID if pushed
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+}
+
+// ProjectADOLink represents a project linked to an ADO scenario/deliverable (PROJ-04)
+type ProjectADOLink struct {
+	ProjectID int       `json:"projectId"`
+	AdoID     string    `json:"adoId"`
+	Direction string    `json:"direction"` // promoted, imported, linked
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+// SyncState tracks the last known state for conflict detection (SYNC-03)
+type SyncState struct {
+	TaskID       int       `json:"taskId"`
+	AdoID        string    `json:"adoId"`
+	LastSyncedAt time.Time `json:"lastSyncedAt"`
+	LocalTitle   string    `json:"localTitle"`
+	LocalStatus  string    `json:"localStatus"`
+	LocalDesc    string    `json:"localDesc"`
+	RemoteTitle  string    `json:"remoteTitle"`
+	RemoteStatus string    `json:"remoteStatus"`
+	RemoteDesc   string    `json:"remoteDesc"`
+}
+
+// OrgProject represents a configured ADO org/project pair (ADO-09)
+type OrgProject struct {
+	Org      string   `json:"org" mapstructure:"org"`
+	Projects []string `json:"projects" mapstructure:"projects"`
 }

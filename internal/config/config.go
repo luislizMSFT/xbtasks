@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"dev.azure.com/xbox/xb-tasks/domain"
 	"github.com/spf13/viper"
 )
 
@@ -48,6 +49,7 @@ func setDefaults() {
 	viper.SetDefault("ado.organization", "")
 	viper.SetDefault("ado.project", "")
 	viper.SetDefault("ado.pat_keychain_key", "xbt-ado-pat")
+	viper.SetDefault("ado.orgs", []map[string]any{})
 	viper.SetDefault("sync.interval_minutes", 15)
 	viper.SetDefault("log.level", "info")
 }
@@ -111,5 +113,26 @@ func LogLevel() string          { return viper.GetString("log.level") }
 // Set writes a config key and persists to disk.
 func Set(key string, value any) error {
 	viper.Set(key, value)
+	return viper.WriteConfig()
+}
+
+// GetOrgProjects returns all configured org/project pairs.
+// Falls back to legacy single-org config if ado.orgs is empty.
+func GetOrgProjects() []domain.OrgProject {
+	var orgs []domain.OrgProject
+	viper.UnmarshalKey("ado.orgs", &orgs)
+	if len(orgs) == 0 {
+		org := viper.GetString("ado.organization")
+		proj := viper.GetString("ado.project")
+		if org != "" && proj != "" {
+			orgs = []domain.OrgProject{{Org: org, Projects: []string{proj}}}
+		}
+	}
+	return orgs
+}
+
+// SetOrgProjects writes the org/project list to config.
+func SetOrgProjects(orgs []domain.OrgProject) error {
+	viper.Set("ado.orgs", orgs)
 	return viper.WriteConfig()
 }
