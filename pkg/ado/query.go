@@ -174,6 +174,87 @@ func parseWorkItemFromAPI(fields map[string]any) WorkItem {
 	return wi
 }
 
+// SavedQueryResult represents an ADO saved WIQL query.
+type SavedQueryResult struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Path     string `json:"path"`
+	IsFolder bool   `json:"isFolder"`
+}
+
+// GetSavedQueries retrieves saved WIQL queries from an ADO project.
+// Returns a flat list of non-folder queries (depth=1).
+func GetSavedQueries(c *Client) ([]SavedQueryResult, error) {
+	url := c.apiURL("wit/queries?$depth=1&api-version=7.0")
+
+	resp, err := c.doRequest("GET", url, nil, "")
+	if err != nil {
+		return nil, fmt.Errorf("get saved queries: %w", err)
+	}
+
+	var result struct {
+		Value []struct {
+			ID       string `json:"id"`
+			Name     string `json:"name"`
+			Path     string `json:"path"`
+			IsFolder bool   `json:"isFolder"`
+			Children []struct {
+				ID       string `json:"id"`
+				Name     string `json:"name"`
+				Path     string `json:"path"`
+				IsFolder bool   `json:"isFolder"`
+			} `json:"children"`
+		} `json:"value"`
+	}
+	if err := decodeResponse(resp, &result); err != nil {
+		return nil, fmt.Errorf("parse saved queries response: %w", err)
+	}
+
+	var queries []SavedQueryResult
+	for _, folder := range result.Value {
+		if !folder.IsFolder {
+			queries = append(queries, SavedQueryResult{
+				ID: folder.ID, Name: folder.Name, Path: folder.Path, IsFolder: false,
+			})
+			continue
+		}
+		for _, child := range folder.Children {
+			if !child.IsFolder {
+				queries = append(queries, SavedQueryResult{
+					ID: child.ID, Name: child.Name, Path: child.Path, IsFolder: false,
+				})
+			}
+		}
+	}
+	return queries, nil
+}
+
+// RunSavedQuery executes a saved WIQL query by ID and returns the matching work items.
+func RunSavedQuery(c *Client, queryID string) ([]WorkItem, error) {
+	url := c.apiURL(fmt.Sprintf("wit/wiql/%s?api-version=7.0", queryID))
+
+	resp, err := c.doRequest("GET", url, nil, "")
+	if err != nil {
+		return nil, fmt.Errorf("run saved query %s: %w", queryID, err)
+	}
+
+	var wiqlResp WIQLResponse
+	if err := decodeResponse(resp, &wiqlResp); err != nil {
+		return nil, fmt.Errorf("parse saved query response: %w", err)
+	}
+
+	if len(wiqlResp.WorkItems) == 0 {
+		return []WorkItem{}, nil
+	}
+
+	ids := make([]int, len(wiqlResp.WorkItems))
+	for i, ref := range wiqlResp.WorkItems {
+		ids[i] = ref.ID
+	}
+
+	return GetWorkItemsByIDs(c, ids)
+}
+
 // stringField extracts a string value from the ADO fields map.
 func stringField(fields map[string]any, key string) string {
 	if v, ok := fields[key].(string); ok {

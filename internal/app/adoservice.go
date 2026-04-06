@@ -133,6 +133,55 @@ func (s *ADOService) GetCachedWorkItems() ([]domain.ADOWorkItem, error) {
 	return s.db.ListADOWorkItems()
 }
 
+// SavedQuery represents an ADO saved WIQL query for the frontend.
+type SavedQuery struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Path     string `json:"path"`
+	IsFolder bool   `json:"isFolder"`
+}
+
+// GetSavedQueries returns saved WIQL queries from all configured org/project pairs.
+func (s *ADOService) GetSavedQueries() ([]SavedQuery, error) {
+	clients, err := s.getClients()
+	if err != nil {
+		return nil, err
+	}
+	var all []SavedQuery
+	for _, c := range clients {
+		queries, err := ado.GetSavedQueries(c)
+		if err != nil {
+			log.Printf("[ado] get saved queries %s/%s: %v", c.Org(), c.Project(), err)
+			continue
+		}
+		for _, q := range queries {
+			all = append(all, SavedQuery{ID: q.ID, Name: q.Name, Path: q.Path, IsFolder: q.IsFolder})
+		}
+	}
+	return all, nil
+}
+
+// RunSavedQuery executes a saved WIQL query and returns the matching work items.
+// Tries each client until one succeeds (query belongs to a specific org/project).
+func (s *ADOService) RunSavedQuery(queryID string) ([]domain.ADOWorkItem, error) {
+	clients, err := s.getClients()
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range clients {
+		items, err := ado.RunSavedQuery(c, queryID)
+		if err != nil {
+			continue
+		}
+		var result []domain.ADOWorkItem
+		for _, item := range items {
+			result = append(result, adoWorkItemToDomain(item))
+		}
+		return result, nil
+	}
+	return nil, fmt.Errorf("query %s not found in any configured org/project", queryID)
+}
+
 // GetWorkItemTree fetches assigned items and their parent hierarchy for ADO browser.
 // Returns a flat list with ParentID relationships for frontend tree rendering.
 func (s *ADOService) GetWorkItemTree() ([]domain.ADOWorkItem, error) {

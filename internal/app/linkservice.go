@@ -291,6 +291,25 @@ func (s *LinkService) ListPublicTaskIDs() ([]int, error) {
 	return ids, rows.Err()
 }
 
+// ListLinkedAdoIDs returns all ADO IDs that have at least one local task link.
+func (s *LinkService) ListLinkedAdoIDs() ([]string, error) {
+	rows, err := s.db.Query(`SELECT DISTINCT ado_id FROM task_ado_links`)
+	if err != nil {
+		return nil, fmt.Errorf("list linked ADO IDs: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			continue
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 // --- helpers ---
 
 // getTask fetches a task from the database by ID.
