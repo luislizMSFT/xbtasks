@@ -4,6 +4,7 @@ import type { AcceptableValue } from 'reka-ui'
 import { cn } from '@/lib/utils'
 import { useADOStore } from '@/stores/ado'
 import type { ADOWorkItem, ADOPipeline } from '@/stores/ado'
+import { useTaskStore } from '@/stores/tasks'
 import { usePRStore, parseReviewers, branchName, voteIcon, relativeTime } from '@/stores/prs'
 import type { PullRequest } from '@/stores/prs'
 import PageHeader from '@/components/PageHeader.vue'
@@ -15,6 +16,9 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -41,9 +45,11 @@ import {
   Link,
   EyeOff,
   Eye,
+  FolderKanban,
 } from 'lucide-vue-next'
 
 const adoStore = useADOStore()
+const taskStore = useTaskStore()
 const prStore = usePRStore()
 
 const showAllPipelines = ref(false)
@@ -51,11 +57,13 @@ const showAllTeamPRs = ref(false)
 
 // Link dialog state
 const linkDialogOpen = ref(false)
-const linkTargetTaskId = ref(0)
-const linkTargetTaskTitle = ref('')
 
 // Track the ADO item being linked (when linking from browser to existing task)
 const linkingAdoItem = ref<ADOWorkItem | null>(null)
+
+// Import choice dialog state
+const importChoiceOpen = ref(false)
+const importingAdoItem = ref<ADOWorkItem | null>(null)
 
 onMounted(async () => {
   await Promise.all([
@@ -116,26 +124,47 @@ function onTreeSelect(item: ADOWorkItem) {
 }
 
 async function onTreeImport(item: ADOWorkItem) {
+  importingAdoItem.value = item
+  importChoiceOpen.value = true
+}
+
+async function doImportAsTask() {
+  if (!importingAdoItem.value) return
   try {
     const { ImportWorkItem } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/linkservice')
-    await ImportWorkItem(item.adoId)
-    await adoStore.fetchLinkedAdoIds()
+    await ImportWorkItem(importingAdoItem.value.adoId)
+    await Promise.all([adoStore.fetchLinkedAdoIds(), taskStore.fetchTasks()])
   } catch (e: any) {
     adoStore.error = e?.message || 'Import failed'
+  } finally {
+    importChoiceOpen.value = false
+    importingAdoItem.value = null
+  }
+}
+
+async function doImportAsProject() {
+  if (!importingAdoItem.value) return
+  try {
+    const { ImportWorkItemAsProject } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/linkservice')
+    await ImportWorkItemAsProject(importingAdoItem.value.adoId)
+    await Promise.all([adoStore.fetchLinkedAdoIds(), taskStore.fetchTasks()])
+  } catch (e: any) {
+    adoStore.error = e?.message || 'Import as project failed'
+  } finally {
+    importChoiceOpen.value = false
+    importingAdoItem.value = null
   }
 }
 
 function onTreeLink(item: ADOWorkItem) {
   linkingAdoItem.value = item
-  linkTargetTaskId.value = 0
-  linkTargetTaskTitle.value = ''
   linkDialogOpen.value = true
 }
 
 function onLinked() {
   linkDialogOpen.value = false
   linkingAdoItem.value = null
-  adoStore.fetchLinkedAdoIds()
+  Promise.all([adoStore.fetchLinkedAdoIds(), taskStore.fetchTasks()])
 }
 
 // --- Saved query picker ---
@@ -151,8 +180,14 @@ async function onQueryChange(queryId: AcceptableValue) {
   }
 }
 
-function openExternal(url: string) {
-  window.open(url, '_blank')
+async function openExternal(url: string) {
+  try {
+    const { OpenURL } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/browserservice')
+    await OpenURL(url)
+  } catch {
+    // Fallback if binding not available
+    window.open(url, '_blank')
+  }
 }
 
 // --- PR helpers ---
@@ -176,7 +211,7 @@ function prStatusClasses(status: string) {
 }
 
 function openPR(pr: PullRequest) {
-  if (pr.prUrl) window.open(pr.prUrl, '_blank')
+  if (pr.prUrl) openExternal(pr.prUrl)
 }
 
 function getInitials(name: string) { return name.slice(0, 2).toUpperCase() }
@@ -207,7 +242,7 @@ function pipelineDuration(pipe: ADOPipeline) {
 }
 
 function openPipeline(pipe: ADOPipeline) {
-  if (pipe.url) window.open(pipe.url, '_blank')
+  if (pipe.url) openExternal(pipe.url)
 }
 
 // --- Sync ---
@@ -691,12 +726,43 @@ const teamPRsToShow = computed(() =>
       </Tabs>
     </template>
 
-    <!-- Link Dialog -->
+    <!-- Link Dialog (searches local personal tasks) -->
     <LinkDialog
       v-model:open="linkDialogOpen"
-      :task-id="linkTargetTaskId"
-      :task-title="linkTargetTaskTitle"
+      :ado-id="linkingAdoItem?.adoId ?? ''"
+      :ado-title="linkingAdoItem?.title ?? ''"
       @linked="onLinked"
     />
+
+    <!-- Import choice dialog -->
+    <Dialog :open="importChoiceOpen" @update:open="(v) => { if (!v) { importChoiceOpen = false; importingAdoItem = null } }">
+      <DialogContent class="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle class="text-sm">Import Work Item</DialogTitle>
+          <DialogDescription class="text-xs">
+            How would you like to import "{{ importingAdoItem?.title }}"?
+          </DialogDescription>
+        </DialogHeader>
+        <div class="flex flex-col gap-2 py-2">
+          <Button variant="outline" class="justify-start gap-2 h-10" @click="doImportAsTask">
+            <CheckSquare :size="16" class="text-blue-500" />
+            <div class="text-left">
+              <div class="text-sm font-medium">Import as Task</div>
+              <div class="text-[11px] text-muted-foreground">Create a personal task linked to this ADO item</div>
+            </div>
+          </Button>
+          <Button variant="outline" class="justify-start gap-2 h-10" @click="doImportAsProject">
+            <FolderKanban :size="16" class="text-purple-500" />
+            <div class="text-left">
+              <div class="text-sm font-medium">Import as Project</div>
+              <div class="text-[11px] text-muted-foreground">Create a project with a linked task under it</div>
+            </div>
+          </Button>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" size="sm" class="text-xs" @click="importChoiceOpen = false; importingAdoItem = null">Cancel</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>

@@ -122,10 +122,18 @@ function removeTag(tag: string) {
 }
 
 // ── Helpers ──
-function openUrl(url: string) { window.open(url, '_blank') }
+async function openUrl(url: string) {
+  try {
+    const { OpenURL } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/browserservice')
+    await OpenURL(url)
+  } catch { window.open(url, '_blank') }
+}
 
 // ── Discussion panel ──
 const showDiscussion = ref(false)
+
+// ── Activity panel ──
+const showActivity = ref(false)
 
 // ── Subtasks (real) ──
 const subtasks = ref<Task[]>([])
@@ -310,7 +318,7 @@ const timeUpdated = computed(() => {
   >
     <aside
       v-if="task"
-      class="border-l border-border bg-background flex flex-col h-full min-h-0 relative"
+      class="w-[45%] shrink-0 border-l border-border bg-background flex flex-col h-full min-h-0 relative"
     >
       <!-- ─── Header (shrink-0, border-b) ─────────────────── -->
       <div class="shrink-0 border-b border-border px-4 pt-3 pb-3">
@@ -330,8 +338,9 @@ const timeUpdated = computed(() => {
           </Button>
         </div>
 
-        <!-- Badges row -->
-        <div class="flex items-center gap-2 mt-2 flex-wrap">
+        <!-- Badges: wraps into 1 or 2 rows depending on panel width -->
+        <div class="flex items-center gap-x-2 gap-y-1.5 mt-2 flex-wrap">
+          <!-- Group 1: Status + Priority -->
           <Select :model-value="editStatus" @update:model-value="(v) => onStatusChange(String(v))">
             <SelectTrigger class="inline-flex items-center gap-1.5 text-xs font-medium rounded-full pl-2 pr-1.5 py-0.5 h-auto border-border shadow-none [&_svg.lucide-chevron-down]:size-3">
               <span :class="cn('size-2 rounded-full', statusColor[editStatus] ?? 'bg-zinc-400')" />
@@ -352,6 +361,35 @@ const timeUpdated = computed(() => {
               <SelectItem v-for="p in priorities" :key="p" :value="p">{{ p }}</SelectItem>
             </SelectContent>
           </Select>
+
+          <!-- Visual separator between groups (hidden when wrapping) -->
+          <span class="hidden sm:block w-px h-4 bg-border" />
+
+          <!-- Group 2: Project + Due Date + ADO -->
+          <Select v-model="editProject">
+            <SelectTrigger class="inline-flex items-center gap-1.5 text-xs font-medium rounded-full pl-2 pr-1.5 py-0.5 h-auto border-border shadow-none [&_svg.lucide-chevron-down]:size-3">
+              <Folder :size="11" class="text-muted-foreground" />
+              <SelectValue placeholder="Project" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">None</SelectItem>
+              <SelectItem v-for="proj in projectStore.projects" :key="proj.id" :value="String(proj.id)">
+                {{ proj.name }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+
+          <div class="inline-flex items-center gap-1.5 text-xs font-medium rounded-full pl-2 pr-1.5 py-0.5 border border-border">
+            <CalendarDays :size="11" class="text-muted-foreground" />
+            <input
+              v-model="editDueDate"
+              type="date"
+              @change="save"
+              class="bg-transparent text-xs border-none outline-none w-[105px] py-0"
+              :class="!editDueDate && 'text-muted-foreground'"
+            />
+          </div>
+
           <span
             v-if="task.adoId"
             class="inline-flex items-center gap-1.5 text-xs font-medium text-blue-500 border border-blue-500/30 rounded-full px-2 py-0.5 cursor-pointer hover:bg-blue-500/10 transition-colors"
@@ -377,8 +415,39 @@ const timeUpdated = computed(() => {
       <ScrollArea class="flex-1 min-h-0">
         <div class="flex flex-col space-y-2">
 
-              <!-- Subtasks -->
+              <!-- ADO Link & Sync utilities -->
               <div class="px-4 pt-3">
+                <div class="flex items-center gap-2 mb-2">
+                  <AzureDevOpsIcon :size="12" class="text-muted-foreground" />
+                  <span class="font-semibold text-xs">ADO Link</span>
+                </div>
+                <div v-if="task.adoId" class="flex items-center gap-2 flex-wrap">
+                  <span
+                    class="inline-flex items-center gap-1.5 text-xs text-blue-500 cursor-pointer hover:underline"
+                    @click="openUrl(`https://dev.azure.com/_workitems/edit/${task.adoId}`)"
+                  >
+                    <ExternalLink :size="11" />
+                    Open in ADO #{{ adoNumber(task.adoId) }}
+                  </span>
+                  <Button v-if="taskStore.isPublic(task.id)" variant="outline" size="sm" class="h-6 text-[11px] gap-1" @click="syncStore.generateOutboundDiff(task.id)">
+                    <Upload :size="11" />
+                    Push to ADO
+                  </Button>
+                </div>
+                <p v-else class="text-xs text-muted-foreground">Not linked to ADO</p>
+              </div>
+
+              <Separator />
+
+              <!-- External Links -->
+              <div class="px-4">
+                <ExternalLinks :task-id="task.id" />
+              </div>
+
+              <Separator />
+
+              <!-- Subtasks -->
+              <div class="px-4">
                 <div class="flex items-center justify-between mb-2">
                   <div class="flex items-center gap-2">
                     <span class="font-semibold text-xs">Subtasks</span>
@@ -436,7 +505,7 @@ const timeUpdated = computed(() => {
 
               <Separator />
 
-              <!-- Pull Requests (collapsible, slim) -->
+              <!-- Pull Requests (collapsible) -->
               <div class="px-4">
                 <button class="flex items-center gap-1.5 w-full" @click="prsOpen = !prsOpen">
                   <ChevronDown v-if="prsOpen" :size="14" class="text-muted-foreground" />
@@ -473,7 +542,7 @@ const timeUpdated = computed(() => {
               <Separator />
 
               <!-- Description (collapsible) -->
-              <div class="px-4 pb-4">
+              <div class="px-4 pb-3">
                 <button class="flex items-center gap-1.5 w-full" @click="descriptionOpen = !descriptionOpen">
                   <ChevronDown v-if="descriptionOpen" :size="14" class="text-muted-foreground" />
                   <ChevronRight v-else :size="14" class="text-muted-foreground" />
@@ -488,131 +557,50 @@ const timeUpdated = computed(() => {
                   placeholder="Add a description..."
                 />
               </div>
-
-              <Separator />
-
-              <!-- External Links -->
-              <div class="px-4">
-                <ExternalLinks :task-id="task.id" />
-              </div>
-
-              <Separator />
-
-              <!-- Comments -->
-              <div class="px-4">
-                <CommentsSection :task-id="task.id" :is-public-task="taskStore.isPublic(task.id)" />
-              </div>
-
-              <!-- Push to ADO (visible only for linked tasks) -->
-              <div v-if="taskStore.isPublic(task.id)" class="px-4">
-                <Separator class="mb-3" />
-                <div class="flex gap-2">
-                  <Button variant="outline" size="sm" @click="syncStore.generateOutboundDiff(task.id)">
-                    <Upload :size="14" class="mr-1" />
-                    Push to ADO
-                  </Button>
-                </div>
-              </div>
-
-              <!-- Discussion trigger -->
-              <div class="px-4 pb-3">
-                <button
-                  class="flex items-center gap-2 w-full text-xs text-muted-foreground hover:text-foreground transition-colors py-2 px-3 rounded-md hover:bg-muted/50 border border-border"
-                  @click="showDiscussion = true"
-                >
-                  <MessageSquare :size="14" />
-                  <span class="font-medium">Discussion</span>
-                  <Badge variant="secondary" class="h-4 text-[10px] px-1.5 ml-auto">
-                    {{ mockNotes.length + mockAdoComments.length }}
-                  </Badge>
-                </button>
-              </div>
         </div>
       </ScrollArea>
 
-      <!-- ─── Activity Bar ─────────────────────────────── -->
-      <div v-if="mockActivity.length > 0" class="shrink-0 border-t border-border px-4 py-1.5">
-        <div class="flex items-center gap-2 overflow-x-auto scrollbar-none">
-          <Activity :size="12" class="text-muted-foreground shrink-0" />
-          <div class="flex items-center gap-3 text-[11px] text-muted-foreground whitespace-nowrap">
-            <span v-for="(item, i) in mockActivity" :key="'act' + i" class="inline-flex items-center gap-1">
-              <span class="size-1 rounded-full bg-muted-foreground/50 shrink-0" />
-              {{ item.event }}
-              <span class="text-muted-foreground/50">{{ item.time }}</span>
-            </span>
-          </div>
-        </div>
+      <!-- ─── Bottom bar: Comments + Activity ─────────────── -->
+      <div class="shrink-0 border-t border-border px-4 py-2 flex items-center gap-2">
+        <button
+          class="flex items-center gap-1.5 flex-1 text-xs text-muted-foreground hover:text-foreground transition-colors py-1.5 px-2.5 rounded-md hover:bg-muted/50 border border-border"
+          @click="showDiscussion = true"
+        >
+          <MessageSquare :size="13" />
+          <span class="font-medium">Comments</span>
+          <Badge variant="secondary" class="h-4 text-[10px] px-1.5 ml-auto">
+            {{ mockNotes.length + mockAdoComments.length }}
+          </Badge>
+        </button>
+        <button
+          class="flex items-center gap-1.5 flex-1 text-xs text-muted-foreground hover:text-foreground transition-colors py-1.5 px-2.5 rounded-md hover:bg-muted/50 border border-border"
+          @click="showActivity = true"
+        >
+          <Activity :size="13" />
+          <span class="font-medium">Activity</span>
+          <Badge variant="secondary" class="h-4 text-[10px] px-1.5 ml-auto">
+            {{ mockActivity.length }}
+          </Badge>
+        </button>
       </div>
 
-      <!-- ─── Details Footer ─────────────────────────────── -->
-      <div class="shrink-0 border-t border-border">
-        <div class="px-4 py-2">
-          <span class="font-semibold text-xs mb-2 block">Details</span>
-          <div class="grid grid-cols-2 gap-x-4 gap-y-3">
-
-            <!-- Project -->
-            <div class="flex flex-col gap-0.5">
-              <span class="text-muted-foreground text-[11px] font-medium">Project</span>
-              <Select v-model="editProject">
-                <SelectTrigger class="h-7 text-[13px] border-none shadow-none px-1 -ml-1">
-                  <span class="flex items-center gap-1.5">
-                    <Folder :size="12" class="text-muted-foreground" />
-                    <SelectValue placeholder="Select project..." />
-                  </span>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="proj in projectStore.projects" :key="proj.id" :value="String(proj.id)">
-                    {{ proj.name }}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <!-- Due Date -->
-            <div class="flex flex-col gap-0.5">
-              <span class="text-muted-foreground text-[11px] font-medium">Due Date</span>
-              <div class="flex items-center gap-1.5">
-                <CalendarDays :size="12" class="text-muted-foreground" />
-                <Input
-                  v-model="editDueDate"
-                  type="date"
-                  @change="save"
-                  class="h-7 text-[13px] border-none shadow-none px-1 -ml-1 flex-1"
-                />
-              </div>
-            </div>
-
-            <!-- ADO Link (full width) -->
-            <div class="flex flex-col gap-0.5 col-span-2">
-              <span class="text-muted-foreground text-[11px] font-medium">ADO Link</span>
-              <span v-if="task.adoId" class="flex items-center gap-1.5 text-blue-500 cursor-pointer hover:underline text-[13px]">
-                <AzureDevOpsIcon :size="12" />
-                {{ adoNumber(task.adoId) }}
-                <ExternalLink :size="10" />
-              </span>
-              <span v-else class="text-muted-foreground text-[13px]">Not linked</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Footer bar -->
-        <div class="flex items-center justify-between border-t border-border px-4 py-2">
-          <span class="text-[11px] text-muted-foreground">
-            Created {{ timeCreated }} · Updated {{ timeUpdated }}
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            class="h-6 text-[11px] text-red-500 hover:text-red-600 hover:bg-red-500/10 gap-1"
-            @click="onDeleteTask"
-          >
-            <Trash2 :size="12" />
-            Delete
-          </Button>
-        </div>
+      <!-- Timestamps + delete -->
+      <div class="shrink-0 border-t border-border flex items-center justify-between px-4 py-1.5">
+        <span class="text-[11px] text-muted-foreground">
+          Created {{ timeCreated }} · Updated {{ timeUpdated }}
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          class="h-6 text-[11px] text-red-500 hover:text-red-600 hover:bg-red-500/10 gap-1"
+          @click="onDeleteTask"
+        >
+          <Trash2 :size="12" />
+          Delete
+        </Button>
       </div>
 
-      <!-- ─── Discussion Slide-up Panel ───────────────────── -->
+      <!-- ─── Comments Slide-up Panel ───────────────────── -->
       <Transition
         enter-active-class="transition-transform duration-300 ease-out"
         enter-from-class="translate-y-full"
@@ -622,20 +610,25 @@ const timeUpdated = computed(() => {
         leave-to-class="translate-y-full"
       >
         <div v-if="showDiscussion" class="absolute inset-0 bg-background flex flex-col z-50">
-          <!-- Panel header -->
           <div class="shrink-0 flex items-center justify-between border-b border-border px-4 py-2.5">
             <div class="flex items-center gap-2">
               <MessageSquare :size="14" />
-              <span class="font-semibold text-sm">Discussion</span>
+              <span class="font-semibold text-sm">Comments</span>
             </div>
             <Button variant="ghost" size="icon" class="h-7 w-7 shrink-0" @click="showDiscussion = false">
               <ChevronDown :size="16" />
             </Button>
           </div>
 
-          <!-- Scrollable discussion content -->
           <ScrollArea class="flex-1 min-h-0">
-            <!-- Notes section -->
+            <!-- Comments (real backend) -->
+            <div class="px-4 pt-3 pb-2">
+              <CommentsSection :task-id="task.id" :is-public-task="taskStore.isPublic(task.id)" />
+            </div>
+
+            <Separator class="my-2" />
+
+            <!-- Notes -->
             <div class="px-4 pt-3">
               <div class="flex items-center gap-2 mb-2">
                 <span class="font-semibold text-xs">Notes</span>
@@ -644,11 +637,7 @@ const timeUpdated = computed(() => {
                 </Badge>
               </div>
               <div class="flex flex-col gap-2.5">
-                <div
-                  v-for="c in mockNotes"
-                  :key="'n' + c.id"
-                  class="flex gap-2"
-                >
+                <div v-for="c in mockNotes" :key="'n' + c.id" class="flex gap-2">
                   <div class="size-6 rounded-full bg-muted flex items-center justify-center shrink-0">
                     <span class="text-[9px] font-semibold text-muted-foreground">{{ c.initials }}</span>
                   </div>
@@ -660,16 +649,14 @@ const timeUpdated = computed(() => {
                     <p class="text-muted-foreground mt-0.5 text-[13px]">{{ c.text }}</p>
                   </div>
                 </div>
-                <p v-if="mockNotes.length === 0" class="text-xs text-muted-foreground italic">
-                  No notes yet.
-                </p>
+                <p v-if="mockNotes.length === 0" class="text-xs text-muted-foreground italic">No notes yet.</p>
               </div>
             </div>
 
             <Separator class="my-3" />
 
-            <!-- ADO Comments section -->
-            <div class="px-4">
+            <!-- ADO Comments -->
+            <div class="px-4 pb-4">
               <div class="flex items-center gap-2 mb-2">
                 <AzureDevOpsIcon :size="12" />
                 <span class="font-semibold text-xs">ADO Comments</span>
@@ -678,11 +665,7 @@ const timeUpdated = computed(() => {
                 </Badge>
               </div>
               <div class="flex flex-col gap-2.5">
-                <div
-                  v-for="c in mockAdoComments"
-                  :key="'a' + c.id"
-                  class="flex gap-2"
-                >
+                <div v-for="c in mockAdoComments" :key="'a' + c.id" class="flex gap-2">
                   <div class="size-6 rounded-full bg-muted flex items-center justify-center shrink-0">
                     <span class="text-[9px] font-semibold text-muted-foreground">{{ c.initials }}</span>
                   </div>
@@ -694,33 +677,12 @@ const timeUpdated = computed(() => {
                     <p class="text-muted-foreground mt-0.5 text-[13px]">{{ c.text }}</p>
                   </div>
                 </div>
-                <p v-if="mockAdoComments.length === 0" class="text-xs text-muted-foreground italic">
-                  No ADO comments synced.
-                </p>
-              </div>
-            </div>
-
-            <Separator class="my-3" />
-
-            <!-- Activity timeline -->
-            <div class="px-4 pb-4">
-              <div class="flex items-center gap-2 mb-2">
-                <Activity :size="12" class="text-muted-foreground" />
-                <span class="font-semibold text-xs">Activity</span>
-              </div>
-              <div class="flex flex-col gap-2">
-                <div v-for="(item, i) in mockActivity" :key="'disc-act' + i" class="flex items-start gap-2">
-                  <span class="size-1.5 rounded-full bg-muted-foreground/50 shrink-0 mt-1.5" />
-                  <div class="flex-1 min-w-0">
-                    <span class="text-[13px]">{{ item.event }}</span>
-                    <span class="text-muted-foreground text-[10px] ml-2">{{ item.time }}</span>
-                  </div>
-                </div>
+                <p v-if="mockAdoComments.length === 0" class="text-xs text-muted-foreground italic">No ADO comments synced.</p>
               </div>
             </div>
           </ScrollArea>
 
-          <!-- Note input at bottom -->
+          <!-- Note input -->
           <div class="shrink-0 border-t border-border px-4 py-2.5">
             <div class="flex items-center gap-2">
               <Input
@@ -734,6 +696,43 @@ const timeUpdated = computed(() => {
               </Button>
             </div>
           </div>
+        </div>
+      </Transition>
+
+      <!-- ─── Activity Slide-up Panel ───────────────────── -->
+      <Transition
+        enter-active-class="transition-transform duration-300 ease-out"
+        enter-from-class="translate-y-full"
+        enter-to-class="translate-y-0"
+        leave-active-class="transition-transform duration-200 ease-in"
+        leave-from-class="translate-y-0"
+        leave-to-class="translate-y-full"
+      >
+        <div v-if="showActivity" class="absolute inset-0 bg-background flex flex-col z-50">
+          <div class="shrink-0 flex items-center justify-between border-b border-border px-4 py-2.5">
+            <div class="flex items-center gap-2">
+              <Activity :size="14" />
+              <span class="font-semibold text-sm">Activity</span>
+            </div>
+            <Button variant="ghost" size="icon" class="h-7 w-7 shrink-0" @click="showActivity = false">
+              <ChevronDown :size="16" />
+            </Button>
+          </div>
+
+          <ScrollArea class="flex-1 min-h-0">
+            <div class="px-4 pt-3 pb-4">
+              <div class="flex flex-col gap-3">
+                <div v-for="(item, i) in mockActivity" :key="'act-panel' + i" class="flex items-start gap-2.5">
+                  <span class="size-1.5 rounded-full bg-muted-foreground/50 shrink-0 mt-2" />
+                  <div class="flex-1 min-w-0">
+                    <span class="text-[13px]">{{ item.event }}</span>
+                    <span class="text-muted-foreground text-[10px] ml-2">{{ item.time }}</span>
+                  </div>
+                </div>
+              </div>
+              <p v-if="mockActivity.length === 0" class="text-xs text-muted-foreground italic pt-4">No activity yet.</p>
+            </div>
+          </ScrollArea>
         </div>
       </Transition>
 

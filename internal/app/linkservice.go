@@ -210,6 +210,57 @@ func (s *LinkService) ImportWorkItem(adoID string) (domain.Task, error) {
 	return task, nil
 }
 
+// ImportWorkItemAsProject fetches an ADO work item and creates a local project
+// with a project-ADO link, then creates a child task linked to the same ADO item.
+func (s *LinkService) ImportWorkItemAsProject(adoID string) (domain.Project, error) {
+	adoItem, err := s.fetchADOItem(adoID)
+	if err != nil {
+		return domain.Project{}, fmt.Errorf("fetch ADO item %s: %w", adoID, err)
+	}
+
+	// Create local project
+	res, err := s.db.Exec(
+		`INSERT INTO projects (name, description, status) VALUES (?, ?, 'active')`,
+		adoItem.Title, adoItem.Description,
+	)
+	if err != nil {
+		return domain.Project{}, fmt.Errorf("create project from ADO %s: %w", adoID, err)
+	}
+	projectID64, _ := res.LastInsertId()
+	projectID := int(projectID64)
+
+	// Create project-ADO link
+	if err := s.db.CreateProjectADOLink(projectID, adoID, "imported"); err != nil {
+		log.Printf("[import-project] create project-ADO link: %v", err)
+	}
+
+	// Also create a task under this project linked to the ADO item
+	localStatus := ado.MapADOToStatus(adoItem.State)
+	taskRes, err := s.db.Exec(
+		`INSERT INTO tasks (title, description, status, priority, ado_id, project_id) VALUES (?, ?, ?, ?, ?, ?)`,
+		adoItem.Title, adoItem.Description, localStatus, priorityToLocal(adoItem.Priority), adoID, projectID,
+	)
+	if err != nil {
+		log.Printf("[import-project] create child task: %v", err)
+	} else {
+		taskID64, _ := taskRes.LastInsertId()
+		taskID := int(taskID64)
+		s.db.Exec(`INSERT INTO task_ado_links (task_id, ado_id, direction) VALUES (?, ?, 'imported')`, taskID, adoID)
+	}
+
+	// Cache the ADO item
+	if err := s.db.UpsertADOWorkItem(adoItem); err != nil {
+		log.Printf("[import-project] cache ADO item %s: %v", adoID, err)
+	}
+
+	var project domain.Project
+	row := s.db.QueryRow(`SELECT id, name, description, status, is_pinned, created_at, updated_at FROM projects WHERE id = ?`, projectID)
+	if err := row.Scan(&project.ID, &project.Name, &project.Description, &project.Status, &project.IsPinned, &project.CreatedAt, &project.UpdatedAt); err != nil {
+		return domain.Project{}, fmt.Errorf("read created project: %w", err)
+	}
+	return project, nil
+}
+
 // UnlinkTask disconnects a task from an ADO work item (D-19a).
 // If deleteLocal is true, the local task is also deleted.
 func (s *LinkService) UnlinkTask(taskID int, adoID string, deleteLocal bool) error {

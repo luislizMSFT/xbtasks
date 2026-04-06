@@ -81,8 +81,11 @@ async function deleteLink(id: number) {
   }
 }
 
-function openExternal(url: string) {
-  window.open(url, '_blank')
+async function openExternal(url: string) {
+  try {
+    const { OpenURL } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/browserservice')
+    await OpenURL(url)
+  } catch { window.open(url, '_blank') }
 }
 
 watch(() => props.taskId, () => fetchLinks(), { immediate: true })

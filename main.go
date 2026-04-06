@@ -59,6 +59,7 @@ func main() {
 	syncService := app.NewSyncService(database, tokenProvider, configService, wailsApp)
 	commentService := app.NewCommentService(database, tokenProvider, configService)
 	linksService := app.NewExternalLinksService(database)
+	browserService := app.NewBrowserService()
 
 	wailsApp.RegisterService(application.NewService(configService))
 	wailsApp.RegisterService(application.NewService(taskService))
@@ -72,6 +73,7 @@ func main() {
 	wailsApp.RegisterService(application.NewService(syncService))
 	wailsApp.RegisterService(application.NewService(commentService))
 	wailsApp.RegisterService(application.NewService(linksService))
+	wailsApp.RegisterService(application.NewService(browserService))
 
 	// System tray
 	tray := wailsApp.SystemTray.New()
@@ -116,14 +118,8 @@ func main() {
 		mainWindow.Hide()
 	})
 
-	// Restore session in background and start sync
-	go func() {
-		if _, err := authService.TryRestoreSession(); err != nil {
-			log.Printf("session restore: %v", err)
-		}
-		// Start background sync after auth is restored
-		syncService.StartBackgroundSync()
-	}()
+	// Start background sync (auth is restored via frontend TryRestoreSession binding)
+	go syncService.StartBackgroundSync()
 
 	if err := wailsApp.Run(); err != nil {
 		log.Fatal(err)

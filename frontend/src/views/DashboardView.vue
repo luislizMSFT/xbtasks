@@ -54,9 +54,44 @@ const activePRs = computed(() =>
   [...prStore.myPRs, ...prStore.reviewPRs].filter(pr => pr.status === 'active')
 )
 
-const recentPipelines = computed(() =>
-  adoStore.pipelines.slice(0, 8)
-)
+interface PipelineGroup {
+  pipelineName: string
+  runs: ADOPipeline[]
+  latestResult: string
+  latestTime: string
+}
+
+// Collect branches from user's PRs
+const myPRBranches = computed(() => {
+  const branches = new Set<string>()
+  for (const pr of [...prStore.myPRs, ...prStore.reviewPRs]) {
+    const branch = pr.sourceBranch.replace('refs/heads/', '')
+    branches.add(branch)
+  }
+  return branches
+})
+
+// Filter pipelines to only those matching user's PR branches, then group by pipeline name
+const groupedPipelines = computed<PipelineGroup[]>(() => {
+  const branches = myPRBranches.value
+  if (branches.size === 0) return []
+  const filtered = adoStore.pipelines.filter(p => branches.has(p.sourceBranch))
+  const groups = new Map<string, ADOPipeline[]>()
+  for (const p of filtered) {
+    const existing = groups.get(p.name) || []
+    existing.push(p)
+    groups.set(p.name, existing)
+  }
+  return Array.from(groups.entries()).map(([name, runs]) => {
+    const latest = runs[0]
+    return {
+      pipelineName: name,
+      runs: runs.slice(0, 3),
+      latestResult: latest.result || latest.status,
+      latestTime: latest.finishTime || latest.queueTime,
+    }
+  })
+})
 
 function pipelineIcon(result: string) {
   if (result === 'succeeded') return CheckCircle2
@@ -85,12 +120,18 @@ function goCreateTask() {
   router.push({ path: '/tasks', query: { create: '1' } })
 }
 
-function openPR(pr: PullRequest) {
-  window.open(pr.prUrl, '_blank')
+async function openPR(pr: PullRequest) {
+  try {
+    const { OpenURL } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/browserservice')
+    await OpenURL(pr.prUrl)
+  } catch { window.open(pr.prUrl, '_blank') }
 }
 
-function openPipeline(p: ADOPipeline) {
-  window.open(p.url, '_blank')
+async function openPipeline(p: ADOPipeline) {
+  try {
+    const { OpenURL } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/browserservice')
+    await OpenURL(p.url)
+  } catch { window.open(p.url, '_blank') }
 }
 </script>
 
@@ -120,21 +161,12 @@ function openPipeline(p: ADOPipeline) {
 
       <!-- Dashboard content -->
       <template v-if="taskStore.tasks.length > 0 || activePRs.length > 0">
-        <!-- Stat cards row -->
-        <div class="grid grid-cols-4 gap-4 mb-6">
-          <div
-            v-for="card in statCards"
-            :key="card.label"
-            class="rounded-lg p-4"
-            style="background: var(--color-bg-secondary); border: 1px solid var(--color-border-default)"
-          >
-            <div style="font-size: 28px; font-weight: 600; color: var(--color-text-primary)" class="tabular-nums">
-              {{ card.value }}
-            </div>
-            <div style="font-size: 12px; font-weight: 600; color: var(--color-text-secondary)">
-              {{ card.label }}
-            </div>
-          </div>
+        <!-- Compact stats line -->
+        <div class="flex items-center gap-4 mb-5 text-sm" style="color: var(--color-text-secondary)">
+          <span><strong class="tabular-nums" style="color: var(--color-text-primary)">{{ taskStore.stats.inProgress }}</strong> in progress</span>
+          <span><strong class="tabular-nums" style="color: var(--color-text-primary)">{{ taskStore.stats.blocked }}</strong> blocked</span>
+          <span><strong class="tabular-nums" style="color: var(--color-text-primary)">{{ taskStore.stats.done }}</strong> done</span>
+          <span class="text-muted-foreground/50">of {{ taskStore.stats.total }}</span>
         </div>
 
         <!-- Two-column layout: Tasks left, PRs + Pipelines right -->
@@ -251,39 +283,51 @@ function openPipeline(p: ADOPipeline) {
               </p>
             </div>
 
-            <!-- Pipelines -->
+            <!-- Pipelines (grouped by pipeline name, filtered to user's PR branches) -->
             <div>
               <div class="flex items-center gap-2 mb-3">
                 <Play :size="14" class="text-muted-foreground" />
                 <h2 style="font-size: 14px; font-weight: 600; color: var(--color-text-primary)">
                   Pipelines
                 </h2>
+                <Badge v-if="groupedPipelines.length > 0" variant="secondary" class="text-[10px] px-1.5 py-0 h-4">
+                  {{ groupedPipelines.length }}
+                </Badge>
               </div>
               <div
-                v-if="recentPipelines.length > 0"
-                class="rounded-lg overflow-hidden"
-                style="border: 1px solid var(--color-border-default)"
+                v-if="groupedPipelines.length > 0"
+                class="space-y-2"
               >
                 <div
-                  v-for="(pipeline, idx) in recentPipelines"
-                  :key="pipeline.id"
-                  class="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors"
-                  :style="idx < recentPipelines.length - 1 ? 'border-bottom: 1px solid var(--color-border-default)' : ''"
-                  @click="openPipeline(pipeline)"
+                  v-for="group in groupedPipelines"
+                  :key="group.pipelineName"
+                  class="rounded-lg overflow-hidden"
+                  style="border: 1px solid var(--color-border-default)"
                 >
-                  <component :is="pipelineIcon(pipeline.result)" :size="14" :class="pipelineColor(pipeline.result)" class="shrink-0" />
-                  <span class="text-sm truncate flex-1" style="color: var(--color-text-primary)">{{ pipeline.name }}</span>
-                  <Badge
-                    :variant="pipeline.result === 'succeeded' ? 'secondary' : pipeline.result === 'failed' ? 'destructive' : 'outline'"
-                    class="text-[10px] px-1.5 py-0 h-4 shrink-0"
-                  >{{ pipeline.result || pipeline.status }}</Badge>
-                  <span class="text-[11px] tabular-nums shrink-0" style="color: var(--color-text-secondary)">
-                    {{ pipeline.finishTime ? relativeTime(pipeline.finishTime) : relativeTime(pipeline.queueTime) }}
-                  </span>
+                  <div class="px-3 py-1.5" style="background: var(--color-bg-secondary); border-bottom: 1px solid var(--color-border-default)">
+                    <span class="text-xs font-medium" style="color: var(--color-text-primary)">{{ group.pipelineName }}</span>
+                  </div>
+                  <div
+                    v-for="(run, idx) in group.runs"
+                    :key="run.id"
+                    class="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer hover:bg-muted/50 transition-colors"
+                    :style="idx < group.runs.length - 1 ? 'border-bottom: 1px solid var(--color-border-default)' : ''"
+                    @click="openPipeline(run)"
+                  >
+                    <component :is="pipelineIcon(run.result)" :size="13" :class="pipelineColor(run.result)" class="shrink-0" />
+                    <span class="text-xs truncate flex-1" style="color: var(--color-text-secondary)">{{ run.sourceBranch }}</span>
+                    <Badge
+                      :variant="run.result === 'succeeded' ? 'secondary' : run.result === 'failed' ? 'destructive' : 'outline'"
+                      class="text-[10px] px-1.5 py-0 h-4 shrink-0"
+                    >{{ run.result || run.status }}</Badge>
+                    <span class="text-[11px] tabular-nums shrink-0" style="color: var(--color-text-secondary)">
+                      {{ run.finishTime ? relativeTime(run.finishTime) : relativeTime(run.queueTime) }}
+                    </span>
+                  </div>
                 </div>
               </div>
               <p v-else style="font-size: 13px; font-weight: 400; color: var(--color-text-tertiary)">
-                No recent pipeline runs.
+                No pipeline runs for your PRs.
               </p>
             </div>
           </div>

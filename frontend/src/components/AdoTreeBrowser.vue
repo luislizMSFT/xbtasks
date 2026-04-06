@@ -187,7 +187,14 @@ const AdoTreeNode = defineComponent({
           size: 'sm',
           class: 'h-6 w-6 p-0 shrink-0 opacity-0 group-hover:opacity-60 hover:!opacity-100',
           title: 'Open in ADO',
-          onClick: (e: Event) => { e.stopPropagation(); if (item.url) window.open(item.url, '_blank') },
+          onClick: async (e: Event) => {
+            e.stopPropagation()
+            if (!item.url) return
+            try {
+              const { OpenURL } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/browserservice')
+              await OpenURL(item.url)
+            } catch { window.open(item.url, '_blank') }
+          },
         }, () => h(ExternalLink, { size: 10 })),
       ]
 

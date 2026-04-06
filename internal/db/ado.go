@@ -1,6 +1,8 @@
 package db
 
 import (
+	"database/sql"
+
 	"dev.azure.com/xbox/xb-tasks/domain"
 )
 
@@ -152,6 +154,9 @@ func (db *DB) GetProjectADOLink(projectID int) (domain.ProjectADOLink, error) {
 		FROM project_ado_links
 		WHERE project_id = ?`, projectID,
 	).Scan(&l.ProjectID, &l.AdoID, &l.Direction, &l.CreatedAt)
+	if err == sql.ErrNoRows {
+		return l, nil
+	}
 	return l, err
 }
 

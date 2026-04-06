@@ -113,11 +113,18 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function tryRestore() {
     try {
-      const { GetCurrentUser } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/auth/authservice')
-      const u = await GetCurrentUser()
+      const { TryRestoreSession } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/auth/authservice')
+      const u = await TryRestoreSession()
       if (u) user.value = u as User
     } catch (e) {
-      console.warn('[AuthStore] Wails restore binding unavailable:', e)
+      // TryRestoreSession not available or failed, try GetCurrentUser as fallback
+      try {
+        const { GetCurrentUser } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/auth/authservice')
+        const u = await GetCurrentUser()
+        if (u) user.value = u as User
+      } catch {
+        // No auth available
+      }
     }
   }
 
