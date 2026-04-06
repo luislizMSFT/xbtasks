@@ -41,6 +41,7 @@ export const useADOStore = defineStore('ado', () => {
   const workItems = ref<ADOWorkItem[]>([])
   const pipelines = ref<ADOPipeline[]>([])
   const loading = ref(false)
+  const pipelinesLoading = ref(false)
   const connected = ref(false)
   const syncing = ref(false)
   const error = ref('')
@@ -135,6 +136,7 @@ export const useADOStore = defineStore('ado', () => {
   }
 
   async function fetchPipelines() {
+    pipelinesLoading.value = true
     try {
       const { ListRecentRuns } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/pipelineservice')
       pipelines.value = (await ListRecentRuns()) as ADOPipeline[]
@@ -143,6 +145,8 @@ export const useADOStore = defineStore('ado', () => {
       console.warn('[ADOStore] ListRecentRuns failed:', e)
       if (!error.value) error.value = e?.message || 'Failed to fetch pipelines'
       pipelines.value = []
+    } finally {
+      pipelinesLoading.value = false
     }
   }
 
@@ -210,7 +214,7 @@ export const useADOStore = defineStore('ado', () => {
 
   return {
     // Existing
-    workItems, pipelines, loading, connected, syncing, error, lastSyncedAt,
+    workItems, pipelines, loading, pipelinesLoading, connected, syncing, error, lastSyncedAt,
     fetchWorkItems, syncWorkItems, fetchCached, fetchPipelines, fetchAll,
     // Tree browser
     workItemTree, linkedAdoIds, hideLinked, searchQuery, filterType, filterState, filterArea,

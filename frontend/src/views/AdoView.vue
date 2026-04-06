@@ -8,6 +8,8 @@ import { useTaskStore } from '@/stores/tasks'
 import { usePRStore, parseReviewers, branchName, voteIcon, relativeTime } from '@/stores/prs'
 import type { PullRequest } from '@/stores/prs'
 import PageHeader from '@/components/PageHeader.vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import EmptyState from '@/components/EmptyState.vue'
 import AdoTreeBrowser from '@/components/AdoTreeBrowser.vue'
 import LinkDialog from '@/components/LinkDialog.vue'
 import { Button } from '@/components/ui/button'
@@ -313,10 +315,7 @@ const teamPRsToShow = computed(() =>
     <!-- Loading -->
     <template v-if="adoStore.loading && !adoStore.workItemTree.length">
       <div class="flex-1 flex items-center justify-center">
-        <div class="text-center space-y-2">
-          <Loader2 :size="24" class="mx-auto animate-spin text-muted-foreground" />
-          <p class="text-xs text-muted-foreground">Loading ADO data...</p>
-        </div>
+        <LoadingSpinner label="Loading ADO items..." />
       </div>
     </template>
 
@@ -441,7 +440,15 @@ const teamPRsToShow = computed(() =>
             <div class="w-[60%] border-r border-border">
               <ScrollArea class="h-full">
                 <div class="py-2 px-2">
+                  <EmptyState
+                    v-if="!adoStore.loading && adoStore.treeRoots.length === 0"
+                    :icon="CheckSquare"
+                    title="No work items"
+                    description="No ADO work items match your current filters. Try adjusting your filters or syncing."
+                    class="py-8"
+                  />
                   <AdoTreeBrowser
+                    v-else
                     :items="adoStore.treeRoots"
                     :get-children="adoStore.getChildren"
                     :is-linked="adoStore.isLinked"
@@ -548,7 +555,16 @@ const teamPRsToShow = computed(() =>
 
         <!-- ═══ Pull Requests Tab ═══ -->
         <TabsContent value="pull-requests" class="flex-1 min-h-0 mt-0">
-          <ScrollArea class="h-full">
+          <div v-if="prStore.loading" class="flex-1 flex items-center justify-center py-12">
+            <LoadingSpinner label="Loading pull requests..." />
+          </div>
+          <EmptyState
+            v-else-if="activeReviewPRs.length === 0 && prStore.myPRs.length === 0 && prStore.teamPRs.length === 0"
+            :icon="GitPullRequest"
+            title="No pull requests"
+            description="No open pull requests found. Your PRs, reviews, and team activity will appear here."
+          />
+          <ScrollArea v-else class="h-full">
             <div class="px-4 py-3 space-y-4">
 
               <!-- Needs Your Review -->
@@ -674,9 +690,18 @@ const teamPRsToShow = computed(() =>
 
         <!-- ═══ Pipelines Tab ═══ -->
         <TabsContent value="pipelines" class="flex-1 min-h-0 mt-0">
-          <ScrollArea class="h-full">
+          <div v-if="adoStore.pipelinesLoading" class="flex-1 flex items-center justify-center py-12">
+            <LoadingSpinner label="Loading pipelines..." />
+          </div>
+          <EmptyState
+            v-else-if="adoStore.pipelines.length === 0"
+            :icon="GitMerge"
+            title="No pipelines"
+            description="No recent pipeline runs found. Pipeline activity will appear here after syncing."
+          />
+          <ScrollArea v-else class="h-full">
             <div class="px-4 py-3 space-y-3">
-              <Card v-if="adoStore.pipelines.length > 0" class="overflow-hidden">
+              <Card class="overflow-hidden">
                 <CardContent class="p-0">
                   <div
                     v-for="pipe in pipelinesToShow"
@@ -711,7 +736,6 @@ const teamPRsToShow = computed(() =>
                   </div>
                 </CardContent>
               </Card>
-              <p v-else class="text-[11px] text-muted-foreground/40 py-4 text-center">No pipeline runs found</p>
               <Button
                 v-if="adoStore.pipelines.length > 5 && !showAllPipelines"
                 variant="ghost" size="sm"
