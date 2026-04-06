@@ -4,17 +4,21 @@ import (
 	"fmt"
 	"log"
 
-	"dev.azure.com/xbox/xb-tasks/internal/db"
 	"dev.azure.com/xbox/xb-tasks/domain"
+	"dev.azure.com/xbox/xb-tasks/internal/auth"
+	"dev.azure.com/xbox/xb-tasks/internal/config"
+	"dev.azure.com/xbox/xb-tasks/internal/db"
 )
 
 // ProjectService is bound to the frontend via Wails.
 type ProjectService struct {
-	db *db.DB
+	db        *db.DB
+	tokenProv auth.TokenProvider
+	cfg       *config.ConfigService
 }
 
-func NewProjectService(database *db.DB) *ProjectService {
-	return &ProjectService{db: database}
+func NewProjectService(database *db.DB, tokenProv auth.TokenProvider, cfg *config.ConfigService) *ProjectService {
+	return &ProjectService{db: database, tokenProv: tokenProv, cfg: cfg}
 }
 
 func (s *ProjectService) Create(name, description string) (domain.Project, error) {
@@ -80,4 +84,97 @@ func (s *ProjectService) Update(id int, name, description, status string) (domai
 func (s *ProjectService) Delete(id int) error {
 	_, err := s.db.Exec("DELETE FROM projects WHERE id = ?", id)
 	return err
+}
+
+// --- ADO Linking (D-20a) ---
+
+// LinkProjectToADO connects a project to an ADO scenario/deliverable.
+func (s *ProjectService) LinkProjectToADO(projectID int, adoID, direction string) error {
+	if direction == "" {
+		direction = "linked"
+	}
+	return s.db.CreateProjectADOLink(projectID, adoID, direction)
+}
+
+// UnlinkProject disconnects a project from an ADO item.
+// If deleteLocal is true, the local project is also deleted.
+func (s *ProjectService) UnlinkProject(projectID int, adoID string, deleteLocal bool) error {
+	if err := s.db.DeleteProjectADOLink(projectID, adoID); err != nil {
+		return fmt.Errorf("unlink project %d from ADO %s: %w", projectID, adoID, err)
+	}
+	if deleteLocal {
+		return s.Delete(projectID)
+	}
+	return nil
+}
+
+// GetProjectADOLink returns the ADO link for a project.
+func (s *ProjectService) GetProjectADOLink(projectID int) (domain.ProjectADOLink, error) {
+	return s.db.GetProjectADOLink(projectID)
+}
+
+// PinProject sets or clears the pinned/starred flag on a project.
+func (s *ProjectService) PinProject(projectID int, pinned bool) error {
+	val := 0
+	if pinned {
+		val = 1
+	}
+	_, err := s.db.Exec(`UPDATE projects SET is_pinned = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, val, projectID)
+	if err != nil {
+		return fmt.Errorf("pin project %d: %w", projectID, err)
+	}
+	return nil
+}
+
+// GetProjectProgress returns task completion counts for a project (D-PROJ-06).
+// Includes both local task counts and (if linked) ADO children counts from cache.
+func (s *ProjectService) GetProjectProgress(projectID int) (map[string]any, error) {
+	// Local task progress
+	var localDone, localTotal int
+	err := s.db.QueryRow(
+		`SELECT COUNT(*) FROM tasks WHERE project_id = ?`, projectID,
+	).Scan(&localTotal)
+	if err != nil {
+		return nil, fmt.Errorf("count project tasks: %w", err)
+	}
+	err = s.db.QueryRow(
+		`SELECT COUNT(*) FROM tasks WHERE project_id = ? AND status = 'done'`, projectID,
+	).Scan(&localDone)
+	if err != nil {
+		return nil, fmt.Errorf("count done project tasks: %w", err)
+	}
+
+	result := map[string]any{
+		"localDone":  localDone,
+		"localTotal": localTotal,
+		"adoDone":    0,
+		"adoTotal":   0,
+	}
+
+	// Check if project is linked to ADO
+	link, err := s.db.GetProjectADOLink(projectID)
+	if err != nil {
+		// No link — return local-only progress
+		return result, nil
+	}
+
+	// Count ADO children from cache (ado_work_items where parent_id matches)
+	var adoTotal, adoDone int
+	err = s.db.QueryRow(
+		`SELECT COUNT(*) FROM ado_work_items WHERE parent_id = CAST(? AS INTEGER)`, link.AdoID,
+	).Scan(&adoTotal)
+	if err != nil {
+		log.Printf("[project] count ADO children for %s: %v", link.AdoID, err)
+		return result, nil
+	}
+	err = s.db.QueryRow(
+		`SELECT COUNT(*) FROM ado_work_items WHERE parent_id = CAST(? AS INTEGER) AND state IN ('Closed','Completed')`, link.AdoID,
+	).Scan(&adoDone)
+	if err != nil {
+		log.Printf("[project] count done ADO children for %s: %v", link.AdoID, err)
+	}
+
+	result["adoDone"] = adoDone
+	result["adoTotal"] = adoTotal
+	return result, nil
 }

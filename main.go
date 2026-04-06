@@ -29,13 +29,13 @@ func main() {
 
 	configService := config.NewConfigService()
 	taskService := app.NewTaskService(database)
-	projectService := app.NewProjectService(database)
 	depService := app.NewDependencyService(database)
 
 	// Token provider chain: AzCli → CachedWrapper (5 min buffer)
 	azCliProvider := auth.NewAzCliTokenProvider()
 	tokenProvider := auth.NewCachedTokenProvider(azCliProvider, 5*time.Minute)
 
+	projectService := app.NewProjectService(database, tokenProvider, configService)
 	adoService := app.NewADOService(database, configService, tokenProvider)
 	linkService := app.NewLinkService(database, tokenProvider, configService)
 	prService := app.NewPRService(database, configService)
@@ -54,6 +54,12 @@ func main() {
 
 	// Register services after app creation so authService can reference wailsApp
 	authService := auth.NewAuthService(database, wailsApp)
+
+	// New Phase 2 services
+	syncService := app.NewSyncService(database, tokenProvider, configService, wailsApp)
+	commentService := app.NewCommentService(database, tokenProvider, configService)
+	linksService := app.NewExternalLinksService(database)
+
 	wailsApp.RegisterService(application.NewService(configService))
 	wailsApp.RegisterService(application.NewService(taskService))
 	wailsApp.RegisterService(application.NewService(projectService))
@@ -63,6 +69,9 @@ func main() {
 	wailsApp.RegisterService(application.NewService(linkService))
 	wailsApp.RegisterService(application.NewService(prService))
 	wailsApp.RegisterService(application.NewService(pipelineService))
+	wailsApp.RegisterService(application.NewService(syncService))
+	wailsApp.RegisterService(application.NewService(commentService))
+	wailsApp.RegisterService(application.NewService(linksService))
 
 	// System tray
 	tray := wailsApp.SystemTray.New()
@@ -105,11 +114,13 @@ func main() {
 		mainWindow.Hide()
 	})
 
-	// Restore session in background
+	// Restore session in background and start sync
 	go func() {
 		if _, err := authService.TryRestoreSession(); err != nil {
 			log.Printf("session restore: %v", err)
 		}
+		// Start background sync after auth is restored
+		syncService.StartBackgroundSync()
 	}()
 
 	if err := wailsApp.Run(); err != nil {
