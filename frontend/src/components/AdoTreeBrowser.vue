@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import type { ADOWorkItem } from '@/stores/ado'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { adoTypeColor, adoStateClasses } from '@/lib/styles'
 import {
   Bug,
   CheckSquare,
@@ -50,28 +51,6 @@ function typeIcon(type: string) {
     default: return Circle
   }
 }
-
-function typeColor(type: string) {
-  switch (type.toLowerCase()) {
-    case 'bug': return 'text-red-500'
-    case 'task': return 'text-blue-500'
-    case 'user story': return 'text-purple-500'
-    case 'feature': return 'text-green-500'
-    case 'epic': return 'text-orange-500'
-    default: return 'text-muted-foreground'
-  }
-}
-
-function stateClasses(state: string) {
-  switch (state) {
-    case 'Active': return 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/25'
-    case 'New': return 'bg-muted text-muted-foreground border-border'
-    case 'Resolved': return 'bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/25'
-    case 'Closed': return 'bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/25'
-    case 'Removed': return 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/25'
-    default: return 'bg-muted text-muted-foreground border-border'
-  }
-}
 </script>
 
 <template>
@@ -84,8 +63,8 @@ function stateClasses(state: string) {
         :get-children="getChildren"
         :is-linked="isLinked"
         :type-icon="typeIcon"
-        :type-color="typeColor"
-        :state-classes="stateClasses"
+        :type-color="adoTypeColor"
+        :state-classes="adoStateClasses"
         @toggle="toggleExpand"
         @select="(i: ADOWorkItem) => emit('select', i)"
         @import="(i: ADOWorkItem) => emit('import', i)"

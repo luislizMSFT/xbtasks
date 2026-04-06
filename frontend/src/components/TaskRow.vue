@@ -14,6 +14,7 @@ import {
   XCircle,
   CalendarDays,
 } from 'lucide-vue-next'
+import { statusColor } from '@/lib/styles'
 
 const props = defineProps<{
   task: Task

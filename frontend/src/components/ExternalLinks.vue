@@ -11,6 +11,7 @@ import {
   Plus,
   X,
 } from 'lucide-vue-next'
+import { linkTypeColor } from '@/lib/styles'
 
 const props = defineProps<{ taskId: number }>()
 
@@ -104,7 +105,7 @@ watch(() => props.taskId, () => fetchLinks(), { immediate: true })
       <component
         :is="typeIcons[link.type] || ExternalLink"
         :size="14"
-        :class="typeColors[link.type] || 'text-muted-foreground'"
+        :class="linkTypeColor(link.type)"
       />
       <a
         :href="link.url"

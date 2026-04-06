@@ -12,6 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Search, Link, Loader2, AlertCircle,
 } from 'lucide-vue-next'
+import { statusClasses, priorityClasses } from '@/lib/styles'
 
 const props = defineProps<{
   open: boolean
@@ -42,24 +43,6 @@ const filteredTasks = computed(() => {
     .filter(t => t.title.toLowerCase().includes(q) || String(t.id).includes(q))
     .slice(0, 20)
 })
-
-function statusClasses(status: string) {
-  switch (status.toLowerCase()) {
-    case 'in progress': return 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/25'
-    case 'done': return 'bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/25'
-    case 'blocked': return 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/25'
-    default: return 'bg-muted text-muted-foreground border-border'
-  }
-}
-
-function priorityClasses(priority: string) {
-  switch (priority.toLowerCase()) {
-    case 'high': return 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/25'
-    case 'medium': return 'bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/25'
-    case 'low': return 'bg-muted text-muted-foreground border-border'
-    default: return 'bg-muted text-muted-foreground border-border'
-  }
-}
 
 function selectTask(task: Task) {
   selectedTask.value = task
