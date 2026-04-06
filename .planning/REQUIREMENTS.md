@@ -53,8 +53,8 @@ Requirements for initial release. Each maps to roadmap phases.
 ### ADO Sync
 
 - [ ] **SYNC-01**: Background auto-sync pulls ADO changes to linked items silently on configurable timer (default 15 min) + manual refresh trigger
-- [ ] **SYNC-02**: All outbound pushes to ADO require user confirmation via preview diff — never auto-push
-- [ ] **SYNC-03**: Per-field conflict resolution when both local and ADO sides changed the same linked item — user picks per field
+- [x] **SYNC-02**: All outbound pushes to ADO require user confirmation via preview diff — never auto-push
+- [x] **SYNC-03**: Per-field conflict resolution when both local and ADO sides changed the same linked item — user picks per field
 - [ ] **SYNC-04**: Linked task syncs title, status, and description to ADO; subtasks and personal breakdowns never pushed unless individually linked
 
 ### Dashboard & Views
@@ -85,7 +85,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [ ] **UX-01**: Clicking an ADO work item opens an in-app detail panel (relevant fields + link/import action). "Open in ADO" button deep-links to real browser.
 - [ ] **UX-02**: Clicking external links (ICMs, Grafana, wikis) opens in real browser — never in-app webview
-- [ ] **UX-03**: Tabs + sync button + filter chips all in same toolbar row (compact, no wasted space)
+- [x] **UX-03**: Tabs + sync button + filter chips all in same toolbar row (compact, no wasted space)
 - [ ] **UX-04**: ADO browser shows tree view (Scenario → Deliverable → Task/Bug/Story) — not a flat list
 - [ ] **UX-05**: ADO browser supports filter chips (status, type, area) + text search + saved ADO query picker (queries created in ADO, browsed/executed in app)
 - [ ] **UX-06**: PR view scoped to: user's authored PRs + PRs user is required/reviewing. Excludes abandoned. No "all team PRs" flooding.
@@ -189,8 +189,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ADO-09 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | ADO-10 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | SYNC-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| SYNC-02 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| SYNC-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| SYNC-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| SYNC-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | SYNC-04 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | LINK-01 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | LINK-02 | Phase 2: ADO Integration & Sync Workflow | Pending |
@@ -215,7 +215,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PROJ-07 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | UX-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | UX-02 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| UX-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| UX-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | UX-04 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | UX-05 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | UX-06 | Phase 3: PR Monitoring & Team Views | Pending |
