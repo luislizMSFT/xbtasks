@@ -95,10 +95,12 @@ func main() {
 	})
 
 	mainWindow := wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
-		Name:   "main",
-		Title:  "Team ADO Tool",
-		Width:  config.WindowWidth(),
-		Height: config.WindowHeight(),
+		Name:     "main",
+		Title:    "Team ADO Tool",
+		Width:    config.WindowWidth(),
+		Height:   config.WindowHeight(),
+		MinWidth: 1024,
+		MinHeight: 640,
 		Mac: application.MacWindow{
 			InvisibleTitleBarHeight: 40,
 			Backdrop:                application.MacBackdropTranslucent,

@@ -17,6 +17,10 @@ onMounted(async () => {
 <template>
   <LoginView v-if="!authStore.isAuthenticated" />
   <AppShell v-else>
-    <router-view />
+    <router-view v-slot="{ Component }">
+      <keep-alive>
+        <component :is="Component" />
+      </keep-alive>
+    </router-view>
   </AppShell>
 </template>

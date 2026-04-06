@@ -44,8 +44,8 @@ func Init() error {
 func setDefaults() {
 	viper.SetDefault("db.path", filepath.Join(DataDir(), "data.db"))
 	viper.SetDefault("theme", "system")
-	viper.SetDefault("window.width", 1200)
-	viper.SetDefault("window.height", 800)
+	viper.SetDefault("window.width", 1440)
+	viper.SetDefault("window.height", 900)
 	viper.SetDefault("ado.organization", "")
 	viper.SetDefault("ado.project", "")
 	viper.SetDefault("ado.pat_keychain_key", "xbt-ado-pat")
