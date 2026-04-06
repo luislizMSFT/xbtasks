@@ -12,6 +12,7 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
+  const authMethod = ref<'oauth' | 'pat' | 'azcli' | null>(null)
 
   const isAuthenticated = computed(() => !!user.value)
   const initials = computed(() => {
@@ -29,6 +30,7 @@ export const useAuthStore = defineStore('auth', () => {
         const { SignIn } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/auth/authservice')
         const u = await SignIn()
         user.value = u as User
+        authMethod.value = 'oauth'
       } catch (e) {
         console.warn('[AuthStore] Wails binding unavailable, using mock auth:', e)
         user.value = {
@@ -37,9 +39,62 @@ export const useAuthStore = defineStore('auth', () => {
           email: 'dev@example.com',
           avatarUrl: '',
         }
+        authMethod.value = 'oauth'
       }
     } catch (e: any) {
       error.value = e.message || 'Sign in failed'
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function signInWithPAT(pat: string) {
+    loading.value = true
+    error.value = null
+    try {
+      try {
+        const { SignInWithPAT } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/auth/authservice')
+        const u = await SignInWithPAT(pat)
+        user.value = u as User
+        authMethod.value = 'pat'
+      } catch (e) {
+        console.warn('[AuthStore] Wails PAT binding unavailable, using mock:', e)
+        user.value = {
+          id: 'pat-user-1',
+          displayName: 'PAT User',
+          email: '',
+          avatarUrl: '',
+        }
+        authMethod.value = 'pat'
+      }
+    } catch (e: any) {
+      error.value = e.message || 'PAT sign in failed'
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function signInWithAzCli() {
+    loading.value = true
+    error.value = null
+    try {
+      try {
+        const { SignInWithAzCli } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/auth/authservice')
+        const u = await SignInWithAzCli()
+        user.value = u as User
+        authMethod.value = 'azcli'
+      } catch (e) {
+        console.warn('[AuthStore] Wails AzCli binding unavailable, using mock:', e)
+        user.value = {
+          id: 'azcli-user-1',
+          displayName: 'Az CLI User',
+          email: 'azcli@local',
+          avatarUrl: '',
+        }
+        authMethod.value = 'azcli'
+      }
+    } catch (e: any) {
+      error.value = e.message || 'Az CLI sign in failed — run "az login" first'
     } finally {
       loading.value = false
     }
@@ -53,6 +108,7 @@ export const useAuthStore = defineStore('auth', () => {
       console.warn('[AuthStore] Wails signOut binding unavailable:', e)
     }
     user.value = null
+    authMethod.value = null
   }
 
   async function tryRestore() {
@@ -65,5 +121,5 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  return { user, loading, error, isAuthenticated, initials, signIn, signOut, tryRestore }
+  return { user, loading, error, authMethod, isAuthenticated, initials, signIn, signInWithPAT, signInWithAzCli, signOut, tryRestore }
 })

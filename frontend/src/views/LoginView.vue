@@ -5,7 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
-import { Loader2, KeyRound } from 'lucide-vue-next'
+import { Loader2, KeyRound, Terminal } from 'lucide-vue-next'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -19,11 +19,17 @@ async function signInWithMicrosoft() {
   }
 }
 
+async function signInWithAzCli() {
+  await authStore.signInWithAzCli()
+  if (authStore.isAuthenticated) {
+    router.push('/tasks')
+  }
+}
+
 async function signInWithPAT() {
   const token = patInput.value.trim()
   if (!token) return
-  // TODO: Call AuthService.SignInWithPAT(token) when binding is ready
-  await authStore.signIn()
+  await authStore.signInWithPAT(token)
   if (authStore.isAuthenticated) {
     router.push('/tasks')
   }
@@ -49,11 +55,12 @@ async function signInWithPAT() {
       <CardContent class="space-y-4">
         <!-- Error -->
         <div v-if="authStore.error" class="px-3 py-2 rounded-md text-[12px] font-semibold bg-destructive/10 text-destructive border border-destructive/20">
-          Authentication failed — check your network connection and try again.
+          {{ authStore.error }}
         </div>
 
         <!-- Sign in buttons -->
         <div class="space-y-3">
+          <!-- 1. Microsoft OAuth (primary) -->
           <Button
             @click="signInWithMicrosoft"
             :disabled="authStore.loading"
@@ -73,6 +80,25 @@ async function signInWithPAT() {
             </template>
           </Button>
 
+          <!-- 2. Az CLI Token (outline) -->
+          <div class="space-y-1">
+            <Button
+              @click="signInWithAzCli"
+              variant="outline"
+              class="w-full"
+              size="lg"
+              :disabled="authStore.loading"
+            >
+              <Loader2 v-if="authStore.loading" :size="16" class="animate-spin" />
+              <template v-else>
+                <Terminal :size="16" />
+                Use Az CLI Token
+              </template>
+            </Button>
+            <p class="text-[11px] text-muted-foreground text-center">Requires az login — run in terminal first</p>
+          </div>
+
+          <!-- 3. PAT (ghost) -->
           <Button
             v-if="!showPAT"
             @click="showPAT = true"
