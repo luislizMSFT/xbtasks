@@ -11,7 +11,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **AUTH-01**: App authenticates to ADO via abstracted token provider — az cli `get-access-token` initially, swappable for PAT or OAuth later
 - [x] **AUTH-02**: Token auto-refreshes transparently; user doesn't need to re-auth unless az cli session expires
-- [ ] **AUTH-03**: Token provider abstraction allows future swap to Entra ID OAuth2 PKCE or PAT without changing consuming code
+- [x] **AUTH-03**: Token provider abstraction allows future swap to Entra ID OAuth2 PKCE or PAT without changing consuming code
 
 ### Personal Tasks
 
@@ -34,7 +34,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **ADO-05**: User can import an ADO work item as a personal task with local tracking
 - [ ] **ADO-06**: ADO browser view — browse all assigned ADO items, show which are already linked to local tasks, toggle to hide already-linked items, select items to import/link
 - [ ] **ADO-07**: User can unlink a task from ADO — with option to keep or delete the local task
-- [ ] **ADO-08**: Direct ADO REST API calls from Go using token from abstracted provider — no shelling out to az cli per query
+- [x] **ADO-08**: Direct ADO REST API calls from Go using token from abstracted provider — no shelling out to az cli per query
 - [x] **ADO-09**: User can configure multiple ADO orgs, then pick specific projects within each org to follow
 - [ ] **ADO-10**: Items from all configured org/project pairs appear in a unified list with org/project label; toggleable group-by-project view
 
@@ -168,7 +168,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | AUTH-01 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | AUTH-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
-| AUTH-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| AUTH-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | TASK-01 | Phase 1: Foundation, Auth & Personal Tasks | Complete |
 | TASK-02 | Phase 1: Foundation, Auth & Personal Tasks | Complete |
 | TASK-03 | Phase 1: Foundation, Auth & Personal Tasks | Complete |
@@ -185,7 +185,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ADO-05 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | ADO-06 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | ADO-07 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| ADO-08 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| ADO-08 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | ADO-09 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | ADO-10 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | SYNC-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
