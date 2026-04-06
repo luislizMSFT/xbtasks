@@ -19,6 +19,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import ExternalLinks from '@/components/ExternalLinks.vue'
+import CommentsSection from '@/components/CommentsSection.vue'
+import SyncConfirmDialog from '@/components/SyncConfirmDialog.vue'
+import { useSyncStore } from '@/stores/sync'
 import {
   X,
   Trash2,
@@ -30,6 +34,7 @@ import {
   MessageSquare,
   Activity,
   Send,
+  Upload,
   Folder,
   CalendarDays,
 } from 'lucide-vue-next'
@@ -39,6 +44,7 @@ import { cn } from '@/lib/utils'
 const taskStore = useTaskStore()
 const projectStore = useProjectStore()
 const prStore = usePRStore()
+const syncStore = useSyncStore()
 const emit = defineEmits<{ close: [] }>()
 
 // ── Editable fields ──
@@ -482,6 +488,31 @@ const timeUpdated = computed(() => {
                 />
               </div>
 
+              <Separator />
+
+              <!-- External Links -->
+              <div class="px-4">
+                <ExternalLinks :task-id="task.id" />
+              </div>
+
+              <Separator />
+
+              <!-- Comments -->
+              <div class="px-4">
+                <CommentsSection :task-id="task.id" :is-public-task="taskStore.isPublic(task.id)" />
+              </div>
+
+              <!-- Push to ADO (visible only for linked tasks) -->
+              <div v-if="taskStore.isPublic(task.id)" class="px-4">
+                <Separator class="mb-3" />
+                <div class="flex gap-2">
+                  <Button variant="outline" size="sm" @click="syncStore.generateOutboundDiff(task.id)">
+                    <Upload :size="14" class="mr-1" />
+                    Push to ADO
+                  </Button>
+                </div>
+              </div>
+
               <!-- Discussion trigger -->
               <div class="px-4 pb-3">
                 <button
@@ -704,6 +735,9 @@ const timeUpdated = computed(() => {
           </div>
         </div>
       </Transition>
+
+      <!-- Sync Confirm Dialog (pushed changes preview) -->
+      <SyncConfirmDialog />
     </aside>
   </Transition>
 </template>
