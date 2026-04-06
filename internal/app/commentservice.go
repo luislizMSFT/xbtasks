@@ -203,7 +203,7 @@ func (s *CommentService) getClientForItem(adoID string) (*ado.Client, error) {
 		return nil, fmt.Errorf("get token: %w", err)
 	}
 
-	clients, err := ado.NewClients(token, config.GetOrgProjects())
+	clients, err := ado.NewClients(token, s.cfg.GetOrgProjects())
 	if err != nil {
 		return nil, err
 	}

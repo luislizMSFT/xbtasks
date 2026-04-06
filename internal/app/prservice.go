@@ -125,9 +125,14 @@ func (s *PRService) mapPR(raw azPR) domain.PullRequest {
 		totalVotes += r.Vote
 	}
 
+	prURL := buildPRWebURL(s.cfg.GetADOOrg(), s.cfg.GetADOProject(), raw.Repository.Name, raw.PullRequestID)
+	if prURL == "" {
+		prURL = raw.URL
+	}
+
 	pr := domain.PullRequest{
 		Title:        raw.Title,
-		PRURL:        buildPRWebURL(s.cfg.GetADOOrg(), s.cfg.GetADOProject(), raw.Repository.Name, raw.PullRequestID),
+		PRURL:        prURL,
 		PRNumber:     raw.PullRequestID,
 		Repo:         raw.Repository.Name,
 		Status:       status,

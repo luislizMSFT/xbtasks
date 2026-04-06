@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import DOMPurify from 'dompurify'
 import { relativeTime } from '@/lib/date'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -9,21 +10,12 @@ import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { Globe } from 'lucide-vue-next'
 
-// Strip scripts, event handlers, and dangerous tags from ADO HTML comments
 function sanitize(html: string): string {
-  const div = document.createElement('div')
-  div.innerHTML = html
-  for (const el of Array.from(div.querySelectorAll('script, iframe, object, embed, link, style'))) {
-    el.remove()
-  }
-  for (const el of Array.from(div.querySelectorAll('*'))) {
-    for (const attr of Array.from(el.attributes)) {
-      if (attr.name.startsWith('on') || attr.value.trim().toLowerCase().startsWith('javascript:')) {
-        el.removeAttribute(attr.name)
-      }
-    }
-  }
-  return div.innerHTML
+  return DOMPurify.sanitize(html, {
+    USE_PROFILES: { html: true },
+    FORBID_TAGS: ['style', 'script', 'iframe', 'object', 'embed', 'link'],
+    FORBID_ATTR: ['style'],
+  })
 }
 
 const props = defineProps<{

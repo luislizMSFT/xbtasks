@@ -12,10 +12,12 @@
   "dependencies": {
     "@fluentui/svg-icons": "^1.1.323",
     "@headlessui/vue": "^1.7.23",
+    "@types/dompurify": "^3.0.5",
     "@vueuse/core": "^14.2.1",
     "@wailsio/runtime": "latest",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dompurify": "^3.3.3",
     "lucide-vue-next": "^1.0.0",
     "pinia": "^3.0.4",
     "reka-ui": "^2.9.3",

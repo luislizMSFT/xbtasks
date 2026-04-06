@@ -150,7 +150,11 @@ func (s *ProjectService) GetProjectProgress(projectID int) (map[string]any, erro
 	// Check if project is linked to ADO
 	link, err := s.db.GetProjectADOLink(projectID)
 	if err != nil {
-		// No link — return local-only progress
+		// Real DB failure — return local-only progress
+		return result, nil
+	}
+	if link.AdoID == "" {
+		// No ADO link exists for this project
 		return result, nil
 	}
 
