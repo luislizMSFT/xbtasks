@@ -142,18 +142,18 @@ func (s *SyncService) pullChanges() ([]domain.SyncDiff, error) {
 	}
 
 	// Fetch current ADO state for all linked items across all org/project pairs
-	orgProjects := config.GetOrgProjects()
+	clients, err := ado.NewClients(token, config.GetOrgProjects())
+	if err != nil {
+		return nil, fmt.Errorf("create ADO clients: %w", err)
+	}
 	var remoteItems []ado.WorkItem
-	for _, op := range orgProjects {
-		for _, proj := range op.Projects {
-			c := ado.NewClient(op.Org, proj, token)
-			items, err := ado.GetWorkItemsByIDs(c, adoIDs)
-			if err != nil {
-				log.Printf("[sync] fetch from %s/%s failed: %v", op.Org, proj, err)
-				continue
-			}
-			remoteItems = append(remoteItems, items...)
+	for _, c := range clients {
+		items, err := ado.GetWorkItemsByIDs(c, adoIDs)
+		if err != nil {
+			log.Printf("[sync] fetch from %s/%s failed: %v", c.Org(), c.Project(), err)
+			continue
 		}
+		remoteItems = append(remoteItems, items...)
 	}
 
 	// Build remoteMap: adoID string → WorkItem
@@ -584,16 +584,16 @@ func (s *SyncService) fetchRemoteItem(adoID string) (*ado.WorkItem, *ado.Client,
 		return nil, nil, fmt.Errorf("get token: %w", err)
 	}
 
-	orgProjects := config.GetOrgProjects()
-	for _, op := range orgProjects {
-		for _, proj := range op.Projects {
-			c := ado.NewClient(op.Org, proj, token)
-			wi, err := ado.GetWorkItem(c, id)
-			if err != nil {
-				continue
-			}
-			return wi, c, nil
+	clients, err := ado.NewClients(token, config.GetOrgProjects())
+	if err != nil {
+		return nil, nil, fmt.Errorf("create ADO clients: %w", err)
+	}
+	for _, c := range clients {
+		wi, err := ado.GetWorkItem(c, id)
+		if err != nil {
+			continue
 		}
+		return wi, c, nil
 	}
 	return nil, nil, fmt.Errorf("ADO item %s not found in any configured org/project", adoID)
 }

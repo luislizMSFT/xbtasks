@@ -30,17 +30,7 @@ func (s *ADOService) getClients() ([]*ado.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get token: %w", err)
 	}
-	orgProjects := config.GetOrgProjects()
-	if len(orgProjects) == 0 {
-		return nil, fmt.Errorf("no ADO orgs configured — go to Settings to add org/project pairs")
-	}
-	var adoOPs []ado.OrgProject
-	for _, op := range orgProjects {
-		for _, proj := range op.Projects {
-			adoOPs = append(adoOPs, ado.OrgProject{Org: op.Org, Project: proj})
-		}
-	}
-	return ado.NewMultiOrgClients(adoOPs, token), nil
+	return ado.NewClients(token, config.GetOrgProjects())
 }
 
 // CheckConnection verifies the token provider is authenticated.

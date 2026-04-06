@@ -26,6 +26,7 @@ func NewLinkService(database *db.DB, tokenProv auth.TokenProvider, cfg *config.C
 }
 
 // getClient returns a REST client for the first configured org/project (or specified org/project).
+// TODO: replace body with ado.NewDefaultClient / ado.NewClient once parallel edits settle (see pkg/ado/factory.go).
 func (s *LinkService) getClient(org, project string) (*ado.Client, error) {
 	token, err := s.tokenProv.GetToken()
 	if err != nil {
@@ -46,6 +47,7 @@ func (s *LinkService) getClient(org, project string) (*ado.Client, error) {
 }
 
 // getClients returns REST clients for all configured org/project pairs.
+// TODO: replace body with ado.NewClients once parallel edits settle (see pkg/ado/factory.go).
 func (s *LinkService) getClients() ([]*ado.Client, error) {
 	token, err := s.tokenProv.GetToken()
 	if err != nil {

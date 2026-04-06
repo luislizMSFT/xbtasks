@@ -189,6 +189,7 @@ func (s *CommentService) getLinkedAdoID(taskID int) (string, error) {
 }
 
 // getClientForItem returns an ADO client for the org/project that owns the given work item.
+// TODO: replace body with ado.NewClients loop once parallel edits settle (see pkg/ado/factory.go).
 func (s *CommentService) getClientForItem(adoID string) (*ado.Client, error) {
 	id, err := strconv.Atoi(adoID)
 	if err != nil {
