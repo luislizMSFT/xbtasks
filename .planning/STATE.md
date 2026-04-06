@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Deep UI iteration — playgrounds built, real views being refined
-stopped_at: Completed 02-10-PLAN.md
-last_updated: "2026-04-06T19:22:01.017Z"
+stopped_at: Completed 02-06-PLAN.md
+last_updated: "2026-04-06T19:26:32.353Z"
 last_activity: 2026-04-03
 progress:
   total_phases: 3
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 16
-  completed_plans: 14
+  completed_plans: 16
   percent: 50
 ---
 
@@ -123,6 +123,9 @@ Progress: [█████░░░░░] 50%
 - [Phase 02]: Settings page replaced legacy single-org inputs with multi-org list management
 - [Phase 02]: Card grid replaces list+detail split panel for Projects page
 - [Phase 02]: Dual progress bars (local+ADO) kept separate, not merged, per PROJ-06
+- [Phase 02]: FilterBar uses AcceptableValue from reka-ui for type-safe Select handlers
+- [Phase 02]: Quick-add always-visible Input (not toggle) for faster task capture
+- [Phase 02]: enhancedFilteredTasks replaces grouped-by-status as primary rendering pipeline
 
 ### Pending Todos
 
@@ -149,6 +152,6 @@ Progress: [█████░░░░░] 50%
 
 ## Session Continuity
 
-Last session: 2026-04-06T19:22:01.013Z
-Stopped at: Completed 02-10-PLAN.md
+Last session: 2026-04-06T19:26:22.891Z
+Stopped at: Completed 02-06-PLAN.md
 Resume: Continue refining shell header, then wire backend services

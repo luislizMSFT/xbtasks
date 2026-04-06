@@ -23,7 +23,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **TASK-06**: User can define dependencies between tasks (task A blocks task B)
 - [x] **TASK-07**: User can add tags to tasks for organization
 - [x] **TASK-08**: Tasks start as personal (local-only). Linking/promoting to ADO makes them "public" (synced). Subtasks of public tasks stay personal unless individually linked.
-- [ ] **TASK-09**: Quick-add task with just a title for fast capture; expand with full details (description, priority, project, due date) later
+- [x] **TASK-09**: Quick-add task with just a title for fast capture; expand with full details (description, priority, project, due date) later
 
 ### ADO Integration
 
@@ -59,17 +59,17 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Dashboard & Views
 
-- [ ] **DASH-01**: Unified list view showing all tasks (personal + public/ADO-linked) with visual indicator (icon/badge/color) distinguishing personal from public
-- [ ] **DASH-02**: List view filterable by status, priority, project, due date, and ADO link status; sortable by these dimensions
-- [ ] **DASH-03**: Linked items show the connection (e.g., task → ADO work item with status badge)
+- [x] **DASH-01**: Unified list view showing all tasks (personal + public/ADO-linked) with visual indicator (icon/badge/color) distinguishing personal from public
+- [x] **DASH-02**: List view filterable by status, priority, project, due date, and ADO link status; sortable by these dimensions
+- [x] **DASH-03**: Linked items show the connection (e.g., task → ADO work item with status badge)
 
 ### Task List
 
-- [ ] **TL-01**: Single global task list across all projects; filter by project to scope down
-- [ ] **TL-02**: Medium-density rows: checkbox + title + priority badge + project tag + ADO badge + due date + description preview (1 line) + subtask progress bar
-- [ ] **TL-03**: Flat sorted by default (priority then due date). Optional group-by toggle: status, priority, or project
-- [ ] **TL-04**: Click task → slide-out right panel (TaskDetail sidebar)
-- [ ] **TL-05**: Tasks can exist without a project (orphan/inbox — unassigned tasks)
+- [x] **TL-01**: Single global task list across all projects; filter by project to scope down
+- [x] **TL-02**: Medium-density rows: checkbox + title + priority badge + project tag + ADO badge + due date + description preview (1 line) + subtask progress bar
+- [x] **TL-03**: Flat sorted by default (priority then due date). Optional group-by toggle: status, priority, or project
+- [x] **TL-04**: Click task → slide-out right panel (TaskDetail sidebar)
+- [x] **TL-05**: Tasks can exist without a project (orphan/inbox — unassigned tasks)
 
 ### Projects
 
@@ -177,7 +177,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TASK-06 | Phase 1: Foundation, Auth & Personal Tasks | Complete |
 | TASK-07 | Phase 1: Foundation, Auth & Personal Tasks | Complete |
 | TASK-08 | Phase 2: ADO Integration & Sync Workflow | Complete |
-| TASK-09 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| TASK-09 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | ADO-01 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | ADO-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | ADO-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
@@ -198,14 +198,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CMT-01 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | CMT-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | CMT-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
-| DASH-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| DASH-02 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| DASH-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| TL-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| TL-02 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| TL-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| TL-04 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| TL-05 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| DASH-01 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| DASH-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| DASH-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| TL-01 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| TL-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| TL-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| TL-04 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| TL-05 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | PROJ-01 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | PROJ-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | PROJ-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
