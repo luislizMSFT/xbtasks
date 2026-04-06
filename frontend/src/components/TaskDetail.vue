@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/select'
 import ExternalLinks from '@/components/ExternalLinks.vue'
 import CommentsSection from '@/components/CommentsSection.vue'
+import ADODiscussion from '@/components/ADODiscussion.vue'
 import SyncConfirmDialog from '@/components/SyncConfirmDialog.vue'
 import ConflictResolver from '@/components/ConflictResolver.vue'
 import { useSyncStore } from '@/stores/sync'
@@ -32,14 +33,13 @@ import {
   ChevronRight,
   ExternalLink,
   GitPullRequest,
-  MessageSquare,
-  Activity,
-  Send,
+  Lock,
   Upload,
   Folder,
   CalendarDays,
 } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
+import { statusBgColor } from '@/lib/styles'
 
 // ── Store & emits ──
 const taskStore = useTaskStore()
@@ -128,12 +128,6 @@ async function openUrl(url: string) {
     await OpenURL(url)
   } catch { window.open(url, '_blank') }
 }
-
-// ── Discussion panel ──
-const showDiscussion = ref(false)
-
-// ── Activity panel ──
-const showActivity = ref(false)
 
 // ── Subtasks (real) ──
 const subtasks = ref<Task[]>([])
@@ -224,50 +218,7 @@ onMounted(() => {
 // ── Description ──
 const descriptionOpen = ref(true)
 
-// ── Comments (mock) ──
-// TODO: Wire to real comment backend when available
-interface MockComment { id: number; author: string; initials: string; text: string; time: string }
-const mockNotes = ref<MockComment[]>([
-  { id: 1, author: 'You', initials: 'LL', text: 'Root cause is in the token refresh — concurrent requests cause a race condition.', time: '25m ago' },
-  { id: 2, author: 'You', initials: 'LL', text: 'Middleware approach looks cleaner than patching the callback directly.', time: '1h ago' },
-])
-const mockAdoComments = ref<MockComment[]>([
-  { id: 1, author: 'Alex K.', initials: 'AK', text: 'Confirmed the loop on staging. Happens when refresh token is within 30s of expiry.', time: '2h ago' },
-  { id: 2, author: 'Jordan M.', initials: 'JM', text: 'Priority bump — this is blocking the demo prep.', time: '4h ago' },
-])
-const noteText = ref('')
-
-function addNote() {
-  const text = noteText.value.trim()
-  if (!text) return
-  mockNotes.value.unshift({
-    id: Math.max(0, ...mockNotes.value.map(c => c.id)) + 1,
-    author: 'You',
-    initials: 'LL',
-    text,
-    time: 'just now',
-  })
-  noteText.value = ''
-}
-
-// ── Activity (mock) ──
-// TODO: Wire to real activity backend when available
-const mockActivity = [
-  { event: 'Status changed to In Progress', time: '2d ago' },
-  { event: 'Linked to ADO Bug #48291', time: '2d ago' },
-  { event: 'Subtask completed: Identify refresh token edge case', time: '1d ago' },
-  { event: 'PR #234 opened', time: '6h ago' },
-]
-
 // ── Style helpers ──
-const statusColor: Record<string, string> = {
-  in_progress: 'bg-blue-500',
-  in_review: 'bg-violet-500',
-  todo: 'bg-zinc-400',
-  blocked: 'bg-red-500',
-  done: 'bg-emerald-500',
-  cancelled: 'bg-zinc-400',
-}
 
 const statusLabel: Record<string, string> = {
   in_progress: 'In Progress',
@@ -343,7 +294,7 @@ const timeUpdated = computed(() => {
           <!-- Group 1: Status + Priority -->
           <Select :model-value="editStatus" @update:model-value="(v) => onStatusChange(String(v))">
             <SelectTrigger class="inline-flex items-center gap-1.5 text-xs font-medium rounded-full pl-2 pr-1.5 py-0.5 h-auto border-border shadow-none [&_svg.lucide-chevron-down]:size-3">
-              <span :class="cn('size-2 rounded-full', statusColor[editStatus] ?? 'bg-zinc-400')" />
+              <span :class="cn('size-2 rounded-full', statusBgColor(editStatus))" />
               <span>{{ statusLabel[editStatus] ?? editStatus }}</span>
             </SelectTrigger>
             <SelectContent>
@@ -557,32 +508,28 @@ const timeUpdated = computed(() => {
                   placeholder="Add a description..."
                 />
               </div>
+              <Separator />
+
+              <!-- ─── Private Notes ────────────────────────── -->
+              <div class="px-4">
+                <div class="border border-muted-foreground/15 rounded-lg bg-muted/5">
+                  <div class="flex items-center gap-2 px-3 py-2 border-b border-muted-foreground/15">
+                    <Lock :size="14" class="text-muted-foreground" />
+                    <span class="font-semibold text-xs text-muted-foreground">Private Notes</span>
+                    <span class="text-[10px] text-muted-foreground/70 ml-auto">Local only — not posted to ADO</span>
+                  </div>
+                  <div class="px-3 py-2">
+                    <CommentsSection :task-id="task.id" :is-public-task="taskStore.isPublic(task.id)" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- ─── ADO Discussion ───────────────────────── -->
+              <div v-if="task.adoId" class="px-4 pb-3">
+                <ADODiscussion :task-id="task.id" :ado-id="task.adoId" />
+              </div>
         </div>
       </ScrollArea>
-
-      <!-- ─── Bottom bar: Comments + Activity ─────────────── -->
-      <div class="shrink-0 border-t border-border px-4 py-2 flex items-center gap-2">
-        <button
-          class="flex items-center gap-1.5 flex-1 text-xs text-muted-foreground hover:text-foreground transition-colors py-1.5 px-2.5 rounded-md hover:bg-muted/50 border border-border"
-          @click="showDiscussion = true"
-        >
-          <MessageSquare :size="13" />
-          <span class="font-medium">Comments</span>
-          <Badge variant="secondary" class="h-4 text-[10px] px-1.5 ml-auto">
-            {{ mockNotes.length + mockAdoComments.length }}
-          </Badge>
-        </button>
-        <button
-          class="flex items-center gap-1.5 flex-1 text-xs text-muted-foreground hover:text-foreground transition-colors py-1.5 px-2.5 rounded-md hover:bg-muted/50 border border-border"
-          @click="showActivity = true"
-        >
-          <Activity :size="13" />
-          <span class="font-medium">Activity</span>
-          <Badge variant="secondary" class="h-4 text-[10px] px-1.5 ml-auto">
-            {{ mockActivity.length }}
-          </Badge>
-        </button>
-      </div>
 
       <!-- Timestamps + delete -->
       <div class="shrink-0 border-t border-border flex items-center justify-between px-4 py-1.5">
@@ -599,142 +546,6 @@ const timeUpdated = computed(() => {
           Delete
         </Button>
       </div>
-
-      <!-- ─── Comments Slide-up Panel ───────────────────── -->
-      <Transition
-        enter-active-class="transition-transform duration-300 ease-out"
-        enter-from-class="translate-y-full"
-        enter-to-class="translate-y-0"
-        leave-active-class="transition-transform duration-200 ease-in"
-        leave-from-class="translate-y-0"
-        leave-to-class="translate-y-full"
-      >
-        <div v-if="showDiscussion" class="absolute inset-0 bg-background flex flex-col z-50">
-          <div class="shrink-0 flex items-center justify-between border-b border-border px-4 py-2.5">
-            <div class="flex items-center gap-2">
-              <MessageSquare :size="14" />
-              <span class="font-semibold text-sm">Comments</span>
-            </div>
-            <Button variant="ghost" size="icon" class="h-7 w-7 shrink-0" @click="showDiscussion = false">
-              <ChevronDown :size="16" />
-            </Button>
-          </div>
-
-          <ScrollArea class="flex-1 min-h-0">
-            <!-- Comments (real backend) -->
-            <div class="px-4 pt-3 pb-2">
-              <CommentsSection :task-id="task.id" :is-public-task="taskStore.isPublic(task.id)" />
-            </div>
-
-            <Separator class="my-2" />
-
-            <!-- Notes -->
-            <div class="px-4 pt-3">
-              <div class="flex items-center gap-2 mb-2">
-                <span class="font-semibold text-xs">Notes</span>
-                <Badge v-if="mockNotes.length > 0" variant="secondary" class="h-4 text-[10px] px-1.5">
-                  {{ mockNotes.length }}
-                </Badge>
-              </div>
-              <div class="flex flex-col gap-2.5">
-                <div v-for="c in mockNotes" :key="'n' + c.id" class="flex gap-2">
-                  <div class="size-6 rounded-full bg-muted flex items-center justify-center shrink-0">
-                    <span class="text-[9px] font-semibold text-muted-foreground">{{ c.initials }}</span>
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-baseline gap-2">
-                      <span class="font-medium text-[13px]">{{ c.author }}</span>
-                      <span class="text-muted-foreground text-[10px]">{{ c.time }}</span>
-                    </div>
-                    <p class="text-muted-foreground mt-0.5 text-[13px]">{{ c.text }}</p>
-                  </div>
-                </div>
-                <p v-if="mockNotes.length === 0" class="text-xs text-muted-foreground italic">No notes yet.</p>
-              </div>
-            </div>
-
-            <Separator class="my-3" />
-
-            <!-- ADO Comments -->
-            <div class="px-4 pb-4">
-              <div class="flex items-center gap-2 mb-2">
-                <AzureDevOpsIcon :size="12" />
-                <span class="font-semibold text-xs">ADO Comments</span>
-                <Badge v-if="mockAdoComments.length > 0" variant="secondary" class="h-4 text-[10px] px-1.5">
-                  {{ mockAdoComments.length }}
-                </Badge>
-              </div>
-              <div class="flex flex-col gap-2.5">
-                <div v-for="c in mockAdoComments" :key="'a' + c.id" class="flex gap-2">
-                  <div class="size-6 rounded-full bg-muted flex items-center justify-center shrink-0">
-                    <span class="text-[9px] font-semibold text-muted-foreground">{{ c.initials }}</span>
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-baseline gap-2">
-                      <span class="font-medium text-[13px]">{{ c.author }}</span>
-                      <span class="text-muted-foreground text-[10px]">{{ c.time }}</span>
-                    </div>
-                    <p class="text-muted-foreground mt-0.5 text-[13px]">{{ c.text }}</p>
-                  </div>
-                </div>
-                <p v-if="mockAdoComments.length === 0" class="text-xs text-muted-foreground italic">No ADO comments synced.</p>
-              </div>
-            </div>
-          </ScrollArea>
-
-          <!-- Note input -->
-          <div class="shrink-0 border-t border-border px-4 py-2.5">
-            <div class="flex items-center gap-2">
-              <Input
-                v-model="noteText"
-                placeholder="Add a note..."
-                class="h-7 text-xs flex-1"
-                @keydown.enter.prevent="addNote"
-              />
-              <Button variant="ghost" size="icon" class="size-7 shrink-0" @click="addNote">
-                <Send :size="13" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-
-      <!-- ─── Activity Slide-up Panel ───────────────────── -->
-      <Transition
-        enter-active-class="transition-transform duration-300 ease-out"
-        enter-from-class="translate-y-full"
-        enter-to-class="translate-y-0"
-        leave-active-class="transition-transform duration-200 ease-in"
-        leave-from-class="translate-y-0"
-        leave-to-class="translate-y-full"
-      >
-        <div v-if="showActivity" class="absolute inset-0 bg-background flex flex-col z-50">
-          <div class="shrink-0 flex items-center justify-between border-b border-border px-4 py-2.5">
-            <div class="flex items-center gap-2">
-              <Activity :size="14" />
-              <span class="font-semibold text-sm">Activity</span>
-            </div>
-            <Button variant="ghost" size="icon" class="h-7 w-7 shrink-0" @click="showActivity = false">
-              <ChevronDown :size="16" />
-            </Button>
-          </div>
-
-          <ScrollArea class="flex-1 min-h-0">
-            <div class="px-4 pt-3 pb-4">
-              <div class="flex flex-col gap-3">
-                <div v-for="(item, i) in mockActivity" :key="'act-panel' + i" class="flex items-start gap-2.5">
-                  <span class="size-1.5 rounded-full bg-muted-foreground/50 shrink-0 mt-2" />
-                  <div class="flex-1 min-w-0">
-                    <span class="text-[13px]">{{ item.event }}</span>
-                    <span class="text-muted-foreground text-[10px] ml-2">{{ item.time }}</span>
-                  </div>
-                </div>
-              </div>
-              <p v-if="mockActivity.length === 0" class="text-xs text-muted-foreground italic pt-4">No activity yet.</p>
-            </div>
-          </ScrollArea>
-        </div>
-      </Transition>
 
       <!-- Sync Confirm Dialog (pushed changes preview) -->
       <SyncConfirmDialog />
