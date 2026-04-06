@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Deep UI iteration — playgrounds built, real views being refined
-stopped_at: Completed 02-09-PLAN.md
-last_updated: "2026-04-06T19:20:59.036Z"
+stopped_at: Completed 02-10-PLAN.md
+last_updated: "2026-04-06T19:22:01.017Z"
 last_activity: 2026-04-03
 progress:
   total_phases: 3
   completed_phases: 1
   total_plans: 16
-  completed_plans: 12
+  completed_plans: 14
   percent: 50
 ---
 
@@ -119,6 +119,10 @@ Progress: [█████░░░░░] 50%
 - [Phase 02]: ProjectService constructor extended with tokenProv+cfg for ADO operations
 - [Phase 02]: ExternalLinks uses window.open for real browser opening (UX-02)
 - [Phase 02]: CommentsSection shows Push to ADO only for private comments on linked tasks
+- [Phase 02]: Az CLI auth fetches ADO profile for real user info, falls back to generic user
+- [Phase 02]: Settings page replaced legacy single-org inputs with multi-org list management
+- [Phase 02]: Card grid replaces list+detail split panel for Projects page
+- [Phase 02]: Dual progress bars (local+ADO) kept separate, not merged, per PROJ-06
 
 ### Pending Todos
 
@@ -145,6 +149,6 @@ Progress: [█████░░░░░] 50%
 
 ## Session Continuity
 
-Last session: 2026-04-06T19:20:59.031Z
-Stopped at: Completed 02-09-PLAN.md
+Last session: 2026-04-06T19:22:01.013Z
+Stopped at: Completed 02-10-PLAN.md
 Resume: Continue refining shell header, then wire backend services
