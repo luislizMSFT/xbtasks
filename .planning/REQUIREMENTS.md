@@ -83,11 +83,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### UX Patterns
 
-- [ ] **UX-01**: Clicking an ADO work item opens an in-app detail panel (relevant fields + link/import action). "Open in ADO" button deep-links to real browser.
+- [x] **UX-01**: Clicking an ADO work item opens an in-app detail panel (relevant fields + link/import action). "Open in ADO" button deep-links to real browser.
 - [x] **UX-02**: Clicking external links (ICMs, Grafana, wikis) opens in real browser — never in-app webview
 - [x] **UX-03**: Tabs + sync button + filter chips all in same toolbar row (compact, no wasted space)
-- [ ] **UX-04**: ADO browser shows tree view (Scenario → Deliverable → Task/Bug/Story) — not a flat list
-- [ ] **UX-05**: ADO browser supports filter chips (status, type, area) + text search + saved ADO query picker (queries created in ADO, browsed/executed in app)
+- [x] **UX-04**: ADO browser shows tree view (Scenario → Deliverable → Task/Bug/Story) — not a flat list
+- [x] **UX-05**: ADO browser supports filter chips (status, type, area) + text search + saved ADO query picker (queries created in ADO, browsed/executed in app)
 - [ ] **UX-06**: PR view scoped to: user's authored PRs + PRs user is required/reviewing. Excludes abandoned. No "all team PRs" flooding.
 - [ ] **UX-07**: Pipeline runs show proper pipeline names (not just IDs), readable status
 
@@ -213,11 +213,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PROJ-05 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | PROJ-06 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | PROJ-07 | Phase 2: ADO Integration & Sync Workflow | Complete |
-| UX-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| UX-01 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | UX-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | UX-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
-| UX-04 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| UX-05 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| UX-04 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| UX-05 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | UX-06 | Phase 3: PR Monitoring & Team Views | Pending |
 | UX-07 | Phase 3: PR Monitoring & Team Views | Pending |
 

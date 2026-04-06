@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Deep UI iteration — playgrounds built, real views being refined
-stopped_at: Completed 02-06-PLAN.md
-last_updated: "2026-04-06T19:26:32.353Z"
+stopped_at: Completed 02-07-PLAN.md
+last_updated: "2026-04-06T19:26:50.648Z"
 last_activity: 2026-04-03
 progress:
   total_phases: 3
@@ -126,6 +126,9 @@ Progress: [█████░░░░░] 50%
 - [Phase 02]: FilterBar uses AcceptableValue from reka-ui for type-safe Select handlers
 - [Phase 02]: Quick-add always-visible Input (not toggle) for faster task capture
 - [Phase 02]: enhancedFilteredTasks replaces grouped-by-status as primary rendering pipeline
+- [Phase 02]: Recursive render function component for tree nodes (defineComponent with h()) for same-file recursion
+- [Phase 02]: ListLinkedAdoIDs method added to LinkService for frontend linked status tracking (ADO IDs not task IDs)
+- [Phase 02]: Saved query picker uses sentinel value __my_assignments__ to revert to default tree fetch
 
 ### Pending Todos
 
@@ -152,6 +155,6 @@ Progress: [█████░░░░░] 50%
 
 ## Session Continuity
 
-Last session: 2026-04-06T19:26:22.891Z
-Stopped at: Completed 02-06-PLAN.md
+Last session: 2026-04-06T19:26:50.644Z
+Stopped at: Completed 02-07-PLAN.md
 Resume: Continue refining shell header, then wire backend services
