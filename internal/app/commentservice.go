@@ -3,7 +3,9 @@ package app
 import (
 	"fmt"
 	"log"
+	"sort"
 	"strconv"
+	"time"
 
 	"dev.azure.com/xbox/xb-tasks/domain"
 	"dev.azure.com/xbox/xb-tasks/internal/auth"
@@ -91,6 +93,76 @@ func (s *CommentService) PushCommentToADO(commentID int) error {
 
 	log.Printf("[comments] pushed comment %d to ADO work item %s (ADO comment %s)", commentID, adoID, adoCommentIDStr)
 	return nil
+}
+
+// FetchADOComments retrieves all comments from the linked ADO work item.
+// If the task has no ADO link, an empty slice is returned (not an error).
+func (s *CommentService) FetchADOComments(taskID int) ([]domain.ADOComment, error) {
+	adoID, err := s.getLinkedAdoID(taskID)
+	if err != nil {
+		return []domain.ADOComment{}, nil
+	}
+
+	client, err := s.getClientForItem(adoID)
+	if err != nil {
+		return nil, fmt.Errorf("get ADO client: %w", err)
+	}
+
+	adoIDInt, _ := strconv.Atoi(adoID)
+	comments, err := ado.GetComments(client, adoIDInt)
+	if err != nil {
+		return nil, fmt.Errorf("fetch comments from ADO work item %s: %w", adoID, err)
+	}
+
+	result := make([]domain.ADOComment, len(comments))
+	for i, c := range comments {
+		result[i] = domain.ADOComment{
+			ID:          c.ID,
+			Text:        c.Text,
+			CreatedBy:   c.CreatedBy.DisplayName,
+			CreatedDate: c.CreatedDate.Format(time.RFC3339),
+		}
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].CreatedDate > result[j].CreatedDate
+	})
+
+	log.Printf("[comments] fetched %d comments from ADO work item %s for task %d", len(result), adoID, taskID)
+	return result, nil
+}
+
+// ReplyToADOComment posts a new comment to the linked ADO work item.
+func (s *CommentService) ReplyToADOComment(taskID int, content string) (*domain.ADOComment, error) {
+	if content == "" {
+		return nil, fmt.Errorf("comment content is required")
+	}
+
+	adoID, err := s.getLinkedAdoID(taskID)
+	if err != nil {
+		return nil, fmt.Errorf("task %d has no ADO link: %w", taskID, err)
+	}
+
+	client, err := s.getClientForItem(adoID)
+	if err != nil {
+		return nil, fmt.Errorf("get ADO client: %w", err)
+	}
+
+	adoIDInt, _ := strconv.Atoi(adoID)
+	adoComment, err := ado.AddComment(client, adoIDInt, content)
+	if err != nil {
+		return nil, fmt.Errorf("reply to ADO work item %s: %w", adoID, err)
+	}
+
+	result := &domain.ADOComment{
+		ID:          adoComment.ID,
+		Text:        adoComment.Text,
+		CreatedBy:   adoComment.CreatedBy.DisplayName,
+		CreatedDate: adoComment.CreatedDate.Format(time.RFC3339),
+	}
+
+	log.Printf("[comments] replied to ADO work item %s for task %d (ADO comment %d)", adoID, taskID, adoComment.ID)
+	return result, nil
 }
 
 // --- internal helpers ---

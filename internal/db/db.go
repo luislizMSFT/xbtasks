@@ -148,6 +148,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_pull_requests_pr_repo ON pull_requests(pr_
 CREATE INDEX IF NOT EXISTS idx_pull_requests_status ON pull_requests(status);
 CREATE INDEX IF NOT EXISTS idx_pull_requests_task ON pull_requests(task_id);
 CREATE INDEX IF NOT EXISTS idx_ado_work_items_ado_id ON ado_work_items(ado_id);
+CREATE INDEX IF NOT EXISTS idx_ado_work_items_parent_id ON ado_work_items(parent_id);
+CREATE INDEX IF NOT EXISTS idx_task_ado_links_ado_id ON task_ado_links(ado_id);
+CREATE INDEX IF NOT EXISTS idx_sync_state_task_id ON sync_state(task_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_project_status ON tasks(project_id, status);
 
 CREATE TABLE IF NOT EXISTS task_links (
 	id         INTEGER PRIMARY KEY AUTOINCREMENT,

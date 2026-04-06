@@ -2,7 +2,8 @@
 import { onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTaskStore } from '@/stores/tasks'
-import { usePRStore, relativeTime as prRelativeTime, branchName, voteIcon } from '@/stores/prs'
+import { usePRStore, branchName, voteIcon } from '@/stores/prs'
+import { relativeTime } from '@/lib/date'
 import type { PullRequest } from '@/stores/prs'
 import { useADOStore } from '@/stores/ado'
 import type { ADOPipeline } from '@/stores/ado'
@@ -103,17 +104,6 @@ function pipelineColor(result: string) {
   if (result === 'succeeded') return 'text-green-500'
   if (result === 'failed') return 'text-red-500'
   return 'text-yellow-500'
-}
-
-function relativeTime(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
 }
 
 function goCreateTask() {

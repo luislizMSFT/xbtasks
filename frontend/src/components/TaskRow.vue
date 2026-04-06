@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Task } from '@/stores/tasks'
+import { relativeTime, formatDate } from '@/lib/date'
 import PriorityBadge from '@/components/ui/PriorityBadge.vue'
 import TagChip from '@/components/ui/TagChip.vue'
 import AzureDevOpsIcon from '@/components/icons/AzureDevOpsIcon.vue'
@@ -39,19 +40,7 @@ const statusIcon = computed(() => {
   }
 })
 
-const statusColor = computed(() => {
-  switch (props.task.status) {
-    case 'todo': return 'text-zinc-400 hover:text-zinc-500'
-    case 'in_progress': return 'text-blue-500 hover:text-blue-600'
-    case 'in_review': return 'text-violet-500 hover:text-violet-600'
-    case 'done': return 'text-emerald-500 hover:text-emerald-600'
-    case 'blocked': return 'text-red-500 hover:text-red-600'
-    case 'cancelled': return 'text-zinc-400 hover:text-zinc-500'
-    default: return 'text-zinc-400'
-  }
-})
-
-const tags = computed(() => {
+const tags= computed(() => {
   if (!props.task.tags) return []
   return props.task.tags.split(',').map(t => t.trim()).filter(Boolean)
 })
@@ -59,16 +48,7 @@ const tags = computed(() => {
 const visibleTags = computed(() => tags.value.slice(0, 2))
 const overflowCount = computed(() => Math.max(0, tags.value.length - 2))
 
-const timeAgo = computed(() => {
-  const diff = Date.now() - new Date(props.task.updatedAt).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
-})
+const timeAgo = computed(() => relativeTime(props.task.updatedAt))
 
 const isDone = computed(() => props.task.status === 'done' || props.task.status === 'cancelled')
 
@@ -79,15 +59,10 @@ const dueDateDisplay = computed(() => {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const tomorrow = new Date(today)
   tomorrow.setDate(tomorrow.getDate() + 1)
-  if (d < today) return { text: formatDate(d), overdue: true }
+  if (d < today) return { text: formatDate(props.task.dueDate), overdue: true }
   if (d >= today && d < tomorrow) return { text: 'Today', overdue: false }
-  return { text: formatDate(d), overdue: false }
+  return { text: formatDate(props.task.dueDate), overdue: false }
 })
-
-function formatDate(d: Date) {
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-  return `${months[d.getMonth()]} ${d.getDate()}`
-}
 
 function onCheckClick(e: Event) {
   e.stopPropagation()
@@ -116,7 +91,7 @@ function onAdoBadgeClick(e: Event) {
     <button
       @click="onCheckClick"
       class="flex-shrink-0 mt-0.5 w-5 h-5 flex items-center justify-center rounded-full transition-colors duration-150"
-      :class="statusColor"
+      :class="statusColor(task.status)"
     >
       <component :is="statusIcon" :size="18" :stroke-width="1.75" />
     </button>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { relativeTime } from '@/lib/date'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -66,21 +67,6 @@ async function pushToADO(commentId: number) {
   }
 }
 
-function formatDate(dateStr: string): string {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  if (diffMins < 1) return 'just now'
-  if (diffMins < 60) return `${diffMins}m ago`
-  const diffHours = Math.floor(diffMins / 60)
-  if (diffHours < 24) return `${diffHours}h ago`
-  const diffDays = Math.floor(diffHours / 24)
-  if (diffDays < 7) return `${diffDays}d ago`
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-}
-
 watch(() => props.taskId, () => fetchComments(), { immediate: true })
 </script>
 
@@ -111,7 +97,7 @@ watch(() => props.taskId, () => fetchComments(), { immediate: true })
             <Lock :size="10" class="mr-0.5" /> Private
           </Badge>
           <span class="text-[10px] text-muted-foreground ml-auto">
-            {{ formatDate(c.createdAt) }}
+            {{ relativeTime(c.createdAt) }}
           </span>
         </div>
         <!-- Content -->

@@ -168,6 +168,14 @@ type FieldDiff struct {
 	Proposed string `json:"proposed"`
 }
 
+// ADOComment represents a comment fetched from Azure DevOps.
+type ADOComment struct {
+	ID          int    `json:"id"`
+	Text        string `json:"text"`
+	CreatedBy   string `json:"createdBy"`
+	CreatedDate string `json:"createdDate"`
+}
+
 // OrgProject represents a configured ADO org/project pair (ADO-09)
 type OrgProject struct {
 	Org      string   `json:"org" mapstructure:"org"`

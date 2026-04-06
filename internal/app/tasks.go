@@ -238,38 +238,10 @@ func (s *TaskService) ListFiltered(status, projectID, parentID, tag string) ([]d
 }
 
 // ---------------------------------------------------------------------------
-// ADO link operations — LOCAL ONLY
-// These methods manage task↔ADO associations in the local SQLite database.
-// They do NOT create, modify, or delete anything in Azure DevOps.
+// ADO link read operations — LOCAL ONLY
+// Link/unlink mutations live in LinkService (linkservice.go), which handles
+// sync state, ADO item caching, and full lifecycle management.
 // ---------------------------------------------------------------------------
-
-// LinkTaskToADO associates a task with an ADO work item (local only, does NOT modify ADO).
-func (s *TaskService) LinkTaskToADO(taskID int, adoID string, direction string) error {
-	_, err := s.db.Exec(
-		`INSERT OR IGNORE INTO task_ado_links (task_id, ado_id, direction) VALUES (?, ?, ?)`,
-		taskID, adoID, direction)
-	if err != nil {
-		return fmt.Errorf("link task %d to ADO %s: %w", taskID, adoID, err)
-	}
-	// Also update the task's ado_id field for quick access
-	_, err = s.db.Exec(`UPDATE tasks SET ado_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, adoID, taskID)
-	return err
-}
-
-// UnlinkTaskFromADO removes a task-ADO association (local only, ADO work item is untouched).
-func (s *TaskService) UnlinkTaskFromADO(taskID int, adoID string) error {
-	_, err := s.db.Exec(`DELETE FROM task_ado_links WHERE task_id = ? AND ado_id = ?`, taskID, adoID)
-	if err != nil {
-		return fmt.Errorf("unlink task %d from ADO %s: %w", taskID, adoID, err)
-	}
-	// Clear the task's ado_id if no links remain
-	var remaining int
-	_ = s.db.QueryRow(`SELECT COUNT(*) FROM task_ado_links WHERE task_id = ?`, taskID).Scan(&remaining)
-	if remaining == 0 {
-		_, err = s.db.Exec(`UPDATE tasks SET ado_id = '', updated_at = CURRENT_TIMESTAMP WHERE id = ?`, taskID)
-	}
-	return err
-}
 
 // GetADOLinks returns all ADO links for a task (local read only).
 func (s *TaskService) GetADOLinks(taskID int) ([]domain.TaskADOLink, error) {

@@ -55,6 +55,38 @@ func MapADOToStatus(adoState string) string {
 	return "todo" // safe default
 }
 
+// MapPriorityToLocal maps ADO integer priority (1-4) to local priority string (P0-P3).
+func MapPriorityToLocal(adoPriority int) string {
+	switch adoPriority {
+	case 1:
+		return "P0"
+	case 2:
+		return "P1"
+	case 3:
+		return "P2"
+	case 4:
+		return "P3"
+	default:
+		return "P2"
+	}
+}
+
+// MapPriorityToADO maps a local priority string (P0-P3) to ADO integer priority (1-4).
+func MapPriorityToADO(localPriority string) int {
+	switch localPriority {
+	case "P0":
+		return 1
+	case "P1":
+		return 2
+	case "P2":
+		return 3
+	case "P3":
+		return 4
+	default:
+		return 3
+	}
+}
+
 // GenerateSyncDiff compares a local and remote WorkItem and returns the differences.
 func GenerateSyncDiff(local, remote WorkItem) SyncDiff {
 	diff := SyncDiff{

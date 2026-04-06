@@ -99,10 +99,12 @@ func (s *LinkService) LinkTask(taskID int, adoID string) (domain.TaskADOLink, er
 
 		// Create initial sync_state snapshot
 		localStatus := ado.MapStatusToADO(task.Status, adoItem.Type)
-		_ = s.db.UpsertSyncState(taskID, adoID,
+		if err := s.db.UpsertSyncState(taskID, adoID,
 			task.Title, task.Status, task.Description,
 			adoItem.Title, adoItem.State, adoItem.Description,
-		)
+		); err != nil {
+			log.Printf("[link] upsert sync state for task %d / ADO %s: %v", taskID, adoID, err)
+		}
 		_ = localStatus // used above in UpsertSyncState call context
 	}
 
@@ -157,10 +159,12 @@ func (s *LinkService) PromoteTask(taskID int, wiType string) (domain.TaskADOLink
 	}
 
 	// Create initial sync_state snapshot
-	_ = s.db.UpsertSyncState(taskID, adoID,
+	if err := s.db.UpsertSyncState(taskID, adoID,
 		task.Title, task.Status, task.Description,
 		wi.Title, wi.State, wi.Description,
-	)
+	); err != nil {
+		log.Printf("[promote] upsert sync state for task %d / ADO %s: %v", taskID, adoID, err)
+	}
 
 	return s.getTaskADOLink(taskID, adoID)
 }
@@ -179,7 +183,7 @@ func (s *LinkService) ImportWorkItem(adoID string) (domain.Task, error) {
 	// Create local task
 	res, err := s.db.Exec(
 		`INSERT INTO tasks (title, description, status, priority, ado_id) VALUES (?, ?, ?, ?, ?)`,
-		adoItem.Title, adoItem.Description, localStatus, priorityToLocal(adoItem.Priority), adoID,
+		adoItem.Title, adoItem.Description, localStatus, ado.MapPriorityToLocal(adoItem.Priority), adoID,
 	)
 	if err != nil {
 		return domain.Task{}, fmt.Errorf("create local task from ADO %s: %w", adoID, err)
@@ -201,11 +205,15 @@ func (s *LinkService) ImportWorkItem(adoID string) (domain.Task, error) {
 	}
 
 	// Create sync_state snapshot
-	task, _ := s.getTask(taskID)
-	_ = s.db.UpsertSyncState(taskID, adoID,
+	task, err := s.getTask(taskID)
+	if err != nil {
+		log.Printf("[import] re-fetch task %d for sync state: %v", taskID, err)
+	} else if err := s.db.UpsertSyncState(taskID, adoID,
 		task.Title, task.Status, task.Description,
 		adoItem.Title, adoItem.State, adoItem.Description,
-	)
+	); err != nil {
+		log.Printf("[import] upsert sync state for task %d / ADO %s: %v", taskID, adoID, err)
+	}
 
 	return task, nil
 }
@@ -238,7 +246,7 @@ func (s *LinkService) ImportWorkItemAsProject(adoID string) (domain.Project, err
 	localStatus := ado.MapADOToStatus(adoItem.State)
 	taskRes, err := s.db.Exec(
 		`INSERT INTO tasks (title, description, status, priority, ado_id, project_id) VALUES (?, ?, ?, ?, ?, ?)`,
-		adoItem.Title, adoItem.Description, localStatus, priorityToLocal(adoItem.Priority), adoID, projectID,
+		adoItem.Title, adoItem.Description, localStatus, ado.MapPriorityToLocal(adoItem.Priority), adoID, projectID,
 	)
 	if err != nil {
 		log.Printf("[import-project] create child task: %v", err)
@@ -272,13 +280,20 @@ func (s *LinkService) UnlinkTask(taskID int, adoID string, deleteLocal bool) err
 
 	// Clear tasks.ado_id if no links remain
 	var remaining int
-	_ = s.db.QueryRow(`SELECT COUNT(*) FROM task_ado_links WHERE task_id = ?`, taskID).Scan(&remaining)
+	err = s.db.QueryRow(`SELECT COUNT(*) FROM task_ado_links WHERE task_id = ?`, taskID).Scan(&remaining)
+	if err != nil {
+		return fmt.Errorf("counting remaining links for task %d: %w", taskID, err)
+	}
 	if remaining == 0 {
-		_, _ = s.db.Exec(`UPDATE tasks SET ado_id = '', updated_at = CURRENT_TIMESTAMP WHERE id = ?`, taskID)
+		if _, err := s.db.Exec(`UPDATE tasks SET ado_id = '', updated_at = CURRENT_TIMESTAMP WHERE id = ?`, taskID); err != nil {
+			log.Printf("[unlink] clear ado_id for task %d: %v", taskID, err)
+		}
 	}
 
 	// Remove sync_state
-	_, _ = s.db.Exec(`DELETE FROM sync_state WHERE task_id = ? AND ado_id = ?`, taskID, adoID)
+	if _, err := s.db.Exec(`DELETE FROM sync_state WHERE task_id = ? AND ado_id = ?`, taskID, adoID); err != nil {
+		log.Printf("[unlink] delete sync_state for task %d / ADO %s: %v", taskID, adoID, err)
+	}
 
 	// Optionally delete the local task
 	if deleteLocal {
@@ -411,18 +426,3 @@ func (s *LinkService) fetchADOItem(adoID string) (domain.ADOWorkItem, error) {
 	return domain.ADOWorkItem{}, fmt.Errorf("ADO item %s not found in any configured org/project", adoID)
 }
 
-// priorityToLocal maps ADO integer priority (1-4) to local priority string (P0-P3).
-func priorityToLocal(adoPriority int) string {
-	switch adoPriority {
-	case 1:
-		return "P0"
-	case 2:
-		return "P1"
-	case 3:
-		return "P2"
-	case 4:
-		return "P3"
-	default:
-		return "P2"
-	}
-}
