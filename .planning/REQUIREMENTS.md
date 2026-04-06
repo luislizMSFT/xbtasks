@@ -22,21 +22,21 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **TASK-05**: User can set a personal priority overlay independent of ADO priority
 - [x] **TASK-06**: User can define dependencies between tasks (task A blocks task B)
 - [x] **TASK-07**: User can add tags to tasks for organization
-- [ ] **TASK-08**: Tasks start as personal (local-only). Linking/promoting to ADO makes them "public" (synced). Subtasks of public tasks stay personal unless individually linked.
+- [x] **TASK-08**: Tasks start as personal (local-only). Linking/promoting to ADO makes them "public" (synced). Subtasks of public tasks stay personal unless individually linked.
 - [ ] **TASK-09**: Quick-add task with just a title for fast capture; expand with full details (description, priority, project, due date) later
 
 ### ADO Integration
 
-- [ ] **ADO-01**: User can view all ADO work items assigned to them in the dashboard
-- [ ] **ADO-02**: User can view ADO work item details (state, priority, type, assigned_to, description, area path)
-- [ ] **ADO-03**: User can link a personal task to an ADO work item (bidirectional)
-- [ ] **ADO-04**: User can promote a personal task to a new ADO work item (with confirmation)
-- [ ] **ADO-05**: User can import an ADO work item as a personal task with local tracking
-- [ ] **ADO-06**: ADO browser view — browse all assigned ADO items, show which are already linked to local tasks, toggle to hide already-linked items, select items to import/link
-- [ ] **ADO-07**: User can unlink a task from ADO — with option to keep or delete the local task
+- [x] **ADO-01**: User can view all ADO work items assigned to them in the dashboard
+- [x] **ADO-02**: User can view ADO work item details (state, priority, type, assigned_to, description, area path)
+- [x] **ADO-03**: User can link a personal task to an ADO work item (bidirectional)
+- [x] **ADO-04**: User can promote a personal task to a new ADO work item (with confirmation)
+- [x] **ADO-05**: User can import an ADO work item as a personal task with local tracking
+- [x] **ADO-06**: ADO browser view — browse all assigned ADO items, show which are already linked to local tasks, toggle to hide already-linked items, select items to import/link
+- [x] **ADO-07**: User can unlink a task from ADO — with option to keep or delete the local task
 - [x] **ADO-08**: Direct ADO REST API calls from Go using token from abstracted provider — no shelling out to az cli per query
 - [x] **ADO-09**: User can configure multiple ADO orgs, then pick specific projects within each org to follow
-- [ ] **ADO-10**: Items from all configured org/project pairs appear in a unified list with org/project label; toggleable group-by-project view
+- [x] **ADO-10**: Items from all configured org/project pairs appear in a unified list with org/project label; toggleable group-by-project view
 
 ### External Links & Context
 
@@ -176,18 +176,18 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TASK-05 | Phase 1: Foundation, Auth & Personal Tasks | Complete |
 | TASK-06 | Phase 1: Foundation, Auth & Personal Tasks | Complete |
 | TASK-07 | Phase 1: Foundation, Auth & Personal Tasks | Complete |
-| TASK-08 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| TASK-08 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | TASK-09 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| ADO-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| ADO-02 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| ADO-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| ADO-04 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| ADO-05 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| ADO-06 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| ADO-07 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| ADO-01 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| ADO-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| ADO-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| ADO-04 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| ADO-05 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| ADO-06 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| ADO-07 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | ADO-08 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | ADO-09 | Phase 2: ADO Integration & Sync Workflow | Complete |
-| ADO-10 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| ADO-10 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | SYNC-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | SYNC-02 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | SYNC-03 | Phase 2: ADO Integration & Sync Workflow | Pending |

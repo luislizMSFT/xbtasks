@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Deep UI iteration — playgrounds built, real views being refined
-stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-04-06T18:57:22.541Z"
+stopped_at: Completed 02-03-PLAN.md
+last_updated: "2026-04-06T19:05:01.649Z"
 last_activity: 2026-04-03
 progress:
   total_phases: 3
   completed_phases: 1
   total_plans: 16
-  completed_plans: 8
+  completed_plans: 9
   percent: 50
 ---
 
@@ -107,6 +107,10 @@ Progress: [█████░░░░░] 50%
 - [Phase 02]: SyncState uses composite PK (task_id, ado_id) for per-link conflict tracking
 - [Phase 02]: TokenProvider interface uses GetToken()+Name(); CachedTokenProvider wraps with TTL mutex caching
 - [Phase 02]: ADO client accepts token string (not provider)  caller manages token lifecycle
+- [Phase 02]: ADOService refactored from az-cli to pkg/ado REST client with multi-org iteration
+- [Phase 02]: Token provider chain: AzCli -> CachedWrapper created once in main.go, shared across services
+- [Phase 02]: LinkService implements personal-to-public model with 4 flows: link/promote/import/unlink
+- [Phase 02]: IsPublic computed from task_ado_links presence (not a column)
 
 ### Pending Todos
 
@@ -133,6 +137,6 @@ Progress: [█████░░░░░] 50%
 
 ## Session Continuity
 
-Last session: 2026-04-06T18:57:22.536Z
-Stopped at: Completed 02-01-PLAN.md
+Last session: 2026-04-06T19:05:01.645Z
+Stopped at: Completed 02-03-PLAN.md
 Resume: Continue refining shell header, then wire backend services
