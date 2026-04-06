@@ -5,7 +5,8 @@ import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
-import { Loader2, KeyRound, Terminal } from 'lucide-vue-next'
+import { KeyRound, Terminal } from 'lucide-vue-next'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -67,7 +68,7 @@ async function signInWithPAT() {
             class="w-full"
             size="lg"
           >
-            <Loader2 v-if="authStore.loading" :size="16" class="animate-spin" />
+            <LoadingSpinner v-if="authStore.loading" size="sm" class="inline-flex" />
             <template v-if="authStore.loading">Signing in...</template>
             <template v-else>
               <svg class="w-4 h-4" viewBox="0 0 21 21" fill="none">
@@ -89,7 +90,7 @@ async function signInWithPAT() {
               size="lg"
               :disabled="authStore.loading"
             >
-              <Loader2 v-if="authStore.loading" :size="16" class="animate-spin" />
+              <LoadingSpinner v-if="authStore.loading" size="sm" class="inline-flex" />
               <template v-else>
                 <Terminal :size="16" />
                 Use Az CLI Token
@@ -141,7 +142,7 @@ async function signInWithPAT() {
                   size="sm"
                   class="flex-1"
                 >
-                  <Loader2 v-if="authStore.loading" :size="14" class="animate-spin" />
+                  <LoadingSpinner v-if="authStore.loading" size="sm" class="inline-flex" />
                   <template v-if="authStore.loading">Signing in...</template>
                   <template v-else>Connect</template>
                 </Button>

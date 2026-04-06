@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
@@ -216,6 +217,112 @@ const authMethodLabel = {
         </div>
       </div>
 
+      <!-- Loading skeletons -->
+      <template v-if="loading">
+        <!-- Organizations skeleton -->
+        <Card>
+          <CardHeader>
+            <Skeleton class="h-5 w-56 rounded-md" />
+            <Skeleton class="h-4 w-72 rounded-md" />
+          </CardHeader>
+          <CardContent class="space-y-4">
+            <Skeleton class="h-14 w-full rounded-md" />
+            <Skeleton class="h-14 w-full rounded-md" />
+            <Separator />
+            <Skeleton class="h-4 w-32 rounded-md" />
+            <div class="grid grid-cols-2 gap-3">
+              <Skeleton class="h-10 w-full rounded-md" />
+              <Skeleton class="h-10 w-full rounded-md" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <!-- Sync Settings skeleton -->
+        <Card>
+          <CardHeader>
+            <Skeleton class="h-5 w-36 rounded-md" />
+            <Skeleton class="h-4 w-64 rounded-md" />
+          </CardHeader>
+          <CardContent>
+            <div class="flex items-center justify-between">
+              <div class="space-y-1.5">
+                <Skeleton class="h-4 w-44 rounded-md" />
+                <Skeleton class="h-3 w-64 rounded-md" />
+              </div>
+              <Skeleton class="h-10 w-20 rounded-md" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <!-- Authentication skeleton -->
+        <Card>
+          <CardHeader>
+            <Skeleton class="h-5 w-36 rounded-md" />
+            <Skeleton class="h-4 w-52 rounded-md" />
+          </CardHeader>
+          <CardContent class="space-y-4">
+            <div class="flex items-center justify-between">
+              <div class="space-y-1.5">
+                <Skeleton class="h-4 w-32 rounded-md" />
+                <Skeleton class="h-3 w-44 rounded-md" />
+              </div>
+              <Skeleton class="h-6 w-16 rounded-full" />
+            </div>
+            <Skeleton class="h-12 w-full rounded-md" />
+            <Separator />
+            <Skeleton class="h-9 w-24 rounded-md" />
+          </CardContent>
+        </Card>
+
+        <!-- Appearance skeleton -->
+        <Card>
+          <CardHeader>
+            <Skeleton class="h-5 w-32 rounded-md" />
+            <Skeleton class="h-4 w-56 rounded-md" />
+          </CardHeader>
+          <CardContent class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+              <div class="space-y-1.5">
+                <Skeleton class="h-3 w-16 rounded-md" />
+                <Skeleton class="h-10 w-full rounded-md" />
+              </div>
+              <div class="space-y-1.5">
+                <Skeleton class="h-3 w-20 rounded-md" />
+                <Skeleton class="h-10 w-full rounded-md" />
+              </div>
+            </div>
+            <Separator />
+            <div class="grid grid-cols-2 gap-4">
+              <div class="space-y-1.5">
+                <Skeleton class="h-3 w-24 rounded-md" />
+                <Skeleton class="h-10 w-full rounded-md" />
+              </div>
+              <div class="space-y-1.5">
+                <Skeleton class="h-3 w-24 rounded-md" />
+                <Skeleton class="h-10 w-full rounded-md" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <!-- Data skeleton -->
+        <Card>
+          <CardHeader>
+            <Skeleton class="h-5 w-20 rounded-md" />
+            <Skeleton class="h-4 w-48 rounded-md" />
+          </CardHeader>
+          <CardContent>
+            <div class="space-y-1.5">
+              <Skeleton class="h-3 w-28 rounded-md" />
+              <Skeleton class="h-10 w-full rounded-md" />
+              <Skeleton class="h-3 w-52 rounded-md" />
+            </div>
+          </CardContent>
+        </Card>
+      </template>
+
+      <!-- Loaded content -->
+      <template v-else>
       <!-- Azure DevOps Organizations -->
       <Card>
         <CardHeader>
@@ -479,6 +586,7 @@ const authMethodLabel = {
           </div>
         </CardContent>
       </Card>
+      </template>
     </div>
   </ScrollArea>
 </template>

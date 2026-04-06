@@ -12,8 +12,10 @@ import FilterBar from '@/components/FilterBar.vue'
 import { cn } from '@/lib/utils'
 import {
   ChevronDown, ChevronRight,
-  CheckCircle2, Plus,
+  CheckCircle2, Plus, ClipboardList,
 } from 'lucide-vue-next'
+import { Skeleton } from '@/components/ui/skeleton'
+import EmptyState from '@/components/EmptyState.vue'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Input } from '@/components/ui/input'
@@ -230,16 +232,25 @@ onMounted(async () => {
       />
 
       <ScrollArea class="flex-1 h-full">
-        <!-- Loading -->
-        <div v-if="taskStore.loading" class="flex items-center justify-center py-20">
-          <div class="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+        <!-- Loading skeleton -->
+        <div v-if="taskStore.loading" class="px-4 py-3 space-y-2">
+          <div v-for="i in 6" :key="i" class="flex items-center gap-2.5 px-4 py-2">
+            <Skeleton class="size-[18px] rounded-full shrink-0" />
+            <Skeleton class="w-[14px] h-[14px] shrink-0" />
+            <Skeleton class="h-4 flex-1" />
+            <Skeleton class="h-4 w-10 shrink-0 rounded" />
+            <Skeleton class="h-5 w-5 rounded-full shrink-0" />
+            <Skeleton class="h-4 w-16 shrink-0 rounded" />
+          </div>
         </div>
 
         <!-- Empty state -->
-        <div v-else-if="!hasAnyTasks" class="flex flex-col items-center justify-center py-20 gap-3">
-          <p class="text-sm font-medium text-foreground">No tasks yet</p>
-          <p class="text-xs text-muted-foreground">Create your first task to start tracking your work. Press Enter in the quick-add bar above.</p>
-        </div>
+        <EmptyState
+          v-else-if="!hasAnyTasks"
+          :icon="ClipboardList"
+          title="No tasks yet"
+          description="Create your first task to start tracking your work. Press Enter in the quick-add bar above."
+        />
 
         <!-- Quick-add input (always at top) -->
         <div class="px-4 py-2 border-b border-border/50">

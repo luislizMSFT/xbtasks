@@ -129,19 +129,15 @@ func (s *ProjectService) PinProject(projectID int, pinned bool) error {
 // GetProjectProgress returns task completion counts for a project (D-PROJ-06).
 // Includes both local task counts and (if linked) ADO children counts from cache.
 func (s *ProjectService) GetProjectProgress(projectID int) (map[string]any, error) {
-	// Local task progress
+	// Local task progress (single query with conditional count)
 	var localDone, localTotal int
 	err := s.db.QueryRow(
-		`SELECT COUNT(*) FROM tasks WHERE project_id = ?`, projectID,
-	).Scan(&localTotal)
+		`SELECT COUNT(*) AS total,
+		        COUNT(CASE WHEN status = 'done' THEN 1 END) AS done
+		 FROM tasks WHERE project_id = ?`, projectID,
+	).Scan(&localTotal, &localDone)
 	if err != nil {
 		return nil, fmt.Errorf("count project tasks: %w", err)
-	}
-	err = s.db.QueryRow(
-		`SELECT COUNT(*) FROM tasks WHERE project_id = ? AND status = 'done'`, projectID,
-	).Scan(&localDone)
-	if err != nil {
-		return nil, fmt.Errorf("count done project tasks: %w", err)
 	}
 
 	result := map[string]any{
@@ -158,20 +154,16 @@ func (s *ProjectService) GetProjectProgress(projectID int) (map[string]any, erro
 		return result, nil
 	}
 
-	// Count ADO children from cache (ado_work_items where parent_id matches)
+	// Count ADO children from cache (single query with conditional count)
 	var adoTotal, adoDone int
 	err = s.db.QueryRow(
-		`SELECT COUNT(*) FROM ado_work_items WHERE parent_id = CAST(? AS INTEGER)`, link.AdoID,
-	).Scan(&adoTotal)
+		`SELECT COUNT(*) AS total,
+		        COUNT(CASE WHEN state IN ('Closed','Completed') THEN 1 END) AS done
+		 FROM ado_work_items WHERE parent_id = CAST(? AS INTEGER)`, link.AdoID,
+	).Scan(&adoTotal, &adoDone)
 	if err != nil {
 		log.Printf("[project] count ADO children for %s: %v", link.AdoID, err)
 		return result, nil
-	}
-	err = s.db.QueryRow(
-		`SELECT COUNT(*) FROM ado_work_items WHERE parent_id = CAST(? AS INTEGER) AND state IN ('Closed','Completed')`, link.AdoID,
-	).Scan(&adoDone)
-	if err != nil {
-		log.Printf("[project] count done ADO children for %s: %v", link.AdoID, err)
 	}
 
 	result["adoDone"] = adoDone

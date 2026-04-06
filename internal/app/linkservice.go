@@ -25,8 +25,7 @@ func NewLinkService(database *db.DB, tokenProv auth.TokenProvider, cfg *config.C
 	return &LinkService{db: database, tokenProv: tokenProv, cfg: cfg}
 }
 
-// getClient returns a REST client for the first configured org/project (or specified org/project).
-// TODO: replace body with ado.NewDefaultClient / ado.NewClient once parallel edits settle (see pkg/ado/factory.go).
+// getClient returns a REST client for the specified org/project, or the first configured pair.
 func (s *LinkService) getClient(org, project string) (*ado.Client, error) {
 	token, err := s.tokenProv.GetToken()
 	if err != nil {
@@ -35,35 +34,16 @@ func (s *LinkService) getClient(org, project string) (*ado.Client, error) {
 	if org != "" && project != "" {
 		return ado.NewClient(org, project, token), nil
 	}
-	orgProjects := config.GetOrgProjects()
-	if len(orgProjects) == 0 {
-		return nil, fmt.Errorf("no ADO orgs configured — go to Settings to add org/project pairs")
-	}
-	op := orgProjects[0]
-	if len(op.Projects) == 0 {
-		return nil, fmt.Errorf("org %s has no projects configured", op.Org)
-	}
-	return ado.NewClient(op.Org, op.Projects[0], token), nil
+	return ado.NewDefaultClient(token, config.GetOrgProjects())
 }
 
 // getClients returns REST clients for all configured org/project pairs.
-// TODO: replace body with ado.NewClients once parallel edits settle (see pkg/ado/factory.go).
 func (s *LinkService) getClients() ([]*ado.Client, error) {
 	token, err := s.tokenProv.GetToken()
 	if err != nil {
 		return nil, fmt.Errorf("get token: %w", err)
 	}
-	orgProjects := config.GetOrgProjects()
-	if len(orgProjects) == 0 {
-		return nil, fmt.Errorf("no ADO orgs configured")
-	}
-	var adoOPs []ado.OrgProject
-	for _, op := range orgProjects {
-		for _, proj := range op.Projects {
-			adoOPs = append(adoOPs, ado.OrgProject{Org: op.Org, Project: proj})
-		}
-	}
-	return ado.NewMultiOrgClients(adoOPs, token), nil
+	return ado.NewClients(token, config.GetOrgProjects())
 }
 
 // LinkTask connects an existing local task to an existing ADO work item (D-17).

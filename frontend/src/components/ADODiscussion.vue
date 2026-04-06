@@ -9,6 +9,23 @@ import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { Globe } from 'lucide-vue-next'
 
+// Strip scripts, event handlers, and dangerous tags from ADO HTML comments
+function sanitize(html: string): string {
+  const div = document.createElement('div')
+  div.innerHTML = html
+  for (const el of Array.from(div.querySelectorAll('script, iframe, object, embed, link, style'))) {
+    el.remove()
+  }
+  for (const el of Array.from(div.querySelectorAll('*'))) {
+    for (const attr of Array.from(el.attributes)) {
+      if (attr.name.startsWith('on') || attr.value.trim().toLowerCase().startsWith('javascript:')) {
+        el.removeAttribute(attr.name)
+      }
+    }
+  }
+  return div.innerHTML
+}
+
 const props = defineProps<{
   taskId: number
   adoId: string
@@ -94,8 +111,8 @@ watch(() => props.taskId, () => fetchComments(), { immediate: true })
             <span class="font-medium text-[13px]">{{ c.createdBy }}</span>
             <span class="text-muted-foreground text-[10px]">{{ relativeTime(c.createdDate) }}</span>
           </div>
-          <!-- Render HTML content safely -->
-          <div class="text-[13px] text-muted-foreground prose prose-sm max-w-none [&_*]:text-[13px] [&_*]:text-muted-foreground" v-html="c.text" />
+          <!-- Render HTML content with basic sanitization -->
+          <div class="text-[13px] text-muted-foreground prose prose-sm max-w-none [&_*]:text-[13px] [&_*]:text-muted-foreground" v-html="sanitize(c.text)" />
         </div>
       </div>
     </ScrollArea>

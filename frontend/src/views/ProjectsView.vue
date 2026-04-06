@@ -7,7 +7,9 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import PageHeader from '@/components/PageHeader.vue'
 import ProjectCard from '@/components/ProjectCard.vue'
-import { Plus, Folder } from 'lucide-vue-next'
+import { Skeleton } from '@/components/ui/skeleton'
+import EmptyState from '@/components/EmptyState.vue'
+import { Plus, FolderOpen } from 'lucide-vue-next'
 
 const router = useRouter()
 const projectStore = useProjectStore()
@@ -89,18 +91,22 @@ async function createProject() {
       </div>
     </Transition>
 
-    <!-- Loading -->
-    <div v-if="projectStore.loading" class="flex items-center justify-center py-20">
-      <div class="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+    <!-- Loading skeletons -->
+    <div v-if="projectStore.loading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <Skeleton v-for="n in 4" :key="n" class="h-36 rounded-lg" />
     </div>
 
     <!-- Empty state -->
-    <div v-else-if="projectStore.projects.length === 0" class="flex flex-col items-center justify-center py-16 gap-2">
-      <Folder :size="24" class="text-muted-foreground/40" />
-      <p class="text-sm font-medium" style="color: var(--color-text-primary)">No projects yet</p>
-      <p class="text-xs" style="color: var(--color-text-secondary)">Projects help you group related tasks. Create one to get organized.</p>
-      <Button size="sm" class="mt-2" @click="showCreate = true">Create Project</Button>
-    </div>
+    <EmptyState
+      v-else-if="projectStore.projects.length === 0"
+      :icon="FolderOpen"
+      title="No projects yet"
+      description="Projects help you group related tasks. Create one to get organized."
+    >
+      <template #action>
+        <Button size="sm" @click="showCreate = true">Create Project</Button>
+      </template>
+    </EmptyState>
 
     <template v-else>
       <!-- Pinned projects -->

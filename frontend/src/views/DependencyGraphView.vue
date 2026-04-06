@@ -21,6 +21,8 @@ import {
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import PriorityBadge from '@/components/ui/PriorityBadge.vue'
 import TreeNodeItem from '@/components/TreeNodeItem.vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import EmptyState from '@/components/EmptyState.vue'
 import {
   GitBranch,
   AlertCircle,
@@ -28,7 +30,6 @@ import {
   List,
   Users,
   RefreshCw,
-  Loader2,
 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -349,16 +350,23 @@ const stats = computed(() => {
     <ScrollArea class="min-h-0 flex-1">
       <div class="p-6 pb-12">
         <!-- Loading state -->
-        <div v-if="loadingGraph" class="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
-          <Loader2 :size="16" class="animate-spin" />
-          Loading dependency graph…
-        </div>
+        <LoadingSpinner v-if="loadingGraph" label="Building dependency graph..." size="sm" class="py-12" />
+
+        <!-- Empty state: no data at all -->
+        <EmptyState
+          v-else-if="allNodes.length === 0"
+          :icon="GitBranch"
+          title="No dependencies found"
+          description="There are no tasks with dependency relationships to display."
+        />
 
         <!-- Tree View -->
         <div v-else-if="viewMode === 'tree'" class="space-y-0.5">
-          <div v-if="filteredRoots.length === 0" class="py-12 text-center text-sm text-muted-foreground">
-            No tasks match the current filter.
-          </div>
+          <EmptyState
+            v-if="filteredRoots.length === 0"
+            title="No tasks match the current filter"
+            description="Try selecting a different status filter."
+          />
           <TreeNodeItem
             v-for="node in filteredRoots"
             :key="node.id"
@@ -376,9 +384,11 @@ const stats = computed(() => {
 
         <!-- Flat List View -->
         <div v-else class="space-y-2">
-          <div v-if="flatNodes.length === 0" class="py-12 text-center text-sm text-muted-foreground">
-            No tasks match the current filter.
-          </div>
+          <EmptyState
+            v-if="flatNodes.length === 0"
+            title="No tasks match the current filter"
+            description="Try selecting a different status filter."
+          />
           <TooltipProvider>
             <div
               v-for="node in flatNodes"

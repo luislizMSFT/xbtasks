@@ -114,6 +114,10 @@ func (s *CommentService) FetchADOComments(taskID int) ([]domain.ADOComment, erro
 		return nil, fmt.Errorf("fetch comments from ADO work item %s: %w", adoID, err)
 	}
 
+	sort.Slice(comments, func(i, j int) bool {
+		return comments[i].CreatedDate.After(comments[j].CreatedDate)
+	})
+
 	result := make([]domain.ADOComment, len(comments))
 	for i, c := range comments {
 		result[i] = domain.ADOComment{
@@ -123,10 +127,6 @@ func (s *CommentService) FetchADOComments(taskID int) ([]domain.ADOComment, erro
 			CreatedDate: c.CreatedDate.Format(time.RFC3339),
 		}
 	}
-
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].CreatedDate > result[j].CreatedDate
-	})
 
 	log.Printf("[comments] fetched %d comments from ADO work item %s for task %d", len(result), adoID, taskID)
 	return result, nil
@@ -189,7 +189,6 @@ func (s *CommentService) getLinkedAdoID(taskID int) (string, error) {
 }
 
 // getClientForItem returns an ADO client for the org/project that owns the given work item.
-// TODO: replace body with ado.NewClients loop once parallel edits settle (see pkg/ado/factory.go).
 func (s *CommentService) getClientForItem(adoID string) (*ado.Client, error) {
 	id, err := strconv.Atoi(adoID)
 	if err != nil {
@@ -201,16 +200,16 @@ func (s *CommentService) getClientForItem(adoID string) (*ado.Client, error) {
 		return nil, fmt.Errorf("get token: %w", err)
 	}
 
-	orgProjects := config.GetOrgProjects()
-	for _, op := range orgProjects {
-		for _, proj := range op.Projects {
-			c := ado.NewClient(op.Org, proj, token)
-			_, err := ado.GetWorkItem(c, id)
-			if err != nil {
-				continue
-			}
-			return c, nil
+	clients, err := ado.NewClients(token, config.GetOrgProjects())
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range clients {
+		_, err := ado.GetWorkItem(c, id)
+		if err != nil {
+			continue
 		}
+		return c, nil
 	}
 	return nil, fmt.Errorf("ADO item %s not found in any configured org/project", adoID)
 }

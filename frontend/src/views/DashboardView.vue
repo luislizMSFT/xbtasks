@@ -9,12 +9,14 @@ import { useADOStore } from '@/stores/ado'
 import type { ADOPipeline } from '@/stores/ado'
 import TaskRow from '@/components/TaskRow.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
+import { Skeleton } from '@/components/ui/skeleton'
+import EmptyState from '@/components/EmptyState.vue'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import {
   Plus, GitPullRequest, Play, CheckCircle2, XCircle, Clock,
-  ExternalLink, GitBranch,
+  ExternalLink, GitBranch, ClipboardList,
 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -137,20 +139,68 @@ async function openPipeline(p: ADOPipeline) {
         </Button>
       </div>
 
+      <!-- Loading skeletons -->
+      <template v-if="taskStore.loading">
+        <div class="flex items-center gap-4 mb-5">
+          <Skeleton class="h-4 w-24" />
+          <Skeleton class="h-4 w-20" />
+          <Skeleton class="h-4 w-16" />
+          <Skeleton class="h-4 w-12" />
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          <div class="lg:col-span-3 space-y-6">
+            <div>
+              <Skeleton class="h-4 w-28 mb-3" />
+              <div class="space-y-px rounded-lg overflow-hidden">
+                <Skeleton class="h-10 w-full" />
+                <Skeleton class="h-10 w-full" />
+                <Skeleton class="h-10 w-full" />
+              </div>
+            </div>
+            <div>
+              <Skeleton class="h-4 w-32 mb-3" />
+              <div class="space-y-px rounded-lg overflow-hidden">
+                <Skeleton class="h-10 w-full" />
+                <Skeleton class="h-10 w-full" />
+                <Skeleton class="h-10 w-full" />
+                <Skeleton class="h-10 w-full" />
+                <Skeleton class="h-10 w-full" />
+              </div>
+            </div>
+          </div>
+          <div class="lg:col-span-2 space-y-6">
+            <div>
+              <Skeleton class="h-4 w-28 mb-3" />
+              <div class="space-y-2">
+                <Skeleton class="h-14 w-full rounded-lg" />
+                <Skeleton class="h-14 w-full rounded-lg" />
+              </div>
+            </div>
+            <div>
+              <Skeleton class="h-4 w-20 mb-3" />
+              <Skeleton class="h-24 w-full rounded-lg" />
+            </div>
+          </div>
+        </div>
+      </template>
+
       <!-- Empty state -->
-      <div v-if="taskStore.tasks.length === 0 && !taskStore.loading && activePRs.length === 0" class="text-center py-20">
-        <h2 style="font-size: 20px; font-weight: 600; color: var(--color-text-primary)">Welcome to Team ADO Tool</h2>
-        <p style="font-size: 14px; font-weight: 400; color: var(--color-text-secondary)" class="mt-2">
-          Your dashboard will show today's focus, PRs, pipelines, and blocked items. Create a task to get started.
-        </p>
-        <Button @click="goCreateTask" class="mt-4 gap-1.5">
-          <Plus :size="14" />
-          Create Task
-        </Button>
-      </div>
+      <EmptyState
+        v-else-if="taskStore.tasks.length === 0 && activePRs.length === 0"
+        :icon="ClipboardList"
+        title="Welcome to Team ADO Tool"
+        description="Your dashboard will show today's focus, PRs, pipelines, and blocked items. Create a task to get started."
+      >
+        <template #action>
+          <Button @click="goCreateTask" class="gap-1.5">
+            <Plus :size="14" />
+            Create Task
+          </Button>
+        </template>
+      </EmptyState>
 
       <!-- Dashboard content -->
-      <template v-if="taskStore.tasks.length > 0 || activePRs.length > 0">
+      <template v-else>
         <!-- Compact stats line -->
         <div class="flex items-center gap-4 mb-5 text-sm" style="color: var(--color-text-secondary)">
           <span><strong class="tabular-nums" style="color: var(--color-text-primary)">{{ taskStore.stats.inProgress }}</strong> in progress</span>
@@ -208,6 +258,9 @@ async function openPipeline(p: ADOPipeline) {
                   <span class="text-xs tabular-nums" style="color: var(--color-text-secondary)">{{ relativeTime(task.updatedAt) }}</span>
                 </div>
               </div>
+              <p v-else style="font-size: 14px; font-weight: 400; color: var(--color-text-tertiary)">
+                No recent activity yet.
+              </p>
             </div>
 
             <!-- Blocked -->
@@ -324,10 +377,7 @@ async function openPipeline(p: ADOPipeline) {
         </div>
       </template>
 
-      <!-- Loading state -->
-      <div v-if="taskStore.loading" class="flex items-center justify-center py-20">
-        <div class="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-      </div>
+
     </div>
   </ScrollArea>
 </template>
