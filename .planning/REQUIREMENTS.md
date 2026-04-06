@@ -42,7 +42,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **LINK-01**: User can attach external URLs to any task (ICMs, dashboards, wiki pages, etc.) as structured links with label
 - [x] **LINK-02**: Auto-detect known URL patterns (ICM → incident icon, Grafana → dashboard icon, ADO → work item icon, Wiki) with fallback to manual label
-- [ ] **LINK-03**: Links displayed in a dedicated section on task detail — clickable, labeled, with type icon
+- [x] **LINK-03**: Links displayed in a dedicated section on task detail — clickable, labeled, with type icon
 
 ### Comments & Sync
 
@@ -84,7 +84,7 @@ Requirements for initial release. Each maps to roadmap phases.
 ### UX Patterns
 
 - [ ] **UX-01**: Clicking an ADO work item opens an in-app detail panel (relevant fields + link/import action). "Open in ADO" button deep-links to real browser.
-- [ ] **UX-02**: Clicking external links (ICMs, Grafana, wikis) opens in real browser — never in-app webview
+- [x] **UX-02**: Clicking external links (ICMs, Grafana, wikis) opens in real browser — never in-app webview
 - [x] **UX-03**: Tabs + sync button + filter chips all in same toolbar row (compact, no wasted space)
 - [ ] **UX-04**: ADO browser shows tree view (Scenario → Deliverable → Task/Bug/Story) — not a flat list
 - [ ] **UX-05**: ADO browser supports filter chips (status, type, area) + text search + saved ADO query picker (queries created in ADO, browsed/executed in app)
@@ -194,7 +194,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SYNC-04 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | LINK-01 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | LINK-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
-| LINK-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| LINK-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | CMT-01 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | CMT-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | CMT-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
@@ -214,7 +214,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PROJ-06 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | PROJ-07 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | UX-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| UX-02 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| UX-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | UX-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | UX-04 | Phase 2: ADO Integration & Sync Workflow | Pending |
 | UX-05 | Phase 2: ADO Integration & Sync Workflow | Pending |
