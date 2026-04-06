@@ -22,6 +22,7 @@ import {
 import ExternalLinks from '@/components/ExternalLinks.vue'
 import CommentsSection from '@/components/CommentsSection.vue'
 import SyncConfirmDialog from '@/components/SyncConfirmDialog.vue'
+import ConflictResolver from '@/components/ConflictResolver.vue'
 import { useSyncStore } from '@/stores/sync'
 import {
   X,
@@ -738,6 +739,8 @@ const timeUpdated = computed(() => {
 
       <!-- Sync Confirm Dialog (pushed changes preview) -->
       <SyncConfirmDialog />
+      <!-- Conflict Resolution Dialog (per-field local vs ADO picker) -->
+      <ConflictResolver />
     </aside>
   </Transition>
 </template>
