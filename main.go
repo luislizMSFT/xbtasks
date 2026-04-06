@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	"log"
+	"time"
 
 	"dev.azure.com/xbox/xb-tasks/internal/app"
 	"dev.azure.com/xbox/xb-tasks/internal/auth"
@@ -30,7 +31,13 @@ func main() {
 	taskService := app.NewTaskService(database)
 	projectService := app.NewProjectService(database)
 	depService := app.NewDependencyService(database)
-	adoService := app.NewADOService(database, configService)
+
+	// Token provider chain: AzCli → CachedWrapper (5 min buffer)
+	azCliProvider := auth.NewAzCliTokenProvider()
+	tokenProvider := auth.NewCachedTokenProvider(azCliProvider, 5*time.Minute)
+
+	adoService := app.NewADOService(database, configService, tokenProvider)
+	linkService := app.NewLinkService(database, tokenProvider, configService)
 	prService := app.NewPRService(database, configService)
 	pipelineService := app.NewPipelineService(database, configService)
 
@@ -53,6 +60,7 @@ func main() {
 	wailsApp.RegisterService(application.NewService(depService))
 	wailsApp.RegisterService(application.NewService(authService))
 	wailsApp.RegisterService(application.NewService(adoService))
+	wailsApp.RegisterService(application.NewService(linkService))
 	wailsApp.RegisterService(application.NewService(prService))
 	wailsApp.RegisterService(application.NewService(pipelineService))
 
