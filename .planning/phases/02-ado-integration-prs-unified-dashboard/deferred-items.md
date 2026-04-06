@@ -2,8 +2,6 @@
 
 ## Pre-existing Build Failures
 
-- `internal/db/comments.go` references `domain.TaskComment` — type not yet defined in `domain/`
-- `internal/db/links.go` references `domain.TaskLink` — type not yet defined
-- `internal/db/ado.go` references `domain.SyncState`, `domain.ProjectADOLink` — types not yet defined
-- These prevent transitive compilation of packages that import `internal/db` (e.g., `internal/auth`)
-- **Not caused by Phase 02 changes** — pre-existing from prior phase work
+- Previously noted missing domain types for `internal/db/comments.go`, `internal/db/links.go`, and `internal/db/ado.go` have been added in `domain/types.go` in this PR.
+- Do not treat `domain.TaskComment`, `domain.TaskLink`, `domain.SyncState`, or `domain.ProjectADOLink` as current build blockers in Phase 02 planning.
+- If compilation issues remain in packages importing `internal/db` (for example `internal/auth`), they should be re-evaluated based on the current code rather than this older missing-type note.
