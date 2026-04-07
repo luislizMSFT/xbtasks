@@ -69,16 +69,19 @@ jobs:
       - name: Install Task
         run: go install github.com/go-task/task/v3/cmd/task@latest
 
-      - name: Build production binary
-        run: task darwin:build
+      - name: Build .app bundle
+        run: task darwin:package
         env:
           GOARCH: ${{ matrix.arch }}
+
+      - name: Zip .app bundle
+        run: cd bin && zip -r team-ado-tool-macos-${{ matrix.arch }}.zip team-ado-tool.app
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
           name: team-ado-tool-macos-${{ matrix.arch }}
-          path: bin/team-ado-tool
+          path: bin/team-ado-tool-macos-${{ matrix.arch }}.zip
           if-no-files-found: error
 
   release:
@@ -93,8 +96,8 @@ jobs:
       - name: Prepare release assets
         run: |
           mv artifacts/team-ado-tool-windows/team-ado-tool.exe artifacts/team-ado-tool-windows.exe
-          mv artifacts/team-ado-tool-macos-arm64/team-ado-tool artifacts/team-ado-tool-macos-arm64
-          mv artifacts/team-ado-tool-macos-amd64/team-ado-tool artifacts/team-ado-tool-macos-amd64
+          mv artifacts/team-ado-tool-macos-arm64/team-ado-tool-macos-arm64.zip artifacts/team-ado-tool-macos-arm64.zip
+          mv artifacts/team-ado-tool-macos-amd64/team-ado-tool-macos-amd64.zip artifacts/team-ado-tool-macos-amd64.zip
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -102,5 +105,5 @@ jobs:
           generate_release_notes: true
           files: |
             artifacts/team-ado-tool-windows.exe
-            artifacts/team-ado-tool-macos-arm64
-            artifacts/team-ado-tool-macos-amd64
+            artifacts/team-ado-tool-macos-arm64.zip
+            artifacts/team-ado-tool-macos-amd64.zip
