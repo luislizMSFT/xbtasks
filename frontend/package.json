@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build:dev": "vue-tsc && vite build --minify false --mode development",
-    "build": "vue-tsc && vite build --mode production",
+    "clean": "rm -rf dist node_modules/.vite",
+    "build:dev": "npm run clean && vue-tsc && vite build --minify false --mode development",
+    "build": "npm run clean && vue-tsc && vite build --mode production",
     "preview": "vite preview"
   },
   "dependencies": {
