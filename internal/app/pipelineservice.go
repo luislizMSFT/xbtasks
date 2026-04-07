@@ -3,13 +3,13 @@ package app
 import (
 	"encoding/json"
 	"fmt"
-	"os/exec"
 	"strconv"
 	"time"
 
 	"dev.azure.com/xbox/xb-tasks/domain"
 	"dev.azure.com/xbox/xb-tasks/internal/config"
 	"dev.azure.com/xbox/xb-tasks/internal/db"
+	"dev.azure.com/xbox/xb-tasks/pkg/ado"
 )
 
 // PipelineService fetches Azure DevOps pipeline runs via az cli.
@@ -20,18 +20,6 @@ type PipelineService struct {
 
 func NewPipelineService(database *db.DB, cfg *config.ConfigService) *PipelineService {
 	return &PipelineService{db: database, cfg: cfg}
-}
-
-func (s *PipelineService) runAzCli(args ...string) ([]byte, error) {
-	cmd := exec.Command("az", args...)
-	output, err := cmd.Output()
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			return nil, fmt.Errorf("az cli error: %s", string(exitErr.Stderr))
-		}
-		return nil, fmt.Errorf("az cli not found or failed: %w", err)
-	}
-	return output, nil
 }
 
 // appendOrgProject conditionally adds --organization and --project flags
@@ -61,18 +49,26 @@ type azPipelineRun struct {
 	URL          string  `json:"url"`
 }
 
-func mapPipelineRun(raw azPipelineRun) domain.ADOPipeline {
-	name := raw.Name
-	if raw.Pipeline.Name != "" {
-		name = raw.Pipeline.Name
+func mapPipelineRun(raw azPipelineRun, org, project string) domain.Pipeline {
+	name := raw.Pipeline.Name
+	if name == "" {
+		name = raw.Name
+	}
+	if name == "" {
+		name = fmt.Sprintf("Pipeline #%d", raw.ID)
 	}
 
-	p := domain.ADOPipeline{
+	url := raw.URL
+	if org != "" && project != "" {
+		url = fmt.Sprintf("https://dev.azure.com/%s/%s/_build/results?buildId=%d", org, project, raw.ID)
+	}
+
+	p := domain.Pipeline{
 		ID:           raw.ID,
 		Name:         name,
 		Status:       raw.Status,
 		Result:       raw.Result,
-		URL:          raw.URL,
+		URL:          url,
 		SourceBranch: stripRefPrefix(raw.SourceBranch),
 	}
 
@@ -89,13 +85,13 @@ func mapPipelineRun(raw azPipelineRun) domain.ADOPipeline {
 }
 
 // ListRecentRuns returns the most recent pipeline runs for the project.
-func (s *PipelineService) ListRecentRuns() ([]domain.ADOPipeline, error) {
+func (s *PipelineService) ListRecentRuns() ([]domain.Pipeline, error) {
 	args := s.appendOrgProject([]string{
 		"pipelines", "runs", "list",
 		"--top", "20",
 		"-o", "json",
 	})
-	output, err := s.runAzCli(args...)
+	output, err := ado.RunAzCli(args...)
 	if err != nil {
 		return nil, fmt.Errorf("list pipeline runs: %w", err)
 	}
@@ -105,29 +101,31 @@ func (s *PipelineService) ListRecentRuns() ([]domain.ADOPipeline, error) {
 		return nil, fmt.Errorf("parse pipeline runs: %w", err)
 	}
 
-	runs := make([]domain.ADOPipeline, 0, len(raw))
+	org := s.cfg.GetADOOrg()
+	project := s.cfg.GetADOProject()
+	runs := make([]domain.Pipeline, 0, len(raw))
 	for _, r := range raw {
-		runs = append(runs, mapPipelineRun(r))
+		runs = append(runs, mapPipelineRun(r, org, project))
 	}
 	return runs, nil
 }
 
 // GetPipelineRun returns a single pipeline run by ID.
-func (s *PipelineService) GetPipelineRun(runID int) (domain.ADOPipeline, error) {
+func (s *PipelineService) GetPipelineRun(runID int) (domain.Pipeline, error) {
 	args := s.appendOrgProject([]string{
 		"pipelines", "runs", "show",
 		"--id", strconv.Itoa(runID),
 		"-o", "json",
 	})
-	output, err := s.runAzCli(args...)
+	output, err := ado.RunAzCli(args...)
 	if err != nil {
-		return domain.ADOPipeline{}, fmt.Errorf("get pipeline run %d: %w", runID, err)
+		return domain.Pipeline{}, fmt.Errorf("get pipeline run %d: %w", runID, err)
 	}
 
 	var raw azPipelineRun
 	if err := json.Unmarshal(output, &raw); err != nil {
-		return domain.ADOPipeline{}, fmt.Errorf("parse pipeline run: %w", err)
+		return domain.Pipeline{}, fmt.Errorf("parse pipeline run: %w", err)
 	}
 
-	return mapPipelineRun(raw), nil
+	return mapPipelineRun(raw, s.cfg.GetADOOrg(), s.cfg.GetADOProject()), nil
 }

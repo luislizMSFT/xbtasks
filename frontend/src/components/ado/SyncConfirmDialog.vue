@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Loader2 } from 'lucide-vue-next'
 import { useSyncStore } from '@/stores/sync'
 
 const syncStore = useSyncStore()
@@ -66,9 +67,10 @@ const syncStore = useSyncStore()
         <Button variant="outline" @click="syncStore.cancelPush()">Cancel</Button>
         <Button
           @click="syncStore.confirmPush(syncStore.pendingDiff!.taskId)"
-          :disabled="!syncStore.pendingDiff?.changes.length"
+          :disabled="!syncStore.pendingDiff?.changes.length || syncStore.syncing"
         >
-          Confirm Push to ADO
+          <Loader2 v-if="syncStore.syncing" :size="14" class="animate-spin mr-1" />
+          {{ syncStore.syncing ? 'Pushing...' : 'Confirm Push to ADO' }}
         </Button>
       </DialogFooter>
     </DialogContent>

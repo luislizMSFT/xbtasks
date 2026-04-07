@@ -1,34 +1,53 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, onActivated, onDeactivated, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useMagicKeys, whenever } from '@vueuse/core'
+import draggable from 'vuedraggable'
 import { useTaskStore, type Task } from '@/stores/tasks'
 import { useProjectStore } from '@/stores/projects'
+import { useADOStore } from '@/stores/ado'
 import { useSyncStore } from '@/stores/sync'
 import { usePRStore } from '@/stores/prs'
-import TaskDetail from '@/components/TaskDetail.vue'
-import TaskRow from '@/components/TaskRow.vue'
+import TaskDetail from '@/components/tasks/TaskDetail.vue'
+import ProjectDetail from '@/components/projects/ProjectDetail.vue'
+import TaskRow from '@/components/tasks/TaskRow.vue'
 import FilterBar from '@/components/FilterBar.vue'
-import { cn } from '@/lib/utils'
+import { adoTypeColor, adoTypeIcon, adoStateClasses, adoPriorityClasses } from '@/lib/styles'
 import {
-  ChevronDown, ChevronRight,
-  CheckCircle2, Plus, ClipboardList,
+  ClipboardList, RefreshCw, ChevronRight, ChevronDown,
 } from 'lucide-vue-next'
 import { Skeleton } from '@/components/ui/skeleton'
 import EmptyState from '@/components/EmptyState.vue'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Input } from '@/components/ui/input'
-import PageHeader from '@/components/PageHeader.vue'
 
 const route = useRoute()
 const taskStore = useTaskStore()
 const projectStore = useProjectStore()
+const adoStore = useADOStore()
 const syncStore = useSyncStore()
 const prStore = usePRStore()
 
+const isActive = ref(false)
+onActivated(() => { isActive.value = true })
+onDeactivated(() => { isActive.value = false })
+onMounted(() => { isActive.value = true })
+
 const quickAddTitle = ref('')
 const expandedSubtasks = ref<Set<number>>(new Set())
+const expandedGroups = ref<Set<string>>(new Set())
+const selectedProjectId = ref<number | null>(null)
+
+const statusChips = [
+  { id: 'all', label: 'All' },
+  { id: 'todo', label: 'Todo' },
+  { id: 'in_progress', label: 'In Progress' },
+  { id: 'in_review', label: 'In Review' },
+  { id: 'done', label: 'Done' },
+  { id: 'blocked', label: 'Blocked' },
+]
 
 // Keyboard shortcuts: ⌘N / Ctrl+N to toggle create form, Escape to close panels
 const { Meta_n, Ctrl_n } = useMagicKeys()
@@ -173,21 +192,63 @@ async function handleQuickAdd() {
 }
 
 function selectTask(id: number) {
+  selectedProjectId.value = null
   taskStore.selectTask(taskStore.selectedTaskId === id ? null : id)
+}
+
+function selectProject(key: string) {
+  if (key === 'No Project') return
+  const id = Number(key)
+  taskStore.selectTask(null)
+  selectedProjectId.value = selectedProjectId.value === id ? null : id
 }
 
 function closeDetail() {
   taskStore.selectTask(null)
+  selectedProjectId.value = null
+}
+
+function projectAdoType(projectId: number): string {
+  const lnk = projectStore.projectLinks.get(projectId)
+  if (!lnk) return ''
+  const wi = adoStore.workItemTree.find(w => w.adoId === lnk.adoId)
+  return wi?.type || ''
+}
+
+function projectAdoItem(projectId: number) {
+  const lnk = projectStore.projectLinks.get(projectId)
+  if (!lnk) return null
+  return adoStore.workItemTree.find(w => w.adoId === lnk.adoId) ?? null
+}
+
+function typeIcon(type: string) {
+  return adoTypeIcon(type)
 }
 
 const hasAnyTasks = computed(() => taskStore.tasks.length > 0)
 
+// Writable list for drag & drop — syncs back to store on reorder
+const draggableList = computed({
+  get: () => taskStore.enhancedFilteredTasks,
+  set: (val: Task[]) => {
+    // Update local order immediately
+    const ids = val.map(t => t.id)
+    // Apply new sortOrder to the underlying store tasks
+    for (let i = 0; i < val.length; i++) {
+      const idx = taskStore.tasks.findIndex(t => t.id === val[i].id)
+      if (idx !== -1) taskStore.tasks[idx].sortOrder = i
+    }
+    // Persist to backend
+    taskStore.reorderTasks(ids)
+  },
+})
+
+const isDragging = ref(false)
+
 onMounted(async () => {
-  await Promise.all([
-    taskStore.fetchTasks(),
-    projectStore.fetchProjects(),
-    prStore.fetchAll(),
-  ])
+  // Data is fetched by App.vue on auth — only fetch if stores are empty
+  if (!taskStore.tasks.length) await taskStore.fetchTasks()
+  if (!projectStore.projects.length) projectStore.fetchProjects()
   // Auto-select first task so detail panel is always visible
   if (taskStore.tasks.length > 0 && !taskStore.selectedTaskId) {
     taskStore.selectTask(taskStore.tasks[0].id)
@@ -197,20 +258,33 @@ onMounted(async () => {
 
 <template>
   <div class="flex-1 flex overflow-hidden" @keydown.esc="onEscape" tabindex="-1">
+    <!-- Teleport status chips + sync to top bar (only when this page is active) -->
+    <Teleport v-if="isActive" to="#topbar-actions">
+      <div class="flex items-center gap-1">
+        <Badge
+          v-for="chip in statusChips"
+          :key="chip.id"
+          :variant="taskStore.filterStatus === chip.id ? 'default' : 'outline'"
+          class="cursor-pointer text-[10px] px-1.5 py-0 h-5 select-none"
+          @click="taskStore.filterStatus = chip.id"
+        >
+          {{ chip.label }}
+        </Badge>
+        <Button
+          variant="ghost"
+          size="icon"
+          class="h-6 w-6 ml-1"
+          title="Sync with ADO"
+          @click="syncStore.manualSync()"
+        >
+          <RefreshCw :size="12" :class="{ 'animate-spin': syncStore.syncing }" />
+        </Button>
+      </div>
+    </Teleport>
+
     <!-- Left: Task list -->
     <div class="flex-1 flex flex-col min-w-0 w-[55%]">
-      <PageHeader>
-        <template #left>
-          <span class="text-sm font-semibold text-foreground">Tasks</span>
-        </template>
-        <template #right>
-          <span v-if="syncStore.lastSyncedAt" class="text-[10px] text-muted-foreground/50 mr-2">
-            Last synced {{ new Date(syncStore.lastSyncedAt).toLocaleTimeString() }}
-          </span>
-        </template>
-      </PageHeader>
-
-      <!-- FilterBar -->
+      <!-- FilterBar (dropdowns only, no status chips or sync) -->
       <FilterBar
         :filter-status="taskStore.filterStatus"
         :filter-priority="taskStore.filterPriority"
@@ -265,162 +339,122 @@ onMounted(async () => {
 
         <!-- Grouped rendering -->
         <div v-if="hasAnyTasks && !taskStore.loading && taskStore.groupBy">
-          <div v-for="key in groupKeys" :key="key" class="mb-2">
-            <!-- Group header -->
-            <div class="flex items-center gap-2 px-4 pt-4 pb-1">
-              <span class="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+          <!-- Project groups (with headers) -->
+          <div v-for="key in groupKeys.filter(k => k !== 'No Project')" :key="key">
+            <!-- Project group header -->
+            <div
+              class="flex items-center gap-2.5 px-4 py-2.5 cursor-pointer select-none border-b border-border/30 hover:bg-muted/30 transition-colors"
+              :class="selectedProjectId === Number(key) && 'bg-primary/5 border-l-2 border-l-primary'"
+              @click.self="selectProject(key)"
+            >
+              <button
+                class="shrink-0 p-0.5 hover:bg-muted rounded"
+                @click.stop="expandedGroups.has(key) ? expandedGroups.delete(key) : expandedGroups.add(key)"
+              >
+                <component
+                  :is="expandedGroups.has(key) ? ChevronDown : ChevronRight"
+                  :size="14"
+                  class="text-muted-foreground"
+                />
+              </button>
+              <component
+                v-if="taskStore.groupBy === 'project' && projectAdoType(Number(key))"
+                :is="typeIcon(projectAdoType(Number(key)))"
+                :size="14"
+                :class="adoTypeColor(projectAdoType(Number(key)))"
+                class="shrink-0"
+              />
+              <span class="text-sm font-medium text-foreground truncate flex-1" @click="selectProject(key)">
                 {{ groupLabel(key) }}
               </span>
-              <span class="text-[10px] text-muted-foreground/40 tabular-nums">
+              <Badge
+                v-if="taskStore.groupBy === 'project' && projectStore.isLinked(Number(key))"
+                variant="outline"
+                class="text-[9px] h-4 px-1 text-blue-500 border-blue-500/30 shrink-0"
+              >ADO</Badge>
+              <span class="text-[11px] text-muted-foreground tabular-nums shrink-0">
                 {{ groupedTasks[key]?.length ?? 0 }}
               </span>
-              <div class="flex-1 h-px bg-border/50" />
             </div>
 
             <!-- Task rows in group -->
-            <div v-for="task in groupedTasks[key]" :key="task.id">
+            <template v-if="expandedGroups.has(key)">
+              <div v-for="task in groupedTasks[key]" :key="task.id">
+                <TaskRow
+                  :task="task"
+                  :is-public="taskStore.isPublic(task.id)"
+                  :selected="taskStore.selectedTaskId === task.id"
+                  @select="selectTask"
+                  @toggle-status="(id) => { const t = taskStore.tasks.find(x => x.id === id); if (t) toggleDone(t) }"
+                />
+              </div>
+            </template>
+          </div>
+
+          <!-- Ungrouped tasks (no project) — flat list, no header -->
+          <template v-if="groupedTasks['No Project']?.length">
+            <div v-for="task in groupedTasks['No Project']" :key="task.id">
               <TaskRow
                 :task="task"
                 :is-public="taskStore.isPublic(task.id)"
                 :selected="taskStore.selectedTaskId === task.id"
-                :project-name="task.projectId ? projectNameMap[task.projectId] : undefined"
                 @select="selectTask"
-                @toggle-status="(id) => toggleDone(taskStore.tasks.find(t => t.id === id)!)"
+                @toggle-status="(id) => { const t = taskStore.tasks.find(x => x.id === id); if (t) toggleDone(t) }"
               />
             </div>
-          </div>
+          </template>
         </div>
 
-        <!-- Non-grouped rendering (enhanced filtered + sorted) -->
-        <div v-else-if="hasAnyTasks && !taskStore.loading">
-          <div v-for="task in taskStore.enhancedFilteredTasks" :key="task.id">
-            <div>
-              <!-- Main row -->
-              <div
-                @click="selectTask(task.id)"
-                :class="cn(
-                  'group flex items-center gap-2.5 px-4 py-2 cursor-pointer transition-all',
-                  'hover:bg-muted/40',
-                  taskStore.selectedTaskId === task.id ? 'bg-primary/[0.06]' : ''
-                )"
-              >
-                <!-- Checkbox -->
-                <button
-                  @click.stop="toggleDone(task)"
-                  :class="cn(
-                    'size-[18px] rounded-full border-[1.5px] shrink-0 flex items-center justify-center transition-all hover:scale-110',
-                    task.status === 'done'
-                      ? 'bg-emerald-500 border-emerald-500'
-                      : task.status === 'blocked'
-                        ? 'border-red-400 hover:border-red-500'
-                        : 'border-muted-foreground/30 hover:border-muted-foreground/60'
-                  )"
-                >
-                  <CheckCircle2 v-if="task.status === 'done'" :size="10" class="text-white" :stroke-width="3" />
-                </button>
-
-                <!-- Subtask expand toggle -->
-                <button
-                  v-if="subtasksFor(task.id).length > 0"
-                  @click.stop="toggleSubtasks(task.id)"
-                  class="shrink-0 text-muted-foreground/40 hover:text-muted-foreground transition-colors"
-                >
-                  <component :is="expandedSubtasks.has(task.id) ? ChevronDown : ChevronRight" :size="14" />
-                </button>
-                <div v-else class="w-[14px] shrink-0" />
-
-                <!-- Title -->
-                <span
-                  :class="cn(
-                    'text-[13px] font-medium truncate flex-1',
-                    task.status === 'done' ? 'text-muted-foreground line-through decoration-muted-foreground/30' : 'text-foreground'
-                  )"
-                >
-                  {{ task.title }}
-                </span>
-
-                <!-- Subtask progress bar -->
-                <div v-if="subtaskProgress(task.id)" class="flex items-center gap-1.5 shrink-0">
-                  <div class="w-14 h-[3px] rounded-full bg-muted overflow-hidden">
-                    <div
-                      class="h-full rounded-full transition-all duration-300"
-                      :class="subtaskProgress(task.id)!.pct === 100 ? 'bg-emerald-500' : 'bg-blue-500'"
-                      :style="{ width: subtaskProgress(task.id)!.pct + '%' }"
-                    />
-                  </div>
-                  <span class="text-[10px] text-muted-foreground/50 tabular-nums w-7">
-                    {{ subtaskProgress(task.id)!.done }}/{{ subtaskProgress(task.id)!.total }}
-                  </span>
-                </div>
-
-                <!-- ADO badge (personal/public) -->
-                <span
-                  v-if="taskStore.isPublic(task.id)"
-                  class="inline-flex items-center gap-0.5 text-[10px] text-blue-600 dark:text-blue-400 bg-blue-500/8 px-1.5 py-0.5 rounded shrink-0"
-                  title="Linked to ADO"
-                >
-                  ADO
-                </span>
-                <span
-                  v-else
-                  class="inline-flex items-center justify-center w-5 h-5 rounded-full border border-dashed border-muted-foreground/20 shrink-0"
-                  title="Personal"
-                />
-
-                <!-- Project tag -->
-                <span
-                  v-if="task.projectId && projectNameMap[task.projectId]"
-                  class="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground truncate max-w-[6rem] shrink-0"
-                >
-                  {{ projectNameMap[task.projectId] }}
-                </span>
+        <!-- Non-grouped rendering (enhanced filtered + sorted, drag & drop) -->
+        <draggable
+          v-else-if="hasAnyTasks && !taskStore.loading"
+          v-model="draggableList"
+          item-key="id"
+          handle=".drag-handle"
+          ghost-class="opacity-30"
+          :animation="150"
+          @start="isDragging = true"
+          @end="isDragging = false"
+        >
+          <template #item="{ element: task }">
+            <div class="flex items-center">
+              <!-- Drag handle -->
+              <div class="drag-handle cursor-grab active:cursor-grabbing shrink-0 pl-2 text-muted-foreground/0 hover:text-muted-foreground/30 transition-colors">
+                <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor">
+                  <circle cx="2" cy="2" r="1.5" /><circle cx="8" cy="2" r="1.5" />
+                  <circle cx="2" cy="7" r="1.5" /><circle cx="8" cy="7" r="1.5" />
+                  <circle cx="2" cy="12" r="1.5" /><circle cx="8" cy="12" r="1.5" />
+                </svg>
               </div>
-
-              <!-- Expanded subtasks -->
-              <div v-if="expandedSubtasks.has(task.id) && subtasksFor(task.id).length > 0" class="pl-[52px] pr-4 pb-1">
-                <div
-                  v-for="sub in subtasksFor(task.id)"
-                  :key="sub.id"
-                  class="flex items-center gap-2 py-1 group/sub"
-                >
-                  <button
-                    @click="toggleSubtaskDone(task.id, sub.id)"
-                    :class="cn(
-                      'size-[14px] rounded-[3px] border-[1.5px] shrink-0 flex items-center justify-center transition-all hover:scale-110',
-                      sub.status === 'done'
-                        ? 'bg-emerald-500 border-emerald-500'
-                        : 'border-muted-foreground/25 hover:border-muted-foreground/50'
-                    )"
-                  >
-                    <CheckCircle2 v-if="sub.status === 'done'" :size="8" class="text-white" :stroke-width="3" />
-                  </button>
-                  <span
-                    :class="cn(
-                      'text-[12px]',
-                      sub.status === 'done' ? 'text-muted-foreground/50 line-through decoration-muted-foreground/20' : 'text-muted-foreground'
-                    )"
-                  >
-                    {{ sub.title }}
-                  </span>
-                </div>
-                <button class="flex items-center gap-1.5 text-[11px] text-muted-foreground/40 hover:text-muted-foreground mt-0.5 py-1 transition-colors">
-                  <Plus :size="11" />
-                  Add subtask
-                </button>
+              <div class="flex-1 min-w-0">
+                <TaskRow
+                  :task="task"
+                  :is-public="taskStore.isPublic(task.id)"
+                  :selected="taskStore.selectedTaskId === task.id"
+                  :project-name="task.projectId ? projectNameMap[task.projectId] : undefined"
+                  @select="selectTask"
+                  @toggle-status="(id) => { const t = taskStore.tasks.find(x => x.id === id); if (t) toggleDone(t) }"
+                />
               </div>
             </div>
-          </div>
-        </div>
+          </template>
+        </draggable>
       </ScrollArea>
     </div>
 
     <!-- Right: Detail panel (always visible) -->
+    <ProjectDetail
+      v-if="selectedProjectId"
+      :project-id="selectedProjectId"
+      @close="selectedProjectId = null"
+      @select-task="selectTask"
+    />
     <TaskDetail
-      v-if="taskStore.selectedTask"
+      v-else-if="taskStore.selectedTask"
       @close="closeDetail"
     />
     <div v-else class="w-[45%] shrink-0 border-l border-border flex items-center justify-center">
-      <p class="text-sm text-muted-foreground">Select a task to view details</p>
+      <p class="text-sm text-muted-foreground">Select a task or project</p>
     </div>
   </div>
 </template>

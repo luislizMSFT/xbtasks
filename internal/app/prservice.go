@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os/exec"
 	"strings"
 	"time"
 
 	"dev.azure.com/xbox/xb-tasks/domain"
 	"dev.azure.com/xbox/xb-tasks/internal/config"
 	"dev.azure.com/xbox/xb-tasks/internal/db"
+	"dev.azure.com/xbox/xb-tasks/pkg/ado"
 )
 
 // PRService fetches pull requests from Azure DevOps via az cli.
@@ -30,7 +30,7 @@ func (s *PRService) resolveMe() (string, error) {
 	if s.meEmail != "" {
 		return s.meEmail, nil
 	}
-	output, err := s.runAzCli("account", "show", "-o", "json")
+	output, err := ado.RunAzCli("account", "show", "-o", "json")
 	if err != nil {
 		return "", fmt.Errorf("resolve identity: %w", err)
 	}
@@ -43,25 +43,13 @@ func (s *PRService) resolveMe() (string, error) {
 		return "", err
 	}
 	// Try ad signed-in-user show for UPN
-	upnOutput, err := s.runAzCli("ad", "signed-in-user", "show", "--query", "userPrincipalName", "-o", "tsv")
+	upnOutput, err := ado.RunAzCli("ad", "signed-in-user", "show", "--query", "userPrincipalName", "-o", "tsv")
 	if err == nil && len(strings.TrimSpace(string(upnOutput))) > 0 {
 		s.meEmail = strings.TrimSpace(string(upnOutput))
 	} else {
 		s.meEmail = acct.User.Name
 	}
 	return s.meEmail, nil
-}
-
-func (s *PRService) runAzCli(args ...string) ([]byte, error) {
-	cmd := exec.Command("az", args...)
-	output, err := cmd.Output()
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			return nil, fmt.Errorf("az cli error: %s", string(exitErr.Stderr))
-		}
-		return nil, fmt.Errorf("az cli not found or failed: %w", err)
-	}
-	return output, nil
 }
 
 // appendOrgProject conditionally adds --organization and --project flags
@@ -99,10 +87,6 @@ type azPR struct {
 	CreationDate string  `json:"creationDate"`
 	ClosedDate   *string `json:"closedDate"`
 	IsDraft      bool    `json:"isDraft"`
-}
-
-func stripRefPrefix(ref string) string {
-	return strings.TrimPrefix(ref, "refs/heads/")
 }
 
 func buildPRWebURL(org, project, repo string, prID int) string {
@@ -164,7 +148,7 @@ func (s *PRService) fetchPRs(extraArgs ...string) ([]domain.PullRequest, error) 
 	args = append(args, extraArgs...)
 	args = append(args, "-o", "json")
 
-	output, err := s.runAzCli(args...)
+	output, err := ado.RunAzCli(args...)
 	if err != nil {
 		return nil, err
 	}

@@ -1,36 +1,17 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import type { Project, ProjectADOLink, ProjectProgress } from '@/types'
+import * as projectsApi from '@/api/projects'
 
-export interface Project {
-  id: number
-  name: string
-  description: string
-  status: string
-  isPinned: boolean
-  createdAt: string
-  updatedAt: string
-  taskCount?: number
-}
-
-export interface ProjectADOLink {
-  projectId: number
-  adoId: string
-  direction: string
-  createdAt: string
-}
-
-export interface ProjectProgress {
-  localDone: number
-  localTotal: number
-  adoDone: number
-  adoTotal: number
-}
+export type { Project, ProjectADOLink, ProjectProgress }
 
 export const useProjectStore = defineStore('projects', () => {
   const projects = ref<Project[]>([])
   const loading = ref(false)
   const projectLinks = ref<Map<number, ProjectADOLink>>(new Map())
   const projectProgress = ref<Map<number, ProjectProgress>>(new Map())
+
+  let fetchInFlight = false
 
   const pinnedProjects = computed(() => projects.value.filter(p => p.isPinned))
   const unpinnedProjects = computed(() => projects.value.filter(p => !p.isPinned))
@@ -40,35 +21,34 @@ export const useProjectStore = defineStore('projects', () => {
   }
 
   async function fetchProjects() {
+    if (fetchInFlight) return
+    fetchInFlight = true
     loading.value = true
     try {
-      const { List } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/projectservice')
-      projects.value = (await List()) as Project[]
+      projects.value = (await projectsApi.listProjects()) as Project[]
     } catch (e) {
       console.warn('[ProjectStore] Wails binding unavailable:', e)
       projects.value = []
     } finally {
       loading.value = false
+      fetchInFlight = false
     }
   }
 
   async function createProject(name: string, description: string) {
-    const { Create } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/projectservice')
-    const p = await Create(name, description) as Project
+    const p = await projectsApi.createProject(name, description) as Project
     projects.value.push(p)
     return p
   }
 
   async function deleteProject(id: number) {
-    const { Delete } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/projectservice')
-    await Delete(id)
+    await projectsApi.deleteProject(id)
     projects.value = projects.value.filter(p => p.id !== id)
   }
 
   async function pinProject(id: number, pinned: boolean) {
     try {
-      const { PinProject } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/projectservice')
-      await PinProject(id, pinned)
+      await projectsApi.pinProject(id, pinned)
     } catch (e) {
       console.warn('[ProjectStore] PinProject binding unavailable:', e)
     }
@@ -77,8 +57,7 @@ export const useProjectStore = defineStore('projects', () => {
   }
 
   async function linkProjectToADO(projectId: number, adoId: string) {
-    const { LinkProjectToADO } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/projectservice')
-    await LinkProjectToADO(projectId, adoId, 'linked')
+    await projectsApi.linkProjectToADO(projectId, adoId, 'linked')
     projectLinks.value.set(projectId, {
       projectId,
       adoId,
@@ -88,15 +67,13 @@ export const useProjectStore = defineStore('projects', () => {
   }
 
   async function unlinkProject(projectId: number, adoId: string) {
-    const { UnlinkProject } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/projectservice')
-    await UnlinkProject(projectId, adoId, false)
+    await projectsApi.unlinkProject(projectId, adoId, false)
     projectLinks.value.delete(projectId)
   }
 
   async function fetchProjectLink(projectId: number) {
     try {
-      const { GetProjectADOLink } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/projectservice')
-      const link = await GetProjectADOLink(projectId) as ProjectADOLink
+      const link = await projectsApi.getProjectADOLink(projectId) as ProjectADOLink
       if (link && link.adoId) projectLinks.value.set(projectId, link)
     } catch {
       /* no link */
@@ -105,8 +82,7 @@ export const useProjectStore = defineStore('projects', () => {
 
   async function fetchProjectProgress(projectId: number) {
     try {
-      const { GetProjectProgress } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/projectservice')
-      const progress = await GetProjectProgress(projectId) as ProjectProgress
+      const progress = await projectsApi.getProjectProgress(projectId) as ProjectProgress
       projectProgress.value.set(projectId, progress)
     } catch {
       /* ignore */

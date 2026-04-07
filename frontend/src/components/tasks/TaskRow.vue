@@ -118,7 +118,7 @@ function onAdoBadgeClick(e: Event) {
             class="inline-flex items-center justify-center rounded-full shrink-0 transition-colors"
             :class="isPublic
               ? 'w-5 h-5 bg-blue-500/10 text-blue-500 border border-blue-500/30 hover:bg-blue-500/20'
-              : 'w-5 h-5 border border-dashed border-muted-foreground/30 text-muted-foreground/30 hover:border-muted-foreground/60 hover:text-muted-foreground/60'"
+              : 'w-5 h-5 border border-dashed border-muted-foreground/60 text-muted-foreground/60 hover:border-muted-foreground hover:text-muted-foreground'"
             :title="isPublic ? 'Linked to ADO' : 'Personal — click to link'"
           >
             <AzureDevOpsIcon v-if="isPublic" :size="12" />

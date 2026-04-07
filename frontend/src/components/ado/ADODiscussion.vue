@@ -8,7 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import EmptyState from '@/components/EmptyState.vue'
-import { Globe } from 'lucide-vue-next'
+import { Globe, RefreshCw } from 'lucide-vue-next'
 
 function sanitize(html: string): string {
   return DOMPurify.sanitize(html, {
@@ -23,12 +23,7 @@ const props = defineProps<{
   adoId: string
 }>()
 
-interface ADOComment {
-  id: number
-  text: string
-  createdBy: string
-  createdDate: string
-}
+import type { ADOComment } from '@/types'
 
 const comments = ref<ADOComment[]>([])
 const loading = ref(false)
@@ -38,8 +33,8 @@ const replying = ref(false)
 async function fetchComments() {
   loading.value = true
   try {
-    const { FetchADOComments } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/commentservice')
-    comments.value = (await FetchADOComments(props.taskId)) as ADOComment[]
+    const { fetchADOComments } = await import('@/api/comments')
+    comments.value = (await fetchADOComments(props.taskId)) as ADOComment[]
   } catch {
     comments.value = []
   } finally {
@@ -52,8 +47,8 @@ async function reply() {
   if (!content) return
   replying.value = true
   try {
-    const { ReplyToADOComment } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/commentservice')
-    const c = await ReplyToADOComment(props.taskId, content)
+    const { replyToADOComment } = await import('@/api/comments')
+    const c = await replyToADOComment(props.taskId, content)
     if (c) comments.value.push(c as ADOComment)
     replyText.value = ''
   } catch (e) {
@@ -75,6 +70,9 @@ watch(() => props.taskId, () => fetchComments(), { immediate: true })
       <Badge v-if="comments.length > 0" variant="secondary" class="h-4 text-[10px] px-1.5 ml-auto">
         {{ comments.length }}
       </Badge>
+      <Button variant="ghost" size="icon" class="h-6 w-6 shrink-0" :class="loading && 'animate-spin'" @click="fetchComments" title="Refresh">
+        <RefreshCw :size="12" class="text-blue-500" />
+      </Button>
     </div>
 
     <!-- Loading -->

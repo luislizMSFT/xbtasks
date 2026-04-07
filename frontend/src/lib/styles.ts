@@ -3,6 +3,19 @@
  * Single source of truth — imported by all components that render colored badges, dots, or icons.
  */
 
+import type { Component } from 'vue'
+import {
+  Bug,
+  CheckSquare,
+  BookOpen,
+  Star,
+  Mountain,
+  Crown,
+  Trophy,
+  ListChecks,
+  Circle,
+} from 'lucide-vue-next'
+
 /** Text color + hover for interactive status icons (e.g. task-row check buttons). */
 export function statusColor(status: string): string {
   switch (status) {
@@ -62,15 +75,48 @@ export function priorityColor(priority: string): string {
   }
 }
 
-/** Text color for ADO work-item types (Epic, Feature, User Story, Bug, Task). */
+/** Text color for ADO work-item types. Matches ADO's native color coding. */
 export function adoTypeColor(type: string): string {
   switch (type.toLowerCase()) {
     case 'bug': return 'text-red-500'
-    case 'task': return 'text-blue-500'
+    case 'task': return 'text-amber-500'
+    case 'task group': return 'text-orange-500'
     case 'user story': return 'text-purple-500'
     case 'feature': return 'text-green-500'
+    case 'scenario': return 'text-purple-400'
+    case 'deliverable': return 'text-blue-500'
     case 'epic': return 'text-orange-500'
     default: return 'text-muted-foreground'
+  }
+}
+
+/** Hex color for ADO work-item types. Use in SVG fills/strokes where Tailwind classes don't apply. */
+export function adoTypeHex(type?: string): string {
+  switch ((type || '').toLowerCase()) {
+    case 'bug': return '#ef4444'
+    case 'task': return '#f59e0b'
+    case 'task group': return '#f97316'
+    case 'user story': return '#a855f7'
+    case 'feature': return '#22c55e'
+    case 'scenario': return '#c084fc'
+    case 'deliverable': return '#3b82f6'
+    case 'epic': return '#f97316'
+    default: return '#71717a'
+  }
+}
+
+/** Lucide icon component for ADO work-item types. */
+export function adoTypeIcon(type?: string): Component {
+  switch ((type || '').toLowerCase()) {
+    case 'bug': return Bug
+    case 'task': return CheckSquare
+    case 'task group': return ListChecks
+    case 'user story': return BookOpen
+    case 'feature': return Star
+    case 'scenario': return Crown
+    case 'deliverable': return Trophy
+    case 'epic': return Mountain
+    default: return Circle
   }
 }
 
@@ -83,6 +129,27 @@ export function adoStateClasses(state: string): string {
     case 'Closed': return 'bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/25'
     case 'Removed': return 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/25'
     default: return 'bg-muted text-muted-foreground border-border'
+  }
+}
+
+/** Full bg+text+border classes for ADO numeric priority badges (1=critical … 4=low). */
+export function adoPriorityClasses(p: number): string {
+  switch (p) {
+    case 1: return 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/25'
+    case 2: return 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/25'
+    case 3: return 'bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/25'
+    default: return 'bg-muted text-muted-foreground border-border'
+  }
+}
+
+/** Full bg+text+border classes for pull-request status badges. */
+export function prStatusClasses(status: string): string {
+  switch (status) {
+    case 'active': return 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+    case 'draft': return 'bg-zinc-500/15 text-muted-foreground border-zinc-500/20'
+    case 'completed': return 'bg-violet-500/15 text-violet-600 dark:text-violet-400 border-violet-500/20'
+    case 'abandoned': return 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/20'
+    default: return 'bg-zinc-500/15 text-muted-foreground border-zinc-500/20'
   }
 }
 

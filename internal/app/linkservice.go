@@ -388,14 +388,14 @@ func (s *LinkService) getTask(id int) (domain.Task, error) {
 	err := s.db.QueryRow(
 		`SELECT id, title, description, status, priority, category, project_id, area, due_date,
 		        ado_id, tags, blocked_reason, blocked_by, parent_id, personal_priority,
-		        created_at, updated_at, completed_at
+		        sort_order, created_at, updated_at, completed_at
 		 FROM tasks WHERE id = ?`, id,
 	).Scan(
 		&t.ID, &t.Title, &t.Description, &t.Status, &t.Priority,
 		&t.Category, &t.ProjectID, &t.Area, &t.DueDate,
 		&t.AdoID, &t.Tags, &t.BlockedReason, &t.BlockedBy,
 		&t.ParentID, &t.PersonalPriority,
-		&t.CreatedAt, &t.UpdatedAt, &t.CompletedAt,
+		&t.SortOrder, &t.CreatedAt, &t.UpdatedAt, &t.CompletedAt,
 	)
 	return t, err
 }
@@ -411,14 +411,14 @@ func (s *LinkService) getTaskADOLink(taskID int, adoID string) (domain.TaskADOLi
 }
 
 // fetchADOItem fetches a single ADO item by string ID, trying all configured org/project clients.
-func (s *LinkService) fetchADOItem(adoID string) (domain.ADOWorkItem, error) {
+func (s *LinkService) fetchADOItem(adoID string) (domain.WorkItem, error) {
 	id, err := strconv.Atoi(adoID)
 	if err != nil {
-		return domain.ADOWorkItem{}, fmt.Errorf("invalid ADO ID %q: %w", adoID, err)
+		return domain.WorkItem{}, fmt.Errorf("invalid ADO ID %q: %w", adoID, err)
 	}
 	clients, err := s.getClients()
 	if err != nil {
-		return domain.ADOWorkItem{}, err
+		return domain.WorkItem{}, err
 	}
 	for _, c := range clients {
 		wi, err := ado.GetWorkItem(c, id)
@@ -427,6 +427,6 @@ func (s *LinkService) fetchADOItem(adoID string) (domain.ADOWorkItem, error) {
 		}
 		return adoWorkItemToDomain(*wi), nil
 	}
-	return domain.ADOWorkItem{}, fmt.Errorf("ADO item %s not found in any configured org/project", adoID)
+	return domain.WorkItem{}, fmt.Errorf("ADO item %s not found in any configured org/project", adoID)
 }
 

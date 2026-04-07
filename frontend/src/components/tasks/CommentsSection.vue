@@ -6,21 +6,12 @@ import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
 import { Globe, Lock, Upload } from 'lucide-vue-next'
+import type { TaskComment } from '@/types'
 
 const props = defineProps<{
   taskId: number
   isPublicTask: boolean // whether the task is linked to ADO
 }>()
-
-interface TaskComment {
-  id: number
-  taskId: number
-  content: string
-  isPublic: boolean
-  adoCommentId: string
-  createdAt: string
-  updatedAt: string
-}
 
 const comments = ref<TaskComment[]>([])
 const newComment = ref('')
@@ -30,8 +21,8 @@ const loading = ref(false)
 async function fetchComments() {
   loading.value = true
   try {
-    const { ListComments } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/commentservice')
-    comments.value = (await ListComments(props.taskId)) as TaskComment[]
+    const { listComments } = await import('@/api/comments')
+    comments.value = (await listComments(props.taskId)) as TaskComment[]
   } catch {
     comments.value = []
   } finally {
@@ -43,8 +34,8 @@ async function addComment() {
   const content = newComment.value.trim()
   if (!content) return
   try {
-    const { AddComment } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/commentservice')
-    const c = (await AddComment(props.taskId, content)) as TaskComment
+    const { addComment: addCommentApi } = await import('@/api/comments')
+    const c = (await addCommentApi(props.taskId, content)) as TaskComment
     comments.value.push(c)
     newComment.value = ''
   } catch (e) {
@@ -55,9 +46,8 @@ async function addComment() {
 async function pushToADO(commentId: number) {
   pushing.value = commentId
   try {
-    const { PushCommentToADO } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/commentservice')
-    await PushCommentToADO(commentId)
-    // Mark as public locally
+    const { pushCommentToADO } = await import('@/api/comments')
+    await pushCommentToADO(commentId)
     const idx = comments.value.findIndex(c => c.id === commentId)
     if (idx !== -1) comments.value[idx].isPublic = true
   } catch (e) {
@@ -92,7 +82,7 @@ watch(() => props.taskId, () => fetchComments(), { immediate: true })
           <Badge
             v-else
             variant="outline"
-            class="text-[10px] h-4 border-muted-foreground/30 text-muted-foreground"
+            class="text-[10px] h-4 border-muted-foreground/60 text-muted-foreground"
           >
             <Lock :size="10" class="mr-0.5" /> Private
           </Badge>
@@ -130,6 +120,8 @@ watch(() => props.taskId, () => fetchComments(), { immediate: true })
         placeholder="Add a comment..."
         class="text-xs min-h-[60px] resize-none"
         :rows="2"
+        @keydown.meta.enter="addComment"
+        @keydown.ctrl.enter="addComment"
       />
     </div>
     <div class="flex justify-between items-center">

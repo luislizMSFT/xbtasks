@@ -1,26 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import type { Task } from '@/types'
+import * as tasksApi from '@/api/tasks'
+import * as depsApi from '@/api/dependencies'
+import { listPublicTaskIDs } from '@/api/links'
 
-export interface Task {
-  id: number
-  title: string
-  description: string
-  status: string
-  priority: string
-  category: string
-  projectId: number | null
-  area: string
-  dueDate: string
-  adoId: string
-  tags: string
-  blockedReason: string
-  blockedBy: string
-  parentId: number | null
-  personalPriority: string
-  createdAt: string
-  updatedAt: string
-  completedAt: string | null
-}
+export type { Task }
 
 const priorityOrder: Record<string, number> = { P0: 0, P1: 1, P2: 2, P3: 3 }
 
@@ -39,8 +24,7 @@ export const useTaskStore = defineStore('tasks', () => {
 
   async function fetchPublicTaskIds() {
     try {
-      const { ListPublicTaskIDs } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/linkservice')
-      const ids = await ListPublicTaskIDs() as number[]
+      const ids = await listPublicTaskIDs() as number[]
       publicTaskIds.value = new Set(ids)
     } catch {
       publicTaskIds.value = new Set()
@@ -57,7 +41,7 @@ export const useTaskStore = defineStore('tasks', () => {
   const filterDueDate = ref<string>('all')    // 'all', 'overdue', 'today', 'week', 'none'
   const filterAdoLink = ref<string>('all')    // 'all', 'linked', 'personal'
   const sortBy = ref<string>('priority')      // 'priority', 'dueDate', 'title', 'status'
-  const groupBy = ref<string | null>(null)    // null, 'status', 'priority', 'project'
+  const groupBy = ref<string | null>('project')    // null, 'status', 'priority', 'project'
 
   const selectedTask = computed(() =>
     tasks.value.find(t => t.id === selectedTaskId.value) ?? null
@@ -211,18 +195,20 @@ export const useTaskStore = defineStore('tasks', () => {
     todo: tasks.value.filter(t => t.status === 'todo').length,
   }))
 
+  let fetchInFlight = false
   async function fetchTasks(status = '') {
+    if (fetchInFlight) return
+    fetchInFlight = true
     loading.value = true
     try {
-      const { List } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/taskservice')
-      tasks.value = (await List(status)) as Task[]
-      // Also fetch public task IDs alongside
-      await fetchPublicTaskIds()
+      tasks.value = (await tasksApi.listTasks(status)) as Task[]
+      fetchPublicTaskIds().catch(() => {})
     } catch (e) {
-      console.warn('[TaskStore] Wails binding unavailable:', e)
+      console.warn('[TaskStore] fetchTasks error:', e)
       tasks.value = []
     } finally {
       loading.value = false
+      fetchInFlight = false
     }
   }
 
@@ -231,41 +217,49 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   async function createTask(title: string, priority = 'P2') {
-    const { Create } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/taskservice')
-    const t = await Create(title, '', priority, '', null, null) as Task
+    const t = await tasksApi.createTask(title, '', priority, '', null, null) as Task
     tasks.value.unshift(t)
     return t
   }
 
   async function updateTask(task: Task) {
-    const { Update } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/taskservice')
-    const updated = await Update(
-      task.id, task.title, task.description, task.status,
-      task.priority, task.category, task.area, task.dueDate, task.tags
-    ) as Task
-    const idx = tasks.value.findIndex(t => t.id === task.id)
-    if (idx !== -1) tasks.value[idx] = updated
-    return updated
+    try {
+      const updated = await tasksApi.updateTask(
+        task.id, task.title, task.description, task.status,
+        task.priority, task.category, task.area, task.dueDate, task.tags
+      ) as Task
+      const idx = tasks.value.findIndex(t => t.id === task.id)
+      if (idx !== -1 && updated) tasks.value.splice(idx, 1, updated)
+      return updated
+    } catch (e) {
+      console.warn('[TaskStore] updateTask failed:', e)
+      throw e
+    }
   }
 
   async function setStatus(id: number, status: string) {
-    const { SetStatus } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/taskservice')
-    const updated = await SetStatus(id, status) as Task
+    const updated = await tasksApi.setStatus(id, status) as Task
     const idx = tasks.value.findIndex(t => t.id === id)
-    if (idx !== -1) tasks.value[idx] = updated
+    if (idx !== -1 && updated) tasks.value.splice(idx, 1, updated)
     return updated
   }
 
   async function deleteTask(id: number) {
-    const { Delete } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/taskservice')
-    await Delete(id)
+    await tasksApi.deleteTask(id)
     tasks.value = tasks.value.filter(t => t.id !== id)
     if (selectedTaskId.value === id) selectedTaskId.value = null
   }
 
+  async function reorderTasks(orderedIds: number[]) {
+    try {
+      await tasksApi.reorderTasks(orderedIds)
+    } catch (e) {
+      console.warn('[TaskStore] ReorderTasks binding unavailable:', e)
+    }
+  }
+
   async function setPersonalPriority(id: number, priority: string) {
-    const { SetPersonalPriority } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/taskservice')
-    const updated = await SetPersonalPriority(id, priority) as Task
+    const updated = await tasksApi.setPersonalPriority(id, priority) as Task
     const idx = tasks.value.findIndex(t => t.id === id)
     if (idx !== -1) tasks.value[idx] = updated
     if (selectedTaskId.value === id) { /* reactive via computed */ }
@@ -273,29 +267,24 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   async function getSubtasks(parentID: number): Promise<Task[]> {
-    const { GetSubtasks } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/taskservice')
-    return (await GetSubtasks(parentID)) as Task[]
+    return (await tasksApi.getSubtasks(parentID)) as Task[]
   }
 
   // DependencyService — task-to-task dependency management
   async function getDependencies(taskID: number): Promise<Task[]> {
-    const { GetDependencies } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/dependencyservice')
-    return (await GetDependencies(taskID)) as Task[]
+    return (await depsApi.getDependencies(taskID)) as Task[]
   }
 
   async function addDependency(taskID: number, dependsOn: number) {
-    const { AddDependency } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/dependencyservice')
-    await AddDependency(taskID, dependsOn)
+    await depsApi.addDependency(taskID, dependsOn)
   }
 
   async function removeDependency(taskID: number, dependsOn: number) {
-    const { RemoveDependency } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/dependencyservice')
-    await RemoveDependency(taskID, dependsOn)
+    await depsApi.removeDependency(taskID, dependsOn)
   }
 
   async function getAllTags(): Promise<string[]> {
-    const { GetAllTags } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/taskservice')
-    return (await GetAllTags()) as string[]
+    return (await tasksApi.getAllTags()) as string[]
   }
 
   function selectTask(id: number | null) {
@@ -305,7 +294,7 @@ export const useTaskStore = defineStore('tasks', () => {
   return {
     tasks, loading, selectedTaskId, filterStatus,
     selectedTask, filteredTasks, grouped, stats,
-    fetchTasks, createTask, updateTask, setStatus, deleteTask, selectTask,
+    fetchTasks, createTask, updateTask, setStatus, deleteTask, reorderTasks, selectTask,
     setPersonalPriority, getSubtasks,
     getDependencies, addDependency, removeDependency,
     getAllTags,

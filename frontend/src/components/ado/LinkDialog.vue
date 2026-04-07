@@ -13,6 +13,7 @@ import {
   Search, Link, Loader2, AlertCircle,
 } from 'lucide-vue-next'
 import { statusClasses, priorityClasses } from '@/lib/styles'
+import { useNotify } from '@/composables/useNotify'
 
 const props = defineProps<{
   open: boolean
@@ -26,6 +27,7 @@ const emit = defineEmits<{
 }>()
 
 const taskStore = useTaskStore()
+const notify = useNotify()
 
 const searchText = ref('')
 const selectedTask = ref<Task | null>(null)
@@ -53,15 +55,17 @@ async function confirmLink() {
   linking.value = true
   linkError.value = ''
   try {
-    const { LinkTask } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/linkservice')
-    await LinkTask(selectedTask.value.id, props.adoId)
+    const { linkTask } = await import('@/api/links')
+    await linkTask(selectedTask.value.id, props.adoId)
     await taskStore.fetchTasks()
     emit('linked', props.adoId)
     emit('update:open', false)
     searchText.value = ''
     selectedTask.value = null
+    notify.success('Task linked to ADO')
   } catch (e: any) {
     linkError.value = e?.message || 'Failed to link task'
+    notify.error('Link failed')
   } finally {
     linking.value = false
   }

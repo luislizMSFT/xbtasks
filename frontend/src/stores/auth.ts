@@ -1,12 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import type { User } from '@/types'
+import * as authApi from '@/api/auth'
 
-export interface User {
-  id: string
-  displayName: string
-  email: string
-  avatarUrl: string
-}
+export type { User }
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
@@ -25,10 +22,8 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true
     error.value = null
     try {
-      // Try Wails binding first, fall back to mock
       try {
-        const { SignIn } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/auth/authservice')
-        const u = await SignIn()
+        const u = await authApi.signIn()
         user.value = u as User
         authMethod.value = 'oauth'
       } catch (e) {
@@ -53,8 +48,7 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null
     try {
       try {
-        const { SignInWithPAT } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/auth/authservice')
-        const u = await SignInWithPAT(pat)
+        const u = await authApi.signInWithPAT(pat)
         user.value = u as User
         authMethod.value = 'pat'
       } catch (e) {
@@ -78,8 +72,7 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true
     error.value = null
     try {
-      const { SignInWithAzCli } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/auth/authservice')
-      const u = await SignInWithAzCli()
+      const u = await authApi.signInWithAzCli()
       user.value = u as User
       authMethod.value = 'azcli'
     } catch (e: any) {
@@ -91,8 +84,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function signOut() {
     try {
-      const { SignOut } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/auth/authservice')
-      await SignOut()
+      await authApi.signOut()
     } catch (e) {
       console.warn('[AuthStore] Wails signOut binding unavailable:', e)
     }
@@ -102,14 +94,11 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function tryRestore() {
     try {
-      const { TryRestoreSession } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/auth/authservice')
-      const u = await TryRestoreSession()
+      const u = await authApi.tryRestoreSession()
       if (u) user.value = u as User
     } catch (e) {
-      // TryRestoreSession not available or failed, try GetCurrentUser as fallback
       try {
-        const { GetCurrentUser } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/auth/authservice')
-        const u = await GetCurrentUser()
+        const u = await authApi.getCurrentUser()
         if (u) user.value = u as User
       } catch {
         // No auth available

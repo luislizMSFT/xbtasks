@@ -130,6 +130,10 @@ Progress: [█████░░░░░] 50%
 - [Phase 02]: ListLinkedAdoIDs method added to LinkService for frontend linked status tracking (ADO IDs not task IDs)
 - [Phase 02]: Saved query picker uses sentinel value __my_assignments__ to revert to default tree fetch
 
+### Roadmap Evolution
+
+- Phase 4 added: Work Item Lifecycle Tracking — PRs, Pipelines & Task Traceability (unified progress view so you never have to hunt across ADO)
+
 ### Pending Todos
 
 - Shell header: fix padding, traffic light overlap, Windows compat

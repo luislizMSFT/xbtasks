@@ -41,8 +41,8 @@ async function confirmPromote() {
   promoting.value = true
   promoteError.value = ''
   try {
-    const { PromoteTask } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/linkservice')
-    const link = await PromoteTask(props.taskId, wiType.value)
+    const { promoteTask } = await import('@/api/links')
+    const link = await promoteTask(props.taskId, wiType.value)
     // link contains adoId from the TaskADOLink
     const adoId = (link as any)?.adoId || (link as any)?.ado_id || ''
     emit('promoted', adoId)

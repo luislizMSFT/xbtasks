@@ -56,7 +56,7 @@ const adoPercent = computed(() => {
           </div>
           <div
             v-else
-            class="w-5 h-5 rounded-full border border-dashed border-muted-foreground/30 flex items-center justify-center"
+            class="w-5 h-5 rounded-full border border-dashed border-muted-foreground/60 flex items-center justify-center"
             title="Local only"
           />
         </div>

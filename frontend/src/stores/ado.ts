@@ -1,41 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import type { ADOWorkItem, ADOPipeline, SavedQuery } from '@/types'
+import * as workitemsApi from '@/api/workitems'
+import { listRecentRuns } from '@/api/pipelines'
+import { listLinkedAdoIDs } from '@/api/links'
 
-export interface ADOWorkItem {
-  id: number
-  adoId: string
-  title: string
-  state: string
-  type: string
-  assignedTo: string
-  priority: number
-  areaPath: string
-  description: string
-  url: string
-  org: string
-  project: string
-  parentId: number
-  changedDate: string
-  syncedAt: string
-}
-
-export interface ADOPipeline {
-  id: number
-  name: string
-  status: string
-  result: string
-  url: string
-  sourceBranch: string
-  queueTime: string
-  finishTime: string | null
-}
-
-export interface SavedQuery {
-  id: string
-  name: string
-  path: string
-  isFolder: boolean
-}
+export type { ADOWorkItem, ADOPipeline, SavedQuery }
 
 export const useADOStore = defineStore('ado', () => {
   const workItems = ref<ADOWorkItem[]>([])
@@ -46,6 +16,8 @@ export const useADOStore = defineStore('ado', () => {
   const syncing = ref(false)
   const error = ref('')
   const lastSyncedAt = ref<string | null>(null)
+
+  let fetchTreeInFlight = false
 
   // Tree browser state
   const workItemTree = ref<ADOWorkItem[]>([])
@@ -83,9 +55,8 @@ export const useADOStore = defineStore('ado', () => {
   function getChildren(parentId: number): ADOWorkItem[] {
     let items = workItemTree.value
     if (hideLinked.value) items = items.filter(i => !isLinked(i.adoId))
-    if (filterType.value !== 'all') items = items.filter(i => i.type === filterType.value)
-    if (filterState.value !== 'all') items = items.filter(i => i.state === filterState.value)
-    if (filterArea.value !== 'all') items = items.filter(i => i.areaPath.startsWith(filterArea.value))
+    // Don't filter children by type/state/area — show all children regardless
+    // so the hierarchy is always visible even when filtering roots
     return items.filter(i => i.parentId === parentId)
   }
 
@@ -96,8 +67,7 @@ export const useADOStore = defineStore('ado', () => {
   async function fetchWorkItems() {
     error.value = ''
     try {
-      const { ListMyWorkItems } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/adoservice')
-      workItems.value = (await ListMyWorkItems()) as ADOWorkItem[]
+      workItems.value = (await workitemsApi.listMyWorkItems()) as ADOWorkItem[]
       connected.value = true
     } catch (e: any) {
       console.warn('[ADOStore] ListMyWorkItems failed:', e)
@@ -111,8 +81,7 @@ export const useADOStore = defineStore('ado', () => {
     syncing.value = true
     error.value = ''
     try {
-      const { SyncWorkItems } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/adoservice')
-      await SyncWorkItems()
+      await workitemsApi.syncWorkItems()
       connected.value = true
       await fetchWorkItems()
       lastSyncedAt.value = new Date().toISOString()
@@ -128,8 +97,7 @@ export const useADOStore = defineStore('ado', () => {
 
   async function fetchCached() {
     try {
-      const { GetCachedWorkItems } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/adoservice')
-      workItems.value = (await GetCachedWorkItems()) as ADOWorkItem[]
+      workItems.value = (await workitemsApi.getCachedWorkItems()) as ADOWorkItem[]
     } catch {
       workItems.value = []
     }
@@ -138,8 +106,7 @@ export const useADOStore = defineStore('ado', () => {
   async function fetchPipelines() {
     pipelinesLoading.value = true
     try {
-      const { ListRecentRuns } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/pipelineservice')
-      pipelines.value = (await ListRecentRuns()) as ADOPipeline[]
+      pipelines.value = (await listRecentRuns()) as ADOPipeline[]
       connected.value = true
     } catch (e: any) {
       console.warn('[ADOStore] ListRecentRuns failed:', e)
@@ -154,7 +121,7 @@ export const useADOStore = defineStore('ado', () => {
     loading.value = true
     error.value = ''
     try {
-      await Promise.all([fetchWorkItems(), fetchPipelines()])
+      await Promise.allSettled([fetchWorkItems(), fetchPipelines()])
       if (!lastSyncedAt.value && connected.value) {
         lastSyncedAt.value = new Date().toISOString()
       }
@@ -164,11 +131,21 @@ export const useADOStore = defineStore('ado', () => {
   }
 
   async function fetchWorkItemTree() {
+    if (fetchTreeInFlight) return
+    fetchTreeInFlight = true
     loading.value = true
     error.value = ''
     try {
-      const { GetWorkItemTree } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/adoservice')
-      workItemTree.value = (await GetWorkItemTree()) as ADOWorkItem[]
+      const items = (await workitemsApi.getWorkItemTree()) as ADOWorkItem[]
+      // Normalize: ensure id = Number(adoId) for proper parent-child matching.
+      // GetWorkItemTree returns items from the API where domain.WorkItem.ID is
+      // unset (0) but AdoID and ParentID are correct ADO IDs.
+      for (const item of items) {
+        if (!item.id && item.adoId) {
+          item.id = Number(item.adoId)
+        }
+      }
+      workItemTree.value = items
       connected.value = true
     } catch (e: any) {
       console.warn('[ADOStore] GetWorkItemTree failed:', e)
@@ -176,13 +153,13 @@ export const useADOStore = defineStore('ado', () => {
       workItemTree.value = []
     } finally {
       loading.value = false
+      fetchTreeInFlight = false
     }
   }
 
   async function fetchLinkedAdoIds() {
     try {
-      const { ListLinkedAdoIDs } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/linkservice')
-      const ids = (await ListLinkedAdoIDs()) as string[]
+      const ids = (await listLinkedAdoIDs()) as string[]
       linkedAdoIds.value = new Set(ids || [])
     } catch {
       linkedAdoIds.value = new Set()
@@ -191,8 +168,7 @@ export const useADOStore = defineStore('ado', () => {
 
   async function fetchSavedQueries() {
     try {
-      const { GetSavedQueries } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/adoservice')
-      savedQueries.value = (await GetSavedQueries()) as SavedQuery[]
+      savedQueries.value = (await workitemsApi.getSavedQueries()) as SavedQuery[]
     } catch {
       savedQueries.value = []
     }
@@ -202,8 +178,13 @@ export const useADOStore = defineStore('ado', () => {
     loading.value = true
     error.value = ''
     try {
-      const { RunSavedQuery } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/adoservice')
-      workItemTree.value = (await RunSavedQuery(queryId)) as ADOWorkItem[]
+      const items = (await workitemsApi.runSavedQuery(queryId)) as ADOWorkItem[]
+      for (const item of items) {
+        if (!item.id && item.adoId) {
+          item.id = Number(item.adoId)
+        }
+      }
+      workItemTree.value = items
       connected.value = true
     } catch (e: any) {
       error.value = e?.message || 'Failed to run saved query'

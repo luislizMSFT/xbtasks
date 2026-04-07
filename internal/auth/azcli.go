@@ -4,11 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"os/exec"
-	"runtime"
-	"strings"
 	"time"
+
+	"dev.azure.com/xbox/xb-tasks/pkg/ado"
 )
 
 // adoResourceID is the Azure DevOps resource identifier for token acquisition.
@@ -31,54 +30,12 @@ func NewAzCliTokenProvider() *AzCliTokenProvider {
 	return &AzCliTokenProvider{}
 }
 
-// resolveAzPath finds the az CLI binary, expanding PATH for macOS .app bundles
-// which launch with a minimal PATH that excludes Homebrew/user paths.
-func resolveAzPath() string {
-	if p, err := exec.LookPath("az"); err == nil {
-		return p
-	}
-	if runtime.GOOS == "darwin" {
-		for _, candidate := range []string{
-			"/opt/homebrew/bin/az",
-			"/usr/local/bin/az",
-		} {
-			if _, err := os.Stat(candidate); err == nil {
-				return candidate
-			}
-		}
-	}
-	return "az"
-}
-
-// ensurePATH adds common tool directories so child processes can find
-// binaries like az, git, etc. even when launched from a .app bundle.
-func ensurePATH() {
-	if runtime.GOOS != "darwin" {
-		return
-	}
-	extra := []string{"/opt/homebrew/bin", "/usr/local/bin"}
-	cur := os.Getenv("PATH")
-	var missing []string
-	for _, d := range extra {
-		if !strings.Contains(cur, d) {
-			missing = append(missing, d)
-		}
-	}
-	if len(missing) > 0 {
-		os.Setenv("PATH", cur+":"+strings.Join(missing, ":"))
-	}
-}
-
-func init() {
-	ensurePATH()
-}
-
 // GetToken runs `az account get-access-token` with the ADO resource ID and
 // returns the access token string.
 func (p *AzCliTokenProvider) GetToken() (string, error) {
 	log.Printf("[auth] using %s token provider", p.Name())
 
-	azBin := resolveAzPath()
+	azBin := ado.ResolveAzPath()
 	cmd := exec.Command(azBin, "account", "get-access-token",
 		"--resource", adoResourceID,
 		"--output", "json",

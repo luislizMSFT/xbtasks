@@ -5,7 +5,7 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: '/tasks',
+      redirect: '/dashboard',
     },
     {
       path: '/tasks',
@@ -21,11 +21,6 @@ const router = createRouter({
       path: '/projects',
       name: 'projects',
       component: () => import('../views/ProjectsView.vue'),
-    },
-    {
-      path: '/projects/:id',
-      name: 'project-detail',
-      component: () => import('../views/ProjectDetailView.vue'),
     },
     {
       path: '/settings',
