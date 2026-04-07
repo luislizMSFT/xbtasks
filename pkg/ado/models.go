@@ -57,19 +57,3 @@ type Comment struct {
 	CreatedBy   Identity  `json:"createdBy"`
 	CreatedDate time.Time `json:"createdDate"`
 }
-
-// FieldDiff represents a difference in a single field between local and remote.
-type FieldDiff struct {
-	Field    string `json:"field"`
-	Local    string `json:"local"`
-	Remote   string `json:"remote"`
-	Proposed string `json:"proposed"`
-}
-
-// SyncDiff captures the changes between a local task and its ADO counterpart.
-type SyncDiff struct {
-	TaskID    int         `json:"taskId"`
-	AdoID     string      `json:"adoId"`
-	Changes   []FieldDiff `json:"changes"`
-	Direction string      `json:"direction"`
-}

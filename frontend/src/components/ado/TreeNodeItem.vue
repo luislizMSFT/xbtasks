@@ -1,23 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { statusBgColor, priorityColor } from '@/lib/styles'
+import type { SubtaskItem, GraphNode } from '@/types'
 
-export interface SubtaskItem {
-  id: number
-  title: string
-  done: boolean
-}
-
-export interface GraphNode {
-  id: number
-  title: string
-  status: string
-  priority: string
-  description: string
-  dependsOn: number[]
-  children: GraphNode[]
-  subtasks?: SubtaskItem[]
-}
+export type { SubtaskItem, GraphNode }
 
 const props = defineProps<{
   node: GraphNode

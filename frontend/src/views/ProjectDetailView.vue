@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import EmptyState from '@/components/EmptyState.vue'
 import { cn } from '@/lib/utils'
 import AzureDevOpsIcon from '@/components/icons/AzureDevOpsIcon.vue'
+import AdoItemPicker from '@/components/ado/AdoItemPicker.vue'
 import PriorityBadge from '@/components/ui/PriorityBadge.vue'
 import {
   ArrowLeft, CheckCircle2, ClipboardList, Link2, Unlink,
@@ -26,7 +27,6 @@ const progress = computed(() => projectStore.projectProgress.get(projectId.value
 const adoLink = computed<ProjectADOLink | undefined>(() => projectStore.projectLinks.get(projectId.value))
 const loading = ref(true)
 const showLinkDialog = ref(false)
-const linkAdoId = ref('')
 
 const projectTasks = computed(() =>
   taskStore.tasks.filter(t => t.projectId === projectId.value)
@@ -82,11 +82,8 @@ async function loadProjectData() {
   }
 }
 
-async function handleLink() {
-  const id = linkAdoId.value.trim()
-  if (!id) return
-  await projectStore.linkProjectToADO(projectId.value, id)
-  linkAdoId.value = ''
+async function handleLink(adoId: string) {
+  await projectStore.linkProjectToADO(projectId.value, adoId)
   showLinkDialog.value = false
   await projectStore.fetchProjectProgress(projectId.value)
 }
@@ -177,22 +174,13 @@ watch(projectId, loadProjectData)
           </div>
         </div>
 
-        <!-- Link dialog (inline) -->
-        <Card v-if="showLinkDialog" class="border-blue-500/30">
-          <CardContent class="pt-4 space-y-3">
-            <div class="text-sm font-medium">Link project to ADO work item</div>
-            <div class="flex gap-2">
-              <input
-                v-model="linkAdoId"
-                placeholder="ADO work item ID (e.g. 12345)"
-                class="flex-1 h-8 rounded-md border border-input bg-transparent px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                @keydown.enter="handleLink"
-              />
-              <Button size="sm" @click="handleLink">Link</Button>
-              <Button variant="ghost" size="sm" @click="showLinkDialog = false">Cancel</Button>
-            </div>
-          </CardContent>
-        </Card>
+        <!-- Link dialog -->
+        <AdoItemPicker
+          :open="showLinkDialog"
+          title="Link project to ADO work item"
+          @update:open="showLinkDialog = $event"
+          @selected="(adoId) => handleLink(adoId)"
+        />
 
         <!-- Stats cards row -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -287,7 +275,7 @@ watch(projectId, loadProjectData)
                       ? 'bg-emerald-500 border-emerald-500'
                       : task.status === 'blocked'
                         ? 'border-red-400 hover:border-red-500'
-                        : 'border-muted-foreground/30 hover:border-muted-foreground/60'
+                        : 'border-muted-foreground/60 hover:border-muted-foreground'
                   )"
                 >
                   <CheckCircle2 v-if="task.status === 'done'" :size="9" class="text-white" :stroke-width="3" />

@@ -43,9 +43,9 @@ func (s *ADOService) CheckConnection() (string, error) {
 	return fmt.Sprintf("Authenticated via %s", s.tokenProv.Name()), nil
 }
 
-// adoWorkItemToDomain converts a pkg/ado.WorkItem to domain.ADOWorkItem.
-func adoWorkItemToDomain(w ado.WorkItem) domain.ADOWorkItem {
-	return domain.ADOWorkItem{
+// adoWorkItemToDomain converts a pkg/ado.WorkItem to domain.WorkItem.
+func adoWorkItemToDomain(w ado.WorkItem) domain.WorkItem {
+	return domain.WorkItem{
 		AdoID:       fmt.Sprintf("%d", w.ID),
 		Title:       w.Title,
 		State:       w.State,
@@ -64,20 +64,38 @@ func adoWorkItemToDomain(w ado.WorkItem) domain.ADOWorkItem {
 
 // ListMyWorkItems queries ADO for work items assigned to the current user
 // across all configured org/project pairs.
-func (s *ADOService) ListMyWorkItems() ([]domain.ADOWorkItem, error) {
+func (s *ADOService) ListMyWorkItems() ([]domain.WorkItem, error) {
 	clients, err := s.getClients()
 	if err != nil {
 		return nil, err
 	}
-	var all []domain.ADOWorkItem
+
+	type result struct {
+		items []domain.WorkItem
+		err   error
+	}
+	ch := make(chan result, len(clients))
 	for _, c := range clients {
-		items, err := ado.QueryMyWorkItems(c)
-		if err != nil {
-			log.Printf("[ado] query %s/%s failed: %v", c.Org(), c.Project(), err)
-			continue
-		}
-		for _, item := range items {
-			all = append(all, adoWorkItemToDomain(item))
+		go func(c *ado.Client) {
+			items, err := ado.QueryMyWorkItems(c)
+			if err != nil {
+				log.Printf("[ado] query %s/%s failed: %v", c.Org(), c.Project(), err)
+				ch <- result{nil, err}
+				return
+			}
+			mapped := make([]domain.WorkItem, len(items))
+			for i, item := range items {
+				mapped[i] = adoWorkItemToDomain(item)
+			}
+			ch <- result{mapped, nil}
+		}(c)
+	}
+
+	var all []domain.WorkItem
+	for range clients {
+		r := <-ch
+		if r.err == nil {
+			all = append(all, r.items...)
 		}
 	}
 	return all, nil
@@ -85,14 +103,14 @@ func (s *ADOService) ListMyWorkItems() ([]domain.ADOWorkItem, error) {
 
 // GetWorkItem fetches a single work item from ADO by its string ID.
 // Tries each configured org/project client until found.
-func (s *ADOService) GetWorkItem(adoID string) (domain.ADOWorkItem, error) {
+func (s *ADOService) GetWorkItem(adoID string) (domain.WorkItem, error) {
 	id, err := strconv.Atoi(adoID)
 	if err != nil {
-		return domain.ADOWorkItem{}, fmt.Errorf("invalid ADO ID %q: %w", adoID, err)
+		return domain.WorkItem{}, fmt.Errorf("invalid ADO ID %q: %w", adoID, err)
 	}
 	clients, err := s.getClients()
 	if err != nil {
-		return domain.ADOWorkItem{}, err
+		return domain.WorkItem{}, err
 	}
 	for _, c := range clients {
 		wi, err := ado.GetWorkItem(c, id)
@@ -101,7 +119,7 @@ func (s *ADOService) GetWorkItem(adoID string) (domain.ADOWorkItem, error) {
 		}
 		return adoWorkItemToDomain(*wi), nil
 	}
-	return domain.ADOWorkItem{}, fmt.Errorf("work item %s not found in any configured org/project", adoID)
+	return domain.WorkItem{}, fmt.Errorf("work item %s not found in any configured org/project", adoID)
 }
 
 // SyncWorkItems fetches work items from all orgs and upserts them into SQLite.
@@ -119,8 +137,13 @@ func (s *ADOService) SyncWorkItems() error {
 }
 
 // GetCachedWorkItems returns work items from the SQLite cache without calling ADO.
-func (s *ADOService) GetCachedWorkItems() ([]domain.ADOWorkItem, error) {
+func (s *ADOService) GetCachedWorkItems() ([]domain.WorkItem, error) {
 	return s.db.ListADOWorkItems()
+}
+
+// GetCachedWorkItem returns a single work item from the SQLite cache by ADO ID.
+func (s *ADOService) GetCachedWorkItem(adoID string) (domain.WorkItem, error) {
+	return s.db.GetADOWorkItem(adoID)
 }
 
 // SavedQuery represents an ADO saved WIQL query for the frontend.
@@ -153,7 +176,7 @@ func (s *ADOService) GetSavedQueries() ([]SavedQuery, error) {
 
 // RunSavedQuery executes a saved WIQL query and returns the matching work items.
 // Tries each client until one succeeds (query belongs to a specific org/project).
-func (s *ADOService) RunSavedQuery(queryID string) ([]domain.ADOWorkItem, error) {
+func (s *ADOService) RunSavedQuery(queryID string) ([]domain.WorkItem, error) {
 	clients, err := s.getClients()
 	if err != nil {
 		return nil, err
@@ -163,7 +186,7 @@ func (s *ADOService) RunSavedQuery(queryID string) ([]domain.ADOWorkItem, error)
 		if err != nil {
 			continue
 		}
-		var result []domain.ADOWorkItem
+		var result []domain.WorkItem
 		for _, item := range items {
 			result = append(result, adoWorkItemToDomain(item))
 		}
@@ -174,7 +197,7 @@ func (s *ADOService) RunSavedQuery(queryID string) ([]domain.ADOWorkItem, error)
 
 // GetWorkItemTree fetches assigned items and their parent hierarchy for ADO browser.
 // Returns a flat list with ParentID relationships for frontend tree rendering.
-func (s *ADOService) GetWorkItemTree() ([]domain.ADOWorkItem, error) {
+func (s *ADOService) GetWorkItemTree() ([]domain.WorkItem, error) {
 	items, err := s.ListMyWorkItems()
 	if err != nil {
 		return nil, fmt.Errorf("get work item tree: %w", err)

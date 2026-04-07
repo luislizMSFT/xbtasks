@@ -547,14 +547,14 @@ func (s *SyncService) getTask(id int) (domain.Task, error) {
 	err := s.db.QueryRow(
 		`SELECT id, title, description, status, priority, category, project_id, area, due_date,
 		        ado_id, tags, blocked_reason, blocked_by, parent_id, personal_priority,
-		        created_at, updated_at, completed_at
+		        sort_order, created_at, updated_at, completed_at
 		 FROM tasks WHERE id = ?`, id,
 	).Scan(
 		&t.ID, &t.Title, &t.Description, &t.Status, &t.Priority,
 		&t.Category, &t.ProjectID, &t.Area, &t.DueDate,
 		&t.AdoID, &t.Tags, &t.BlockedReason, &t.BlockedBy,
 		&t.ParentID, &t.PersonalPriority,
-		&t.CreatedAt, &t.UpdatedAt, &t.CompletedAt,
+		&t.SortOrder, &t.CreatedAt, &t.UpdatedAt, &t.CompletedAt,
 	)
 	return t, err
 }

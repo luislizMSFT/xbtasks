@@ -12,17 +12,9 @@ import {
   X,
 } from 'lucide-vue-next'
 import { linkTypeColor } from '@/lib/styles'
+import type { TaskLink } from '@/types'
 
 const props = defineProps<{ taskId: number }>()
-
-interface TaskLink {
-  id: number
-  taskId: number
-  url: string
-  label: string
-  type: string // 'url', 'icm', 'grafana', 'ado', 'wiki'
-  createdAt: string
-}
 
 const links = ref<TaskLink[]>([])
 const newUrl = ref('')
@@ -38,19 +30,11 @@ const typeIcons: Record<string, Component> = {
   url: ExternalLink,
 }
 
-const typeColors: Record<string, string> = {
-  icm: 'text-red-500',
-  grafana: 'text-green-500',
-  ado: 'text-blue-500',
-  wiki: 'text-purple-500',
-  url: 'text-muted-foreground',
-}
-
 async function fetchLinks() {
   loading.value = true
   try {
-    const { ListLinks } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/externallinksservice')
-    links.value = (await ListLinks(props.taskId)) as TaskLink[]
+    const { listLinks } = await import('@/api/external-links')
+    links.value = (await listLinks(props.taskId)) as TaskLink[]
   } catch {
     links.value = []
   } finally {
@@ -62,8 +46,8 @@ async function addLink() {
   const url = newUrl.value.trim()
   if (!url) return
   try {
-    const { AddLink } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/externallinksservice')
-    const link = (await AddLink(props.taskId, url, newLabel.value.trim())) as TaskLink
+    const { addLink: addLinkApi } = await import('@/api/external-links')
+    const link = (await addLinkApi(props.taskId, url, newLabel.value.trim())) as TaskLink
     links.value.push(link)
     newUrl.value = ''
     newLabel.value = ''
@@ -74,8 +58,8 @@ async function addLink() {
 
 async function deleteLink(id: number) {
   try {
-    const { DeleteLink } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/externallinksservice')
-    await DeleteLink(id)
+    const { deleteLink: deleteLinkApi } = await import('@/api/external-links')
+    await deleteLinkApi(id)
     links.value = links.value.filter(l => l.id !== id)
   } catch (e) {
     console.warn('[ExternalLinks] Failed to delete link:', e)
@@ -84,8 +68,8 @@ async function deleteLink(id: number) {
 
 async function openExternal(url: string) {
   try {
-    const { OpenURL } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/browserservice')
-    await OpenURL(url)
+    const { openURL } = await import('@/api/browser')
+    await openURL(url)
   } catch { window.open(url, '_blank') }
 }
 
@@ -132,15 +116,15 @@ watch(() => props.taskId, () => fetchLinks(), { immediate: true })
     <!-- Add link form -->
     <div class="flex gap-2">
       <Input
-        v-model="newUrl"
-        placeholder="Paste URL"
-        class="h-7 text-xs flex-1"
+        v-model="newLabel"
+        placeholder="Label"
+        class="h-7 text-xs w-32"
         @keydown.enter="addLink"
       />
       <Input
-        v-model="newLabel"
-        placeholder="Label (optional)"
-        class="h-7 text-xs w-24"
+        v-model="newUrl"
+        placeholder="Paste URL"
+        class="h-7 text-xs flex-1"
         @keydown.enter="addLink"
       />
       <Button

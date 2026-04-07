@@ -1,23 +1,28 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onActivated, onDeactivated } from 'vue'
 import type { AcceptableValue } from 'reka-ui'
 import { cn } from '@/lib/utils'
+import { adoTypeColor, adoTypeIcon, adoStateClasses, adoPriorityClasses, prStatusClasses } from '@/lib/styles'
 import { useADOStore } from '@/stores/ado'
+import { useNotify } from '@/composables/useNotify'
 import type { ADOWorkItem, ADOPipeline } from '@/stores/ado'
 import { useTaskStore } from '@/stores/tasks'
+import { useProjectStore } from '@/stores/projects'
 import { usePRStore, parseReviewers, branchName, voteIcon, relativeTime } from '@/stores/prs'
 import type { PullRequest } from '@/stores/prs'
 import PageHeader from '@/components/PageHeader.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import EmptyState from '@/components/EmptyState.vue'
-import AdoTreeBrowser from '@/components/AdoTreeBrowser.vue'
-import LinkDialog from '@/components/LinkDialog.vue'
+import AdoTreeBrowser from '@/components/ado/AdoTreeBrowser.vue'
+import AdoHierarchyTree from '@/components/ado/AdoHierarchyTree.vue'
+import LinkDialog from '@/components/ado/LinkDialog.vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog'
@@ -26,11 +31,7 @@ import {
 } from '@/components/ui/select'
 import {
   AlertCircle,
-  Bug,
-  BookOpen,
   CheckSquare,
-  Star,
-  Mountain,
   Circle,
   ExternalLink,
   GitPullRequest,
@@ -48,12 +49,21 @@ import {
   EyeOff,
   Eye,
   FolderKanban,
+  Target,
+  Layers,
 } from 'lucide-vue-next'
 
 const adoStore = useADOStore()
 const taskStore = useTaskStore()
+const projectStore = useProjectStore()
 const prStore = usePRStore()
 
+const isActive = ref(false)
+onActivated(() => { isActive.value = true })
+onDeactivated(() => { isActive.value = false })
+onMounted(() => { isActive.value = true })
+
+const activeTab = ref('browser')
 const showAllPipelines = ref(false)
 const showAllTeamPRs = ref(false)
 
@@ -78,46 +88,7 @@ onMounted(async () => {
 
 // --- Type/state helpers ---
 
-function typeIcon(type: string) {
-  switch (type.toLowerCase()) {
-    case 'bug': return Bug
-    case 'task': return CheckSquare
-    case 'user story': return BookOpen
-    case 'feature': return Star
-    case 'epic': return Mountain
-    default: return Circle
-  }
-}
-
-function typeColor(type: string) {
-  switch (type.toLowerCase()) {
-    case 'bug': return 'text-red-500'
-    case 'task': return 'text-blue-500'
-    case 'user story': return 'text-purple-500'
-    case 'feature': return 'text-green-500'
-    case 'epic': return 'text-orange-500'
-    default: return 'text-muted-foreground'
-  }
-}
-
-function stateClasses(state: string) {
-  switch (state) {
-    case 'Active': return 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/25'
-    case 'New': return 'bg-muted text-muted-foreground border-border'
-    case 'Resolved': return 'bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/25'
-    case 'Closed': return 'bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/25'
-    default: return ''
-  }
-}
-
-function priorityClasses(p: number) {
-  switch (p) {
-    case 1: return 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/25'
-    case 2: return 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/25'
-    case 3: return 'bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/25'
-    default: return 'bg-muted text-muted-foreground border-border'
-  }
-}
+const typeIcon = adoTypeIcon
 
 // --- Tree browser actions ---
 
@@ -130,14 +101,18 @@ async function onTreeImport(item: ADOWorkItem) {
   importChoiceOpen.value = true
 }
 
+const notify = useNotify()
+
 async function doImportAsTask() {
   if (!importingAdoItem.value) return
   try {
-    const { ImportWorkItem } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/linkservice')
-    await ImportWorkItem(importingAdoItem.value.adoId)
+    const { importWorkItem } = await import('@/api/links')
+    await importWorkItem(importingAdoItem.value.adoId)
     await Promise.all([adoStore.fetchLinkedAdoIds(), taskStore.fetchTasks()])
+    notify.success('Task imported from ADO')
   } catch (e: any) {
     adoStore.error = e?.message || 'Import failed'
+    notify.error(e?.message || 'Import failed')
   } finally {
     importChoiceOpen.value = false
     importingAdoItem.value = null
@@ -147,15 +122,17 @@ async function doImportAsTask() {
 async function doImportAsProject() {
   if (!importingAdoItem.value) return
   try {
-    const { ImportWorkItemAsProject } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/linkservice')
-    await ImportWorkItemAsProject(importingAdoItem.value.adoId)
+    const { importWorkItemAsProject } = await import('@/api/links')
+    await importWorkItemAsProject(importingAdoItem.value.adoId)
     await Promise.all([
       adoStore.fetchLinkedAdoIds(),
       taskStore.fetchTasks(),
       projectStore.fetchProjects(),
     ])
+    notify.success('Project imported from ADO')
   } catch (e: any) {
     adoStore.error = e?.message || 'Import as project failed'
+    notify.error(e?.message || 'Import failed')
   } finally {
     importChoiceOpen.value = false
     importingAdoItem.value = null
@@ -188,8 +165,8 @@ async function onQueryChange(queryId: AcceptableValue) {
 
 async function openExternal(url: string) {
   try {
-    const { OpenURL } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/browserservice')
-    await OpenURL(url)
+    const { openURL } = await import('@/api/browser')
+    await openURL(url)
   } catch {
     // Fallback if binding not available
     window.open(url, '_blank')
@@ -205,16 +182,6 @@ const activeReviewPRs = computed(() =>
 const totalPRCount = computed(() =>
   activeReviewPRs.value.length + prStore.myPRs.length + prStore.teamPRs.length
 )
-
-function prStatusClasses(status: string) {
-  switch (status) {
-    case 'active': return 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/20'
-    case 'draft': return 'bg-zinc-500/15 text-muted-foreground border-zinc-500/20'
-    case 'completed': return 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-    case 'abandoned': return 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/20'
-    default: return ''
-  }
-}
 
 function openPR(pr: PullRequest) {
   if (pr.prUrl) openExternal(pr.prUrl)
@@ -275,35 +242,58 @@ const teamPRsToShow = computed(() =>
 
 <template>
   <div class="flex-1 flex flex-col overflow-hidden">
-    <!-- Top bar -->
-    <div class="px-4 py-2.5 flex items-center gap-3 border-b border-border shrink-0">
-      <h1 class="text-sm font-semibold text-foreground">Azure DevOps</h1>
-      <Button
-        variant="outline"
-        size="sm"
-        class="h-7 text-xs gap-1.5"
-        :disabled="adoStore.syncing"
-        @click="handleSync"
-      >
-        <RefreshCw :size="12" :class="adoStore.syncing && 'animate-spin'" />
-        Sync
-      </Button>
-      <span
-        :class="cn(
-          'flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full',
-          adoStore.connected
-            ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
-            : 'text-muted-foreground bg-muted/50'
-        )"
-      >
-        <Wifi v-if="adoStore.connected" :size="10" />
-        <WifiOff v-else :size="10" />
-        {{ adoStore.connected ? 'Connected' : 'Offline' }}
-      </span>
-      <span v-if="lastSyncLabel" class="text-[10px] text-muted-foreground">
-        Last synced {{ lastSyncLabel }}
-      </span>
-    </div>
+    <!-- Teleport tabs + sync to top bar (only when active) -->
+    <Teleport v-if="isActive" to="#topbar-actions">
+      <div class="flex items-center gap-2">
+        <RefreshCw v-if="adoStore.loading" :size="12" class="animate-spin text-muted-foreground shrink-0" />
+
+        <Tabs v-model="activeTab">
+          <TabsList class="h-7 bg-transparent p-0 gap-1">
+            <TabsTrigger value="browser" class="text-[11px] gap-1 px-2.5 h-6 data-[state=active]:bg-muted">
+              <CheckSquare :size="11" />
+              Browser
+              <Badge v-if="adoStore.workItemTree.length" variant="secondary" class="text-[9px] h-3.5 px-1">{{ adoStore.workItemTree.length }}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="pull-requests" class="text-[11px] gap-1 px-2.5 h-6 data-[state=active]:bg-muted">
+              <GitPullRequest :size="11" />
+              PRs
+              <Badge v-if="totalPRCount" variant="secondary" class="text-[9px] h-3.5 px-1">{{ totalPRCount }}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="pipelines" class="text-[11px] gap-1 px-2.5 h-6 data-[state=active]:bg-muted">
+              <GitMerge :size="11" />
+              Pipelines
+              <Badge v-if="adoStore.pipelines.length" variant="secondary" class="text-[9px] h-3.5 px-1">{{ adoStore.pipelines.length }}</Badge>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        <span v-if="lastSyncLabel" class="text-[10px] text-muted-foreground">
+          {{ lastSyncLabel }}
+        </span>
+        <span
+          :class="cn(
+            'flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full',
+            adoStore.connected
+              ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
+              : 'text-muted-foreground bg-muted/50'
+          )"
+        >
+          <Wifi v-if="adoStore.connected" :size="10" />
+          <WifiOff v-else :size="10" />
+          {{ adoStore.connected ? 'Connected' : 'Offline' }}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          class="h-6 text-[10px] gap-1"
+          :disabled="adoStore.syncing"
+          @click="handleSync"
+        >
+          <RefreshCw :size="11" :class="adoStore.syncing && 'animate-spin'" />
+          Sync
+        </Button>
+      </div>
+    </Teleport>
 
     <!-- Error banner -->
     <div v-if="adoStore.error && !adoStore.loading" class="mx-4 mt-2 px-3 py-2 rounded-md bg-destructive/10 border border-destructive/20">
@@ -323,132 +313,121 @@ const teamPRsToShow = computed(() =>
       </div>
     </template>
 
-    <!-- Tabbed content -->
+    <!-- Tab content -->
     <template v-else>
-      <Tabs default-value="browser" class="flex-1 flex flex-col min-h-0">
-        <div class="px-4 pt-2 shrink-0">
-          <TabsList class="h-8">
-            <TabsTrigger value="browser" class="text-xs gap-1.5 px-3">
-              <CheckSquare :size="12" />
-              ADO Browser
-              <Badge v-if="adoStore.workItemTree.length" variant="secondary" class="text-[10px] h-4 px-1 ml-0.5">{{ adoStore.workItemTree.length }}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="pull-requests" class="text-xs gap-1.5 px-3">
-              <GitPullRequest :size="12" />
-              Pull Requests
-              <Badge v-if="totalPRCount" variant="secondary" class="text-[10px] h-4 px-1 ml-0.5">{{ totalPRCount }}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="pipelines" class="text-xs gap-1.5 px-3">
-              <GitMerge :size="12" />
-              Pipelines
-              <Badge v-if="adoStore.pipelines.length" variant="secondary" class="text-[10px] h-4 px-1 ml-0.5">{{ adoStore.pipelines.length }}</Badge>
-            </TabsTrigger>
-          </TabsList>
-        </div>
+      <div class="flex-1 flex flex-col min-h-0">
 
         <!-- ═══ ADO Browser Tab ═══ -->
-        <TabsContent value="browser" class="flex-1 min-h-0 mt-0 flex flex-col">
-          <!-- Filter toolbar -->
-          <PageHeader>
-            <template #left>
-              <!-- Search -->
-              <div class="relative">
-                <Search :size="12" class="absolute left-2 top-2 text-muted-foreground" />
-                <Input
-                  v-model="adoStore.searchQuery"
-                  placeholder="Search..."
-                  class="h-7 w-40 pl-7 text-[11px]"
-                />
-              </div>
+        <template v-if="activeTab === 'browser'">
+          <!-- Filter row (above list, not part of it) -->
+          <div class="flex items-center gap-1.5 px-4 py-1.5 border-b border-border shrink-0">
+            <span class="text-[10px] text-muted-foreground shrink-0">Type</span>
+            <Select v-model="adoStore.filterType">
+              <SelectTrigger class="h-6 w-[68px] text-[10px] px-1.5">
+                <SelectValue placeholder="All" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" class="text-xs">All</SelectItem>
+                <SelectItem value="Task" class="text-xs">Task</SelectItem>
+                <SelectItem value="Bug" class="text-xs">Bug</SelectItem>
+                <SelectItem value="User Story" class="text-xs">User Story</SelectItem>
+                <SelectItem value="Feature" class="text-xs">Feature</SelectItem>
+                <SelectItem value="Deliverable" class="text-xs">Deliverable</SelectItem>
+                <SelectItem value="Scenario" class="text-xs">Scenario</SelectItem>
+                <SelectItem value="Epic" class="text-xs">Epic</SelectItem>
+              </SelectContent>
+            </Select>
 
-              <!-- Type filter -->
-              <Select v-model="adoStore.filterType">
-                <SelectTrigger class="h-7 w-24 text-[11px]">
-                  <SelectValue placeholder="Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" class="text-xs">All Types</SelectItem>
-                  <SelectItem value="Task" class="text-xs">Task</SelectItem>
-                  <SelectItem value="Bug" class="text-xs">Bug</SelectItem>
-                  <SelectItem value="User Story" class="text-xs">User Story</SelectItem>
-                  <SelectItem value="Feature" class="text-xs">Feature</SelectItem>
-                  <SelectItem value="Epic" class="text-xs">Epic</SelectItem>
-                </SelectContent>
-              </Select>
+            <span class="text-[10px] text-muted-foreground shrink-0">State</span>
+            <Select v-model="adoStore.filterState">
+              <SelectTrigger class="h-6 w-[60px] text-[10px] px-1.5">
+                <SelectValue placeholder="All" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" class="text-xs">All</SelectItem>
+                <SelectItem value="Active" class="text-xs">Active</SelectItem>
+                <SelectItem value="New" class="text-xs">New</SelectItem>
+                <SelectItem value="Resolved" class="text-xs">Resolved</SelectItem>
+                <SelectItem value="Closed" class="text-xs">Closed</SelectItem>
+              </SelectContent>
+            </Select>
 
-              <!-- State filter -->
-              <Select v-model="adoStore.filterState">
-                <SelectTrigger class="h-7 w-24 text-[11px]">
-                  <SelectValue placeholder="State" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" class="text-xs">All States</SelectItem>
-                  <SelectItem value="Active" class="text-xs">Active</SelectItem>
-                  <SelectItem value="New" class="text-xs">New</SelectItem>
-                  <SelectItem value="Resolved" class="text-xs">Resolved</SelectItem>
-                  <SelectItem value="Closed" class="text-xs">Closed</SelectItem>
-                </SelectContent>
-              </Select>
+            <span class="text-[10px] text-muted-foreground shrink-0">Area</span>
+            <Select v-model="adoStore.filterArea">
+              <SelectTrigger class="h-6 w-[80px] text-[10px] px-1.5">
+                <SelectValue placeholder="All" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" class="text-xs">All</SelectItem>
+                <SelectItem
+                  v-for="area in adoStore.availableAreaPaths"
+                  :key="area"
+                  :value="area"
+                  class="text-xs"
+                >{{ area }}</SelectItem>
+              </SelectContent>
+            </Select>
 
-              <!-- Area Path filter -->
-              <Select v-model="adoStore.filterArea">
-                <SelectTrigger class="h-7 w-32 text-[11px]">
-                  <SelectValue placeholder="Area Path" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" class="text-xs">All Areas</SelectItem>
-                  <SelectItem
-                    v-for="area in adoStore.availableAreaPaths"
-                    :key="area"
-                    :value="area"
-                    class="text-xs"
-                  >{{ area }}</SelectItem>
-                </SelectContent>
-              </Select>
+            <span class="text-[10px] text-muted-foreground shrink-0">Query</span>
+            <Select :model-value="selectedQueryId" @update:model-value="onQueryChange">
+              <SelectTrigger class="h-6 w-[90px] text-[10px] px-1.5">
+                <SelectValue placeholder="My Items" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__my_assignments__" class="text-xs">My Assignments</SelectItem>
+                <SelectItem
+                  v-for="q in adoStore.savedQueries"
+                  :key="q.id"
+                  :value="q.id"
+                  class="text-xs"
+                >{{ q.name }}</SelectItem>
+              </SelectContent>
+            </Select>
 
-              <!-- Saved Queries -->
-              <Select :model-value="selectedQueryId" @update:model-value="onQueryChange">
-                <SelectTrigger class="h-7 w-36 text-[11px]">
-                  <SelectValue placeholder="Saved Queries" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__my_assignments__" class="text-xs">My Assignments</SelectItem>
-                  <SelectItem
-                    v-for="q in adoStore.savedQueries"
-                    :key="q.id"
-                    :value="q.id"
-                    class="text-xs"
-                  >{{ q.name }}</SelectItem>
-                </SelectContent>
-              </Select>
-            </template>
+            <div class="flex-1" />
 
-            <template #right>
-              <!-- Hide Linked toggle -->
-              <Button
-                :variant="adoStore.hideLinked ? 'default' : 'outline'"
-                size="sm"
-                class="h-7 text-[11px] gap-1"
-                @click="adoStore.hideLinked = !adoStore.hideLinked"
-              >
-                <EyeOff v-if="adoStore.hideLinked" :size="12" />
-                <Eye v-else :size="12" />
-                Hide Linked
-              </Button>
-            </template>
-          </PageHeader>
+            <Button
+              :variant="adoStore.hideLinked ? 'default' : 'outline'"
+              size="sm"
+              class="h-6 text-[10px] gap-1"
+              @click="adoStore.hideLinked = !adoStore.hideLinked"
+            >
+              <EyeOff v-if="adoStore.hideLinked" :size="11" />
+              <Eye v-else :size="11" />
+              Hide Linked
+            </Button>
+          </div>
 
           <!-- Two-column layout: tree + detail -->
           <div class="flex-1 flex min-h-0">
             <!-- Left: Tree browser (60%) -->
-            <div class="w-[60%] border-r border-border">
-              <ScrollArea class="h-full">
-                <div class="py-2 px-2">
+            <div class="w-[60%] border-r border-border flex flex-col">
+              <!-- Search inside tree panel -->
+              <div class="px-2 py-1.5 border-b border-border shrink-0">
+                <div class="relative">
+                  <Search :size="12" class="absolute left-2 top-1.5 text-muted-foreground" />
+                  <Input
+                    v-model="adoStore.searchQuery"
+                    placeholder="Search work items..."
+                    class="h-6 pl-7 text-[10px]"
+                  />
+                </div>
+              </div>
+              <ScrollArea class="flex-1">
+                <!-- Loading skeleton for tree -->
+                <div v-if="adoStore.loading" class="p-3 space-y-2">
+                  <div v-for="i in 8" :key="i" class="flex items-center gap-2 px-2 py-1.5">
+                    <Skeleton class="h-3 w-3 rounded shrink-0" />
+                    <Skeleton class="h-3 flex-1 rounded" />
+                    <Skeleton class="h-3 w-12 rounded" />
+                  </div>
+                </div>
+                <div v-else class="py-2 px-2">
                   <EmptyState
-                    v-if="!adoStore.loading && adoStore.treeRoots.length === 0"
+                    v-if="adoStore.treeRoots.length === 0"
                     :icon="CheckSquare"
                     title="No work items"
-                    description="No ADO work items match your current filters. Try adjusting your filters or syncing."
+                    description="No ADO work items match your current filters."
                     class="py-8"
                   />
                   <AdoTreeBrowser
@@ -456,6 +435,7 @@ const teamPRsToShow = computed(() =>
                     :items="adoStore.treeRoots"
                     :get-children="adoStore.getChildren"
                     :is-linked="adoStore.isLinked"
+                    :selected-id="adoStore.selectedItem?.adoId"
                     @select="onTreeSelect"
                     @import="onTreeImport"
                     @link="onTreeLink"
@@ -465,100 +445,103 @@ const teamPRsToShow = computed(() =>
             </div>
 
             <!-- Right: Detail panel (40%) -->
-            <div class="w-[40%]">
-              <ScrollArea class="h-full">
-                <div v-if="adoStore.selectedItem" class="p-4 space-y-4">
-                  <!-- Title + type badge -->
-                  <div class="space-y-2">
-                    <div class="flex items-center gap-2">
-                      <component :is="typeIcon(adoStore.selectedItem.type)" :size="16" :class="typeColor(adoStore.selectedItem.type)" />
-                      <Badge variant="outline" :class="['text-[10px] h-4 px-1.5', stateClasses(adoStore.selectedItem.state)]">
-                        {{ adoStore.selectedItem.state }}
-                      </Badge>
-                      <span class="text-[10px] text-muted-foreground tabular-nums">#{{ adoStore.selectedItem.adoId }}</span>
-                    </div>
-                    <h2 class="text-sm font-semibold text-foreground leading-snug">{{ adoStore.selectedItem.title }}</h2>
+            <div class="w-[40%] flex flex-col">
+              <template v-if="adoStore.selectedItem">
+                <!-- Header: type + title + metadata (compact) -->
+                <div class="shrink-0 border-b border-border px-4 py-3 space-y-2">
+                  <div class="flex items-center gap-2">
+                    <component :is="typeIcon(adoStore.selectedItem.type)" :size="16" :class="adoTypeColor(adoStore.selectedItem.type)" />
+                    <h2 class="text-sm font-semibold text-foreground leading-snug flex-1 truncate">{{ adoStore.selectedItem.title }}</h2>
+                    <Badge variant="outline" :class="['text-[10px] h-4 px-1.5', adoStateClasses(adoStore.selectedItem.state)]">
+                      {{ adoStore.selectedItem.state }}
+                    </Badge>
+                    <span class="text-[10px] text-muted-foreground tabular-nums">#{{ adoStore.selectedItem.adoId }}</span>
                   </div>
-
-                  <!-- Metadata -->
-                  <div class="space-y-1.5">
-                    <div v-if="adoStore.selectedItem.assignedTo" class="flex items-center gap-2 text-xs">
-                      <span class="text-muted-foreground w-20 shrink-0">Assigned to</span>
-                      <span class="text-foreground">{{ adoStore.selectedItem.assignedTo }}</span>
-                    </div>
-                    <div class="flex items-center gap-2 text-xs">
-                      <span class="text-muted-foreground w-20 shrink-0">Priority</span>
-                      <Badge variant="outline" :class="['text-[10px] h-4 px-1.5', priorityClasses(adoStore.selectedItem.priority)]">
-                        P{{ adoStore.selectedItem.priority }}
-                      </Badge>
-                    </div>
-                    <div v-if="adoStore.selectedItem.areaPath" class="flex items-center gap-2 text-xs">
-                      <span class="text-muted-foreground w-20 shrink-0">Area Path</span>
-                      <span class="text-foreground truncate">{{ adoStore.selectedItem.areaPath }}</span>
-                    </div>
-                    <div v-if="adoStore.selectedItem.org || adoStore.selectedItem.project" class="flex items-center gap-2 text-xs">
-                      <span class="text-muted-foreground w-20 shrink-0">Org/Project</span>
-                      <span class="text-foreground">{{ adoStore.selectedItem.org }}/{{ adoStore.selectedItem.project }}</span>
-                    </div>
+                  <!-- Inline metadata row -->
+                  <div class="flex items-center gap-3 text-[10px] text-muted-foreground flex-wrap">
+                    <span v-if="adoStore.selectedItem.assignedTo">{{ adoStore.selectedItem.assignedTo }}</span>
+                    <Badge variant="outline" :class="['text-[9px] h-3.5 px-1', adoPriorityClasses(adoStore.selectedItem.priority)]">
+                      P{{ adoStore.selectedItem.priority }}
+                    </Badge>
+                    <span v-if="adoStore.selectedItem.areaPath" class="truncate max-w-[10rem]">{{ adoStore.selectedItem.areaPath }}</span>
+                    <span v-if="adoStore.selectedItem.org">{{ adoStore.selectedItem.org }}/{{ adoStore.selectedItem.project }}</span>
                   </div>
-
-                  <!-- Description -->
-                  <div v-if="adoStore.selectedItem.description" class="space-y-1">
-                    <h3 class="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Description</h3>
-                    <div
-                      class="rounded-md border bg-muted/20 px-3 py-2 text-xs text-foreground prose prose-sm max-h-[200px] overflow-y-auto"
-                      v-html="adoStore.selectedItem.description"
-                    />
-                  </div>
-
-                  <!-- Action buttons -->
-                  <div class="flex items-center gap-2 pt-2 border-t border-border">
+                  <!-- Action buttons (compact row) -->
+                  <div class="flex items-center gap-1.5">
                     <Button
                       v-if="!adoStore.isLinked(adoStore.selectedItem.adoId)"
                       size="sm"
-                      class="h-7 text-xs gap-1.5"
+                      class="h-6 text-[10px] gap-1"
                       @click="onTreeImport(adoStore.selectedItem)"
                     >
-                      <Download :size="12" />
-                      Import as Task
+                      <Download :size="11" />
+                      Import
                     </Button>
                     <Button
                       v-if="!adoStore.isLinked(adoStore.selectedItem.adoId)"
                       variant="outline"
                       size="sm"
-                      class="h-7 text-xs gap-1.5"
+                      class="h-6 text-[10px] gap-1"
                       @click="onTreeLink(adoStore.selectedItem)"
                     >
-                      <Link :size="12" />
-                      Link to Existing Task
+                      <Link :size="11" />
+                      Link
                     </Button>
                     <Badge v-if="adoStore.isLinked(adoStore.selectedItem.adoId)" class="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25 text-[10px]">
                       <CheckCircle2 :size="10" class="mr-1" />
                       Linked
                     </Badge>
+                    <div class="flex-1" />
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
-                      class="h-7 text-xs gap-1.5 ml-auto"
+                      class="h-6 text-[10px] gap-1"
                       @click="openExternal(adoStore.selectedItem!.url)"
                     >
-                      <ExternalLink :size="12" />
+                      <ExternalLink :size="11" />
                       Open in ADO
                     </Button>
                   </div>
                 </div>
 
-                <!-- Empty state -->
-                <div v-else class="flex-1 flex items-center justify-center p-8">
-                  <p class="text-[11px] text-muted-foreground/40 text-center">Select a work item to view details</p>
+                <!-- Hierarchy (always visible, compact) -->
+                <div class="shrink-0 border-b border-border px-4 py-2">
+                  <h3 class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Hierarchy</h3>
+                  <AdoHierarchyTree
+                    :item="adoStore.selectedItem"
+                    :get-children="adoStore.getChildren"
+                    :all-items="adoStore.workItemTree"
+                    @select="onTreeSelect"
+                  />
                 </div>
-              </ScrollArea>
+
+                <!-- Description (fills remaining height) -->
+                <div class="flex-1 min-h-0">
+                  <ScrollArea class="h-full">
+                    <div v-if="adoStore.selectedItem.description" class="px-4 py-3">
+                      <h3 class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Description</h3>
+                      <div
+                        class="text-xs text-foreground prose prose-sm max-w-none [&_*]:text-xs [&_*]:text-foreground"
+                        v-html="adoStore.selectedItem.description"
+                      />
+                    </div>
+                    <div v-else class="px-4 py-6 text-center">
+                      <p class="text-[11px] text-muted-foreground/40">No description</p>
+                    </div>
+                  </ScrollArea>
+                </div>
+              </template>
+
+              <!-- Empty state -->
+              <div v-else class="flex-1 flex items-center justify-center">
+                <p class="text-[11px] text-muted-foreground/40 text-center">Select a work item to view details</p>
+              </div>
             </div>
           </div>
-        </TabsContent>
+        </template>
 
         <!-- ═══ Pull Requests Tab ═══ -->
-        <TabsContent value="pull-requests" class="flex-1 min-h-0 mt-0">
+        <template v-if="activeTab === 'pull-requests'">
           <div v-if="prStore.loading" class="flex-1 flex items-center justify-center py-12">
             <LoadingSpinner label="Loading pull requests..." />
           </div>
@@ -690,10 +673,10 @@ const teamPRsToShow = computed(() =>
               </div>
             </div>
           </ScrollArea>
-        </TabsContent>
+        </template>
 
         <!-- ═══ Pipelines Tab ═══ -->
-        <TabsContent value="pipelines" class="flex-1 min-h-0 mt-0">
+        <template v-if="activeTab === 'pipelines'">
           <div v-if="adoStore.pipelinesLoading" class="flex-1 flex items-center justify-center py-12">
             <LoadingSpinner label="Loading pipelines..." />
           </div>
@@ -750,8 +733,8 @@ const teamPRsToShow = computed(() =>
               </Button>
             </div>
           </ScrollArea>
-        </TabsContent>
-      </Tabs>
+        </template>
+      </div>
     </template>
 
     <!-- Link Dialog (searches local personal tasks) -->

@@ -1,6 +1,10 @@
 package ado
 
-import "strconv"
+import (
+	"strconv"
+
+	"dev.azure.com/xbox/xb-tasks/domain"
+)
 
 // StatusToADO maps local task statuses to ADO work item states, keyed by work item type.
 // "default" is the fallback for types not explicitly listed.
@@ -88,15 +92,15 @@ func MapPriorityToADO(localPriority string) int {
 }
 
 // GenerateSyncDiff compares a local and remote WorkItem and returns the differences.
-func GenerateSyncDiff(local, remote WorkItem) SyncDiff {
-	diff := SyncDiff{
+func GenerateSyncDiff(local, remote WorkItem) domain.SyncDiff {
+	diff := domain.SyncDiff{
 		TaskID:    local.ID,
 		AdoID:     strconv.Itoa(remote.ID),
 		Direction: "outbound",
 	}
 
 	if local.Title != remote.Title {
-		diff.Changes = append(diff.Changes, FieldDiff{
+		diff.Changes = append(diff.Changes, domain.FieldDiff{
 			Field:    "title",
 			Local:    local.Title,
 			Remote:   remote.Title,
@@ -107,7 +111,7 @@ func GenerateSyncDiff(local, remote WorkItem) SyncDiff {
 	// Compare states using mapping
 	localMapped := MapStatusToADO(local.State, remote.Type)
 	if localMapped != remote.State {
-		diff.Changes = append(diff.Changes, FieldDiff{
+		diff.Changes = append(diff.Changes, domain.FieldDiff{
 			Field:    "state",
 			Local:    local.State,
 			Remote:   remote.State,
@@ -116,7 +120,7 @@ func GenerateSyncDiff(local, remote WorkItem) SyncDiff {
 	}
 
 	if local.Description != remote.Description {
-		diff.Changes = append(diff.Changes, FieldDiff{
+		diff.Changes = append(diff.Changes, domain.FieldDiff{
 			Field:    "description",
 			Local:    local.Description,
 			Remote:   remote.Description,

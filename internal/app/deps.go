@@ -110,7 +110,7 @@ func (s *DependencyService) GetDependencies(taskID int) ([]domain.Task, error) {
 		`SELECT t.id, t.title, t.description, t.status, t.priority, t.category,
 		        t.project_id, t.area, t.due_date, t.ado_id, t.tags, t.blocked_reason,
 		        t.blocked_by, t.parent_id, t.personal_priority,
-		        t.created_at, t.updated_at, t.completed_at
+		        t.sort_order, t.created_at, t.updated_at, t.completed_at
 		 FROM tasks t
 		 JOIN task_deps td ON t.id = td.depends_on
 		 WHERE td.task_id = ?`, taskID,
@@ -129,7 +129,7 @@ func (s *DependencyService) GetBlockedBy(taskID int) ([]domain.Task, error) {
 		`SELECT t.id, t.title, t.description, t.status, t.priority, t.category,
 		        t.project_id, t.area, t.due_date, t.ado_id, t.tags, t.blocked_reason,
 		        t.blocked_by, t.parent_id, t.personal_priority,
-		        t.created_at, t.updated_at, t.completed_at
+		        t.sort_order, t.created_at, t.updated_at, t.completed_at
 		 FROM tasks t
 		 JOIN task_deps td ON t.id = td.task_id
 		 WHERE td.depends_on = ?`, taskID,
@@ -155,7 +155,7 @@ func scanTasks(rows interface {
 			&t.Category, &t.ProjectID, &t.Area, &t.DueDate,
 			&t.AdoID, &t.Tags, &t.BlockedReason, &t.BlockedBy,
 			&t.ParentID, &t.PersonalPriority,
-			&t.CreatedAt, &t.UpdatedAt, &t.CompletedAt,
+			&t.SortOrder, &t.CreatedAt, &t.UpdatedAt, &t.CompletedAt,
 		); err != nil {
 			continue
 		}

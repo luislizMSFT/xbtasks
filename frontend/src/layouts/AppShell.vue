@@ -1,22 +1,24 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useTaskStore } from '@/stores/tasks'
-import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import Sidebar from '@/components/Sidebar.vue'
 import CommandPalette from '@/components/CommandPalette.vue'
+import { useTaskStore } from '@/stores/tasks'
+import { relativeTime } from '@/lib/date'
 import {
-  Plus, Search, PanelRightClose, PanelRightOpen,
-  CircleDot, Eye, Octagon, CheckCircle2, Clock,
-  GitPullRequest, MessageSquare, ArrowRight,
+  Plus, Search, CheckCircle2, Circle, Play, AlertCircle, Clock, PanelRightClose,
+  CheckSquare, Link,
 } from 'lucide-vue-next'
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+} from '@/components/ui/dropdown-menu'
 
 const route = useRoute()
 const router = useRouter()
-const taskStore = useTaskStore()
 const activityOpen = ref(false)
+const taskStore = useTaskStore()
 
 const breadcrumb = computed(() => {
   const map: Record<string, string> = {
@@ -35,21 +37,30 @@ const breadcrumb = computed(() => {
 
 const showActions = computed(() => !route.path.startsWith('/login'))
 
-const statItems = computed(() => [
-  { key: 'inProgress', label: 'In Progress', count: taskStore.stats.inProgress, color: 'bg-blue-500', textColor: 'text-blue-600 dark:text-blue-400' },
-  { key: 'inReview', label: 'Review', count: taskStore.tasks.filter(t => t.status === 'in_review').length, color: 'bg-violet-500', textColor: 'text-violet-600 dark:text-violet-400' },
-  { key: 'blocked', label: 'Blocked', count: taskStore.stats.blocked, color: 'bg-red-500', textColor: 'text-red-600 dark:text-red-400' },
-  { key: 'done', label: 'Done', count: taskStore.stats.done, color: 'bg-emerald-500', textColor: 'text-emerald-600 dark:text-emerald-400' },
-])
+const statusMeta: Record<string, { icon: typeof CheckCircle2; color: string; label: string }> = {
+  done:        { icon: CheckCircle2, color: 'text-emerald-500', label: 'Completed' },
+  in_progress: { icon: Play,        color: 'text-blue-500',    label: 'In progress' },
+  blocked:     { icon: AlertCircle,  color: 'text-red-500',     label: 'Blocked' },
+  in_review:   { icon: Circle,      color: 'text-amber-500',   label: 'In review' },
+  todo:        { icon: Circle,      color: 'text-muted-foreground', label: 'To do' },
+}
+const defaultMeta = { icon: Circle, color: 'text-muted-foreground', label: 'Updated' }
 
-// Global activity feed
-const activityEvents = [
-  { id: 1, icon: CheckCircle2, color: 'text-emerald-500', description: 'Completed "Add unit tests for auth module"', timestamp: '25m ago' },
-  { id: 2, icon: GitPullRequest, color: 'text-violet-500', description: 'PR merged: Fix auth redirect loop', timestamp: '1h ago' },
-  { id: 3, icon: MessageSquare, color: 'text-blue-500', description: 'Commented on "Schema migration v2"', timestamp: '2h ago' },
-  { id: 4, icon: ArrowRight, color: 'text-amber-500', description: 'Moved "API rate limiting" to In Review', timestamp: '3h ago' },
-  { id: 5, icon: Plus, color: 'text-muted-foreground', description: 'Created task "Update deployment docs"', timestamp: '5h ago' },
-]
+const activityEvents = computed(() =>
+  [...taskStore.tasks]
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    .slice(0, 10)
+    .map(t => {
+      const meta = statusMeta[t.status] ?? defaultMeta
+      return {
+        id: t.id,
+        icon: meta.icon,
+        color: meta.color,
+        description: `${meta.label}: "${t.title}"`,
+        timestamp: relativeTime(t.updatedAt),
+      }
+    })
+)
 
 function openSearch() {
   window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))
@@ -68,45 +79,50 @@ function openSearch() {
     <!-- Main column -->
     <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
       <!-- Top bar: breadcrumb + stats + actions -->
-      <div class="h-[40px] flex items-center gap-2 px-4 border-b border-border titlebar-drag shrink-0" :style="{ backgroundColor: 'var(--color-bg-secondary, var(--surface-secondary))' }">
+      <div class="h-[46px] flex items-center gap-2 px-4 border-b border-border titlebar-drag shrink-0" :style="{ backgroundColor: 'var(--color-bg-secondary, var(--surface-secondary))' }">
         <!-- Breadcrumb -->
-        <span class="text-xs text-muted-foreground font-medium titlebar-no-drag select-none shrink-0">
+        <span class="text-sm font-medium text-foreground titlebar-no-drag select-none shrink-0">
           {{ breadcrumb }}
         </span>
 
-        <!-- Stats pills (always visible) -->
-        <div v-if="showActions" class="flex items-center gap-0.5 ml-2 titlebar-no-drag">
-          <div
-            v-for="stat in statItems"
-            :key="stat.key"
-            class="flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] text-muted-foreground"
-          >
-            <span :class="cn('w-1.5 h-1.5 rounded-full shrink-0', stat.color)" />
-            <span class="tabular-nums font-medium" :class="stat.textColor">{{ stat.count }}</span>
-            <span class="hidden lg:inline">{{ stat.label }}</span>
-          </div>
-        </div>
+        <!-- Teleport target for page-specific actions -->
+        <div id="topbar-actions" class="flex items-center gap-2 ml-3 titlebar-no-drag" />
 
         <!-- Spacer (draggable) -->
         <div class="flex-1" />
 
         <!-- Actions (not draggable) -->
-        <div v-if="showActions" class="flex items-center gap-1 titlebar-no-drag">
-          <Button variant="ghost" size="sm" class="h-7 px-2 text-xs text-muted-foreground gap-1" @click="openSearch">
-            <Search :size="13" />
+        <div v-if="showActions" class="flex items-center gap-2 titlebar-no-drag">
+          <Button variant="outline" size="sm" class="h-8 px-3 text-xs text-muted-foreground gap-2 min-w-[160px] justify-start" @click="openSearch">
+            <Search :size="14" />
+            <span class="flex-1 text-left">Search...</span>
             <kbd class="text-[9px] bg-muted px-1 rounded font-mono">⌘K</kbd>
           </Button>
-          <Button size="sm" class="h-7 px-2.5 text-xs gap-1" @click="router.push('/tasks')">
-            <Plus :size="13" />
-            New
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" class="h-7 px-2.5 text-xs gap-1">
+                <Plus :size="13" />
+                New
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" class="w-44">
+              <DropdownMenuItem class="text-xs gap-2" @click="openSearch()">
+                <CheckSquare :size="13" />
+                Task
+              </DropdownMenuItem>
+              <DropdownMenuItem class="text-xs gap-2" @click="router.push('/ado')">
+                <Link :size="13" />
+                Import from ADO
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             variant="ghost" size="icon"
             class="h-7 w-7 text-muted-foreground"
             @click="activityOpen = !activityOpen"
             :title="activityOpen ? 'Hide activity' : 'Show activity'"
           >
-            <Clock :size="14" />
+            <Clock :size="15" />
           </Button>
         </div>
       </div>
@@ -138,7 +154,10 @@ function openSearch() {
               </Button>
             </div>
             <ScrollArea class="flex-1 h-full">
-              <div class="px-3 py-2 space-y-0.5">
+              <div v-if="activityEvents.length === 0" class="px-3 py-6 text-center">
+                <p class="text-[11px] text-muted-foreground">No recent activity</p>
+              </div>
+              <div v-else class="px-3 py-2 space-y-0.5">
                 <div
                   v-for="event in activityEvents"
                   :key="event.id"

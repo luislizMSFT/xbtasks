@@ -45,14 +45,14 @@ func (s *TaskService) GetByID(id int) (domain.Task, error) {
 	err := s.db.QueryRow(
 		`SELECT id, title, description, status, priority, category, project_id, area, due_date,
 		        ado_id, tags, blocked_reason, blocked_by, parent_id, personal_priority,
-		        created_at, updated_at, completed_at
+		        sort_order, created_at, updated_at, completed_at
 		 FROM tasks WHERE id = ?`, id,
 	).Scan(
 		&t.ID, &t.Title, &t.Description, &t.Status, &t.Priority,
 		&t.Category, &t.ProjectID, &t.Area, &t.DueDate,
 		&t.AdoID, &t.Tags, &t.BlockedReason, &t.BlockedBy,
 		&t.ParentID, &t.PersonalPriority,
-		&t.CreatedAt, &t.UpdatedAt, &t.CompletedAt,
+		&t.SortOrder, &t.CreatedAt, &t.UpdatedAt, &t.CompletedAt,
 	)
 	if err != nil {
 		return t, fmt.Errorf("get task %d: %w", id, err)
@@ -63,14 +63,14 @@ func (s *TaskService) GetByID(id int) (domain.Task, error) {
 func (s *TaskService) List(status string) ([]domain.Task, error) {
 	query := `SELECT id, title, description, status, priority, category, project_id, area, due_date,
 	                  ado_id, tags, blocked_reason, blocked_by, parent_id, personal_priority,
-	                  created_at, updated_at, completed_at
+	                  sort_order, created_at, updated_at, completed_at
 	           FROM tasks`
 	var args []any
 	if status != "" {
 		query += " WHERE status = ?"
 		args = append(args, status)
 	}
-	query += " ORDER BY CASE priority WHEN 'P0' THEN 0 WHEN 'P1' THEN 1 WHEN 'P2' THEN 2 WHEN 'P3' THEN 3 END, updated_at DESC"
+	query += " ORDER BY sort_order ASC, CASE priority WHEN 'P0' THEN 0 WHEN 'P1' THEN 1 WHEN 'P2' THEN 2 WHEN 'P3' THEN 3 END, updated_at DESC"
 
 	rows, err := s.db.Query(query, args...)
 	if err != nil {
@@ -86,7 +86,7 @@ func (s *TaskService) List(status string) ([]domain.Task, error) {
 			&t.Category, &t.ProjectID, &t.Area, &t.DueDate,
 			&t.AdoID, &t.Tags, &t.BlockedReason, &t.BlockedBy,
 			&t.ParentID, &t.PersonalPriority,
-			&t.CreatedAt, &t.UpdatedAt, &t.CompletedAt,
+			&t.SortOrder, &t.CreatedAt, &t.UpdatedAt, &t.CompletedAt,
 		); err != nil {
 			log.Printf("scan task row: %v", err)
 			continue
@@ -132,7 +132,7 @@ func (s *TaskService) GetSubtasks(parentID int) ([]domain.Task, error) {
 	rows, err := s.db.Query(
 		`SELECT id, title, description, status, priority, category, project_id, area, due_date,
 		        ado_id, tags, blocked_reason, blocked_by, parent_id, personal_priority,
-		        created_at, updated_at, completed_at
+		        sort_order, created_at, updated_at, completed_at
 		 FROM tasks WHERE parent_id = ?
 		 ORDER BY CASE priority WHEN 'P0' THEN 0 WHEN 'P1' THEN 1 WHEN 'P2' THEN 2 WHEN 'P3' THEN 3 END`, parentID,
 	)
@@ -149,7 +149,7 @@ func (s *TaskService) GetSubtasks(parentID int) ([]domain.Task, error) {
 			&t.Category, &t.ProjectID, &t.Area, &t.DueDate,
 			&t.AdoID, &t.Tags, &t.BlockedReason, &t.BlockedBy,
 			&t.ParentID, &t.PersonalPriority,
-			&t.CreatedAt, &t.UpdatedAt, &t.CompletedAt,
+			&t.SortOrder, &t.CreatedAt, &t.UpdatedAt, &t.CompletedAt,
 		); err != nil {
 			log.Printf("scan subtask row: %v", err)
 			continue
@@ -192,7 +192,7 @@ func (s *TaskService) CreateSubtask(parentID int, title, description, priority s
 func (s *TaskService) ListFiltered(status, projectID, parentID, tag string) ([]domain.Task, error) {
 	query := `SELECT id, title, description, status, priority, category, project_id, area, due_date,
 	                  ado_id, tags, blocked_reason, blocked_by, parent_id, personal_priority,
-	                  created_at, updated_at, completed_at
+	                  sort_order, created_at, updated_at, completed_at
 	           FROM tasks WHERE 1=1`
 	var args []any
 	if status != "" {
@@ -227,7 +227,7 @@ func (s *TaskService) ListFiltered(status, projectID, parentID, tag string) ([]d
 			&t.Category, &t.ProjectID, &t.Area, &t.DueDate,
 			&t.AdoID, &t.Tags, &t.BlockedReason, &t.BlockedBy,
 			&t.ParentID, &t.PersonalPriority,
-			&t.CreatedAt, &t.UpdatedAt, &t.CompletedAt,
+			&t.SortOrder, &t.CreatedAt, &t.UpdatedAt, &t.CompletedAt,
 		); err != nil {
 			log.Printf("scan filtered task row: %v", err)
 			continue
@@ -291,4 +291,25 @@ func (s *TaskService) GetAllTags() ([]string, error) {
 	}
 	sort.Strings(result)
 	return result, nil
+}
+
+// ReorderTasks bulk-updates sort_order for a list of task IDs.
+func (s *TaskService) ReorderTasks(orderedIDs []int) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin reorder tx: %w", err)
+	}
+	stmt, err := tx.Prepare(`UPDATE tasks SET sort_order = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("prepare reorder: %w", err)
+	}
+	defer stmt.Close()
+	for i, id := range orderedIDs {
+		if _, err := stmt.Exec(i, id); err != nil {
+			tx.Rollback()
+			return fmt.Errorf("reorder task %d: %w", id, err)
+		}
+	}
+	return tx.Commit()
 }

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted } from 'vue'
 import { useTaskStore, type Task } from '@/stores/tasks'
+import { useNotify } from '@/composables/useNotify'
 import { useProjectStore } from '@/stores/projects'
 import { usePRStore } from '@/stores/prs'
 import TagChip from '@/components/ui/TagChip.vue'
@@ -9,7 +10,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
 import {
@@ -19,11 +19,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import ExternalLinks from '@/components/ExternalLinks.vue'
-import CommentsSection from '@/components/CommentsSection.vue'
-import ADODiscussion from '@/components/ADODiscussion.vue'
-import SyncConfirmDialog from '@/components/SyncConfirmDialog.vue'
-import ConflictResolver from '@/components/ConflictResolver.vue'
+import ExternalLinks from '@/components/tasks/ExternalLinks.vue'
+import CommentsSection from '@/components/tasks/CommentsSection.vue'
+import ADODiscussion from '@/components/ado/ADODiscussion.vue'
+import SyncConfirmDialog from '@/components/ado/SyncConfirmDialog.vue'
+import ConflictResolver from '@/components/ado/ConflictResolver.vue'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useSyncStore } from '@/stores/sync'
 import {
   X,
@@ -37,9 +44,10 @@ import {
   Upload,
   Folder,
   CalendarDays,
+  Link2Off,
 } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
-import { statusBgColor } from '@/lib/styles'
+import { statusBgColor, prStatusClasses } from '@/lib/styles'
 
 // ── Store & emits ──
 const taskStore = useTaskStore()
@@ -63,8 +71,10 @@ const priorities = ['P0', 'P1', 'P2', 'P3']
 
 const task = computed(() => taskStore.selectedTask)
 
-watch(task, (t) => {
+watch(task, (t, oldT) => {
   if (t) {
+    // Reset saving guard when switching to a different task
+    if (oldT && t.id !== oldT.id) saving = false
     editTitle.value = t.title
     editDescription.value = t.description
     editStatus.value = t.status
@@ -76,18 +86,42 @@ watch(task, (t) => {
 }, { immediate: true })
 
 // ── Save / delete ──
+let saving = false
+let saveTaskId: number | null = null
 async function save() {
-  if (!task.value) return
-  const updated: Task = {
-    ...task.value,
-    title: editTitle.value,
-    description: editDescription.value,
-    status: editStatus.value,
-    priority: editPriority.value,
-    dueDate: editDueDate.value,
-    tags: editTags.value.join(','),
+  if (!task.value || saving) return
+  const currentId = task.value.id
+  // Skip save if fields haven't actually changed
+  if (
+    editTitle.value === task.value.title &&
+    editDescription.value === task.value.description &&
+    editStatus.value === task.value.status &&
+    editPriority.value === task.value.priority &&
+    editDueDate.value === task.value.dueDate &&
+    editTags.value.join(',') === task.value.tags &&
+    (editProject.value ? Number(editProject.value) : null) === (task.value.projectId ?? null)
+  ) return
+  saving = true
+  saveTaskId = currentId
+  try {
+    // Abort if task changed during save (user clicked another task)
+    if (task.value?.id !== currentId) return
+    const updated: Task = {
+      ...task.value,
+      title: editTitle.value,
+      description: editDescription.value,
+      status: editStatus.value,
+      priority: editPriority.value,
+      dueDate: editDueDate.value,
+      tags: editTags.value.join(','),
+      projectId: editProject.value ? Number(editProject.value) : null,
+    }
+    await taskStore.updateTask(updated)
+  } catch (e) {
+    console.warn('[TaskDetail] save failed:', e)
+  } finally {
+    saving = false
   }
-  await taskStore.updateTask(updated)
 }
 
 async function onStatusChange(status: string) {
@@ -124,8 +158,8 @@ function removeTag(tag: string) {
 // ── Helpers ──
 async function openUrl(url: string) {
   try {
-    const { OpenURL } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/browserservice')
-    await OpenURL(url)
+    const { openURL } = await import('@/api/browser')
+    await openURL(url)
   } catch { window.open(url, '_blank') }
 }
 
@@ -136,8 +170,8 @@ const newSubtaskTitle = ref('')
 async function loadSubtasks() {
   if (!task.value) return
   try {
-    const { GetSubtasks } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/taskservice')
-    subtasks.value = await GetSubtasks(task.value.id) as Task[]
+    const { getSubtasks } = await import('@/api/tasks')
+    subtasks.value = await getSubtasks(task.value.id) as Task[]
   } catch {
     subtasks.value = []
   }
@@ -154,8 +188,8 @@ async function toggleSubtask(id: number) {
   if (!st) return
   const newStatus = st.status === 'done' ? 'todo' : 'done'
   try {
-    const { SetStatus } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/taskservice')
-    await SetStatus(id, newStatus)
+    const { setStatus } = await import('@/api/tasks')
+    await setStatus(id, newStatus)
     st.status = newStatus
   } catch {
     st.status = newStatus // optimistic update
@@ -165,8 +199,8 @@ async function toggleSubtask(id: number) {
 async function addSubtask() {
   if (!task.value || !newSubtaskTitle.value.trim()) return
   try {
-    const { CreateSubtask } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/taskservice')
-    const sub = await CreateSubtask(task.value.id, newSubtaskTitle.value.trim(), '', 'P2') as Task
+    const { createSubtask } = await import('@/api/tasks')
+    const sub = await createSubtask(task.value.id, newSubtaskTitle.value.trim(), '', 'P2') as Task
     subtasks.value.push(sub)
     newSubtaskTitle.value = ''
   } catch {
@@ -189,20 +223,8 @@ const taskPRs = computed(() => {
     (task.value!.adoId && pr.adoId === task.value!.adoId)
   )
 })
-const prsOpen = ref(false)
-
 function prIconColor(status: string) {
   return status === 'completed' ? 'text-violet-500' : status === 'draft' ? 'text-zinc-400' : 'text-emerald-500'
-}
-
-function prStatusClasses(status: string) {
-  switch (status) {
-    case 'active': return 'bg-emerald-500/15 text-emerald-600 border-emerald-500/20'
-    case 'completed': return 'bg-violet-500/15 text-violet-600 border-violet-500/20'
-    case 'draft': return 'bg-zinc-500/15 text-muted-foreground border-zinc-500/20'
-    case 'abandoned': return 'bg-red-500/15 text-red-600 border-red-500/20'
-    default: return 'bg-zinc-500/15 text-muted-foreground border-zinc-500/20'
-  }
 }
 
 function prStatusLabel(status: string) {
@@ -216,7 +238,8 @@ onMounted(() => {
 })
 
 // ── Description ──
-const descriptionOpen = ref(true)
+const descriptionOpen = ref(false)
+const detailsOpen = ref(false)
 
 // ── Style helpers ──
 
@@ -240,6 +263,47 @@ const priorityDot: Record<string, string> = {
 function adoNumber(adoId: string): string {
   const match = adoId.match(/\d+/)
   return match ? `#${match[0]}` : adoId
+}
+
+// Build ADO URL using cached org/project from the work item
+const adoUrl = ref('')
+const lastAdoId = ref('')
+watch(task, async (t) => {
+  const adoId = t?.adoId || ''
+  if (adoId === lastAdoId.value) return
+  lastAdoId.value = adoId
+  if (!adoId) { adoUrl.value = ''; return }
+  try {
+    const { getCachedWorkItem } = await import('@/api/workitems')
+    const wi = await getCachedWorkItem(adoId) as any
+    if (wi?.org && wi?.project) {
+      adoUrl.value = `https://${wi.org}.visualstudio.com/${wi.project}/_workitems/edit/${adoId}`
+    } else {
+      adoUrl.value = ''
+    }
+  } catch {
+    adoUrl.value = ''
+  }
+}, { immediate: true })
+
+async function openAdoLink() {
+  if (!adoUrl.value) return
+  openUrl(adoUrl.value)
+}
+
+const notify = useNotify()
+
+async function unlinkFromADO() {
+  if (!task.value?.adoId) return
+  try {
+    const { unlinkTask } = await import('@/api/links')
+    await unlinkTask(task.value.id, task.value.adoId, false)
+    await taskStore.fetchTasks()
+    notify.info('Task unlinked from ADO')
+  } catch (e) {
+    console.warn('[TaskDetail] Failed to unlink:', e)
+    notify.error('Failed to unlink')
+  }
 }
 
 // ── Timestamps ──
@@ -317,7 +381,7 @@ const timeUpdated = computed(() => {
           <span class="hidden sm:block w-px h-4 bg-border" />
 
           <!-- Group 2: Project + Due Date + ADO -->
-          <Select v-model="editProject">
+          <Select v-model="editProject" @update:model-value="save">
             <SelectTrigger class="inline-flex items-center gap-1.5 text-xs font-medium rounded-full pl-2 pr-1.5 py-0.5 h-auto border-border shadow-none [&_svg.lucide-chevron-down]:size-3">
               <Folder :size="11" class="text-muted-foreground" />
               <SelectValue placeholder="Project" />
@@ -341,14 +405,28 @@ const timeUpdated = computed(() => {
             />
           </div>
 
-          <span
-            v-if="task.adoId"
-            class="inline-flex items-center gap-1.5 text-xs font-medium text-blue-500 border border-blue-500/30 rounded-full px-2 py-0.5 cursor-pointer hover:bg-blue-500/10 transition-colors"
-          >
-            <AzureDevOpsIcon :size="12" />
-            {{ adoNumber(task.adoId) }}
-            <ExternalLink :size="10" />
-          </span>
+          <DropdownMenu v-if="task.adoId">
+            <DropdownMenuTrigger asChild>
+              <span
+                class="inline-flex items-center gap-1.5 text-xs font-medium text-blue-500 border border-blue-500/30 rounded-full px-2 py-0.5 cursor-pointer hover:bg-blue-500/10 transition-colors"
+              >
+                <AzureDevOpsIcon :size="12" />
+                {{ adoNumber(task.adoId) }}
+                <ChevronDown :size="10" />
+              </span>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" class="w-40">
+              <DropdownMenuItem @click="openAdoLink" class="text-xs gap-2">
+                <ExternalLink :size="12" />
+                Open in ADO
+              </DropdownMenuItem>
+              <DropdownMenuItem @click="unlinkFromADO" class="text-xs gap-2 text-red-500">
+                <Link2Off :size="12" />
+                Unlink
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <span v-if="task.adoId" class="text-[9px] text-muted-foreground/60">local copy</span>
         </div>
 
         <!-- Subtask progress bar -->
@@ -364,44 +442,29 @@ const timeUpdated = computed(() => {
 
       <!-- ─── Main Content ─────────────────────────────── -->
       <ScrollArea class="flex-1 min-h-0">
-        <div class="flex flex-col space-y-2">
+        <div class="flex flex-col px-4 pt-3 pb-3 space-y-4">
 
-              <!-- ADO Link & Sync utilities -->
-              <div class="px-4 pt-3">
-                <div class="flex items-center gap-2 mb-2">
-                  <AzureDevOpsIcon :size="12" class="text-muted-foreground" />
-                  <span class="font-semibold text-xs">ADO Link</span>
-                </div>
-                <div v-if="task.adoId" class="flex items-center gap-2 flex-wrap">
-                  <span
-                    class="inline-flex items-center gap-1.5 text-xs text-blue-500 cursor-pointer hover:underline"
-                    @click="openUrl(`https://dev.azure.com/_workitems/edit/${task.adoId}`)"
-                  >
-                    <ExternalLink :size="11" />
-                    Open in ADO #{{ adoNumber(task.adoId) }}
-                  </span>
-                  <Button v-if="taskStore.isPublic(task.id)" variant="outline" size="sm" class="h-6 text-[11px] gap-1" @click="syncStore.generateOutboundDiff(task.id)">
-                    <Upload :size="11" />
-                    Push to ADO
-                  </Button>
-                </div>
-                <p v-else class="text-xs text-muted-foreground">Not linked to ADO</p>
+              <!-- Description (collapsible, collapsed by default) -->
+              <div>
+                <button class="flex items-center gap-1.5 w-full" @click="descriptionOpen = !descriptionOpen">
+                  <ChevronRight :size="14" class="text-muted-foreground transition-transform" :class="descriptionOpen && 'rotate-90'" />
+                  <h3 class="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Description</h3>
+                </button>
+                <Textarea
+                  v-if="descriptionOpen"
+                  v-model="editDescription"
+                  @blur="save"
+                  :rows="4"
+                  class="resize-none mt-2 text-[13px]"
+                  placeholder="Add a description..."
+                />
               </div>
-
-              <Separator />
-
-              <!-- External Links -->
-              <div class="px-4">
-                <ExternalLinks :task-id="task.id" />
-              </div>
-
-              <Separator />
 
               <!-- Subtasks -->
-              <div class="px-4">
+              <div>
                 <div class="flex items-center justify-between mb-2">
                   <div class="flex items-center gap-2">
-                    <span class="font-semibold text-xs">Subtasks</span>
+                    <h3 class="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Subtasks</h3>
                     <Badge variant="secondary" class="h-4 text-[10px] px-1.5">
                       {{ subtaskProgress.done }}/{{ subtaskProgress.total }}
                     </Badge>
@@ -419,7 +482,7 @@ const timeUpdated = computed(() => {
                         'size-3.5 rounded-[3px] border-[1.5px] shrink-0 flex items-center justify-center',
                         st.status === 'done'
                           ? 'bg-emerald-500 border-emerald-500'
-                          : 'border-muted-foreground/40'
+                          : 'border-muted-foreground/60'
                       )"
                     >
                       <svg v-if="st.status === 'done'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" class="size-2.5 text-white" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -454,79 +517,83 @@ const timeUpdated = computed(() => {
                 </div>
               </div>
 
-              <Separator />
-
-              <!-- Pull Requests (collapsible) -->
-              <div class="px-4">
-                <button class="flex items-center gap-1.5 w-full" @click="prsOpen = !prsOpen">
-                  <ChevronDown v-if="prsOpen" :size="14" class="text-muted-foreground" />
-                  <ChevronRight v-else :size="14" class="text-muted-foreground" />
-                  <span class="font-semibold text-xs">Pull Requests</span>
-                  <Badge variant="secondary" class="h-4 text-[10px] px-1.5 ml-1">
-                    {{ taskPRs.length }}
-                  </Badge>
+              <!-- Details (collapsible, collapsed by default) -->
+              <div>
+                <button class="flex items-center gap-1.5 w-full" @click="detailsOpen = !detailsOpen">
+                  <ChevronRight :size="14" class="text-muted-foreground transition-transform" :class="detailsOpen && 'rotate-90'" />
+                  <h3 class="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Details</h3>
                 </button>
-                <div v-if="prsOpen" class="flex flex-col mt-2 gap-1">
-                  <div
-                    v-for="pr in taskPRs"
-                    :key="pr.id"
-                    class="flex items-center gap-2 py-1.5 px-1 rounded hover:bg-muted/50 transition-colors cursor-pointer"
-                    @click="pr.prUrl && openUrl(pr.prUrl)"
+                <div v-if="detailsOpen" class="mt-2 space-y-4">
+                  <ExternalLinks :task-id="task.id" />
+
+                  <!-- Pull Requests -->
+                  <div>
+                    <div class="flex items-center gap-2 mb-2">
+                      <span class="text-xs font-medium text-muted-foreground">Pull Requests</span>
+                      <Badge variant="secondary" class="h-4 text-[10px] px-1.5">
+                        {{ taskPRs.length }}
+                      </Badge>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <div
+                        v-for="pr in taskPRs"
+                        :key="pr.id"
+                        class="flex items-center gap-2 py-1.5 px-1 rounded hover:bg-muted/50 transition-colors cursor-pointer"
+                        @click="pr.prUrl && openUrl(pr.prUrl)"
+                      >
+                        <GitPullRequest :size="14" :class="cn('shrink-0', prIconColor(pr.status))" />
+                        <span class="text-[13px] truncate flex-1">{{ pr.title }}</span>
+                        <span class="text-[11px] text-muted-foreground shrink-0">#{{ pr.prNumber }}</span>
+                        <span class="text-[10px] text-muted-foreground shrink-0 truncate max-w-[100px]">{{ pr.repo }}</span>
+                        <Badge
+                          variant="outline"
+                          :class="cn('text-[10px] capitalize shrink-0 h-4 px-1.5', prStatusClasses(pr.status))"
+                        >
+                          {{ prStatusLabel(pr.status) }}
+                        </Badge>
+                      </div>
+                      <p v-if="taskPRs.length === 0" class="text-xs text-muted-foreground italic py-1 px-1">
+                        No linked pull requests
+                      </p>
+                    </div>
+                  </div>
+
+                  <!-- Push to ADO -->
+                  <Button
+                    v-if="task.adoId && taskStore.isPublic(task.id)"
+                    variant="outline"
+                    size="sm"
+                    class="h-7 text-[11px] gap-1.5"
+                    @click="syncStore.generateOutboundDiff(task.id)"
                   >
-                    <GitPullRequest :size="14" :class="cn('shrink-0', prIconColor(pr.status))" />
-                    <span class="text-[13px] truncate flex-1">{{ pr.title }}</span>
-                    <span class="text-[11px] text-muted-foreground shrink-0">#{{ pr.prNumber }}</span>
-                    <span class="text-[10px] text-muted-foreground shrink-0 truncate max-w-[100px]">{{ pr.repo }}</span>
-                    <Badge
-                      variant="outline"
-                      :class="cn('text-[10px] capitalize shrink-0 h-4 px-1.5', prStatusClasses(pr.status))"
-                    >
-                      {{ prStatusLabel(pr.status) }}
-                    </Badge>
-                  </div>
-                  <p v-if="taskPRs.length === 0" class="text-xs text-muted-foreground italic py-1 px-1">
-                    No linked pull requests
-                  </p>
+                    <Upload :size="11" />
+                    Push to ADO
+                  </Button>
                 </div>
               </div>
 
-              <Separator />
+              <!-- Discussion Tabs -->
+              <div>
+                <Tabs :default-value="'private'">
+                  <TabsList class="w-full grid" :class="task.adoId ? 'grid-cols-2' : 'grid-cols-1'">
+                    <TabsTrigger value="private" class="text-xs gap-1.5">
+                      <Lock :size="12" />
+                      Private Notes
+                    </TabsTrigger>
+                    <TabsTrigger v-if="task.adoId" value="ado" class="text-xs gap-1.5">
+                      <AzureDevOpsIcon :size="12" />
+                      ADO Discussion
+                    </TabsTrigger>
+                  </TabsList>
 
-              <!-- Description (collapsible) -->
-              <div class="px-4 pb-3">
-                <button class="flex items-center gap-1.5 w-full" @click="descriptionOpen = !descriptionOpen">
-                  <ChevronDown v-if="descriptionOpen" :size="14" class="text-muted-foreground" />
-                  <ChevronRight v-else :size="14" class="text-muted-foreground" />
-                  <span class="font-semibold text-xs">Description</span>
-                </button>
-                <Textarea
-                  v-if="descriptionOpen"
-                  v-model="editDescription"
-                  @blur="save"
-                  :rows="4"
-                  class="resize-none mt-2 text-[13px]"
-                  placeholder="Add a description..."
-                />
-              </div>
-              <Separator />
-
-              <!-- ─── Private Notes ────────────────────────── -->
-              <div class="px-4">
-                <div class="border border-muted-foreground/15 rounded-lg bg-muted/5">
-                  <div class="flex items-center gap-2 px-3 py-2 border-b border-muted-foreground/15">
-                    <Lock :size="14" class="text-muted-foreground" />
-                    <span class="font-semibold text-xs text-muted-foreground">Private Notes</span>
-                    <span class="text-[10px] text-muted-foreground/70 ml-auto">Local only — not posted to ADO</span>
-                  </div>
-                  <div class="px-3 py-2">
+                  <TabsContent value="private" class="mt-3">
                     <CommentsSection :task-id="task.id" :is-public-task="taskStore.isPublic(task.id)" />
-                  </div>
-                </div>
-              </div>
+                  </TabsContent>
 
-              <!-- ─── ADO Discussion ───────────────────────── -->
-              <div v-if="task.adoId" class="px-4 pb-3">
-                <ADODiscussion :task-id="task.id" :ado-id="task.adoId" />
+                  <TabsContent v-if="task.adoId" value="ado" class="mt-3">
+                    <ADODiscussion :task-id="task.id" :ado-id="task.adoId" />
+                  </TabsContent>
+                </Tabs>
               </div>
         </div>
       </ScrollArea>

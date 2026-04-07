@@ -50,8 +50,8 @@ function removeOrg(index: number) {
 async function finish() {
   saving.value = true
   try {
-    const { SetOrgProjects } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/config/configservice')
-    await SetOrgProjects(orgs.value)
+    const { setOrgProjects } = await import('@/api/config')
+    await setOrgProjects(orgs.value)
     step.value = 'done'
     setTimeout(() => emit('complete'), 800)
   } catch {

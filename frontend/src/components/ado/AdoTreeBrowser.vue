@@ -3,14 +3,8 @@ import { ref, computed } from 'vue'
 import type { ADOWorkItem } from '@/stores/ado'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { adoTypeColor, adoStateClasses } from '@/lib/styles'
+import { adoTypeColor, adoTypeIcon, adoStateClasses } from '@/lib/styles'
 import {
-  Bug,
-  CheckSquare,
-  BookOpen,
-  Star,
-  Mountain,
-  Circle,
   ChevronRight,
   ChevronDown,
   ExternalLink,
@@ -23,6 +17,7 @@ const props = defineProps<{
   items: ADOWorkItem[]
   getChildren: (id: number) => ADOWorkItem[]
   isLinked: (adoId: string) => boolean
+  selectedId?: string
 }>()
 
 const emit = defineEmits<{
@@ -41,16 +36,8 @@ function toggleExpand(id: number) {
   }
 }
 
-function typeIcon(type: string) {
-  switch (type.toLowerCase()) {
-    case 'bug': return Bug
-    case 'task': return CheckSquare
-    case 'user story': return BookOpen
-    case 'feature': return Star
-    case 'epic': return Mountain
-    default: return Circle
-  }
-}
+// Use centralized mapping from styles.ts
+const typeIcon = adoTypeIcon
 </script>
 
 <template>
@@ -62,6 +49,7 @@ function typeIcon(type: string) {
         :expanded-nodes="expandedNodes"
         :get-children="getChildren"
         :is-linked="isLinked"
+        :selected-id="selectedId"
         :type-icon="typeIcon"
         :type-color="adoTypeColor"
         :state-classes="adoStateClasses"
@@ -89,6 +77,7 @@ const AdoTreeNode = defineComponent({
     expandedNodes: { type: Object as PropType<Set<number>>, required: true },
     getChildren: { type: Function as PropType<(id: number) => ADOWorkItem[]>, required: true },
     isLinked: { type: Function as PropType<(adoId: string) => boolean>, required: true },
+    selectedId: { type: String, default: '' },
     typeIcon: { type: Function as PropType<(type: string) => Component>, required: true },
     typeColor: { type: Function as PropType<(type: string) => string>, required: true },
     stateClasses: { type: Function as PropType<(state: string) => string>, required: true },
@@ -110,75 +99,57 @@ const AdoTreeNode = defineComponent({
         // Expand chevron
         hasChildren
           ? h('button', {
-              class: 'flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground',
+              class: 'flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground self-start mt-0.5',
               onClick: (e: Event) => { e.stopPropagation(); emit('toggle', item.id) },
             }, [h(isExpanded ? ChevronDown : ChevronRight, { size: 14 })])
           : h('div', { class: 'w-5 shrink-0' }),
 
-        // Type icon
-        h(IconComp, { size: 14, class: `shrink-0 ${iconColorClass}` }),
-
-        // Title
-        h('span', {
-          class: 'min-w-0 flex-1 truncate text-sm text-foreground',
-          title: item.title,
-        }, item.title),
-
-        // ADO ID
-        h('span', { class: 'text-[10px] text-muted-foreground/50 shrink-0 tabular-nums' }, `#${item.adoId}`),
-
-        // State badge
-        h(Badge, {
-          variant: 'outline',
-          class: `text-[10px] h-4 px-1.5 shrink-0 ${stateClass}`,
-        }, () => item.state),
-
-        // Org/project label
-        (item.org || item.project) ? h('span', {
-          class: 'text-[10px] text-muted-foreground/40 shrink-0 truncate max-w-[8rem]',
-        }, `${item.org}/${item.project}`) : null,
-
-        // Linked indicator or action buttons
-        linked
-          ? h(CheckCircle2, { size: 14, class: 'shrink-0 text-emerald-500', title: 'Linked to local task' })
-          : h('div', {
-              class: 'shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity',
+        // Two-line content
+        h('div', { class: 'flex-1 min-w-0' }, [
+          // Line 1: icon + title + state
+          h('div', { class: 'flex items-center gap-1.5' }, [
+            h(IconComp, { size: 14, class: `shrink-0 ${iconColorClass}` }),
+            h('span', {
+              class: 'min-w-0 flex-1 truncate text-sm text-foreground',
+              title: item.title,
+            }, item.title),
+            h(Badge, {
+              variant: 'outline',
+              class: `text-[10px] h-4 px-1.5 shrink-0 ${stateClass}`,
+            }, () => item.state),
+            linked
+              ? h(CheckCircle2, { size: 12, class: 'shrink-0 text-emerald-500' })
+              : null,
+          ]),
+          // Line 2: metadata + actions (compact)
+          h('div', { class: 'flex items-center gap-2 mt-0.5' }, [
+            h('span', { class: 'text-[10px] text-muted-foreground/50 tabular-nums' }, `#${item.adoId}`),
+            (item.org || item.project) ? h('span', {
+              class: 'text-[10px] text-muted-foreground/40 truncate max-w-[8rem]',
+            }, `${item.org}/${item.project}`) : null,
+            h('div', { class: 'flex-1' }),
+            // Action buttons (only on hover)
+            !linked ? h('div', {
+              class: 'flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity',
             }, [
               h(Button, {
-                variant: 'ghost',
-                size: 'sm',
-                class: 'h-6 px-1.5 text-[10px] gap-1',
-                title: 'Import as local task',
+                variant: 'ghost', size: 'sm',
+                class: 'h-5 px-1 text-[9px] gap-0.5',
                 onClick: (e: Event) => { e.stopPropagation(); emit('import', item) },
-              }, () => [h(Download, { size: 10 }), 'Import']),
+              }, () => [h(Download, { size: 9 }), 'Import']),
               h(Button, {
-                variant: 'ghost',
-                size: 'sm',
-                class: 'h-6 px-1.5 text-[10px] gap-1',
-                title: 'Link to existing local task',
+                variant: 'ghost', size: 'sm',
+                class: 'h-5 px-1 text-[9px] gap-0.5',
                 onClick: (e: Event) => { e.stopPropagation(); emit('link', item) },
-              }, () => [h(Link, { size: 10 }), 'Link']),
-            ]),
-
-        // Open in ADO
-        h(Button, {
-          variant: 'ghost',
-          size: 'sm',
-          class: 'h-6 w-6 p-0 shrink-0 opacity-0 group-hover:opacity-60 hover:!opacity-100',
-          title: 'Open in ADO',
-          onClick: async (e: Event) => {
-            e.stopPropagation()
-            if (!item.url) return
-            try {
-              const { OpenURL } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/browserservice')
-              await OpenURL(item.url)
-            } catch { window.open(item.url, '_blank') }
-          },
-        }, () => h(ExternalLink, { size: 10 })),
+              }, () => [h(Link, { size: 9 }), 'Link']),
+            ]) : null,
+          ]),
+        ]),
       ]
 
+      const isSelected = item.adoId === props.selectedId
       const row = h('div', {
-        class: 'group flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-accent/50 cursor-pointer',
+        class: `group flex items-start gap-1.5 rounded-md px-2 py-1.5 transition-colors cursor-pointer ${isSelected ? 'bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-accent/50'}`,
         style: { paddingLeft: indent + 'px' },
         onClick: () => emit('select', item),
       }, rowChildren.filter(Boolean))
@@ -193,6 +164,7 @@ const AdoTreeNode = defineComponent({
               expandedNodes: props.expandedNodes,
               getChildren: props.getChildren,
               isLinked: props.isLinked,
+              selectedId: props.selectedId,
               typeIcon: props.typeIcon,
               typeColor: props.typeColor,
               stateClasses: props.stateClasses,

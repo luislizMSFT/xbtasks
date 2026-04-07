@@ -25,7 +25,7 @@ import {
   Settings,
   Sun,
   Moon,
-  GitBranch,
+  Network,
   LogOut,
 } from 'lucide-vue-next'
 import AzureDevOpsIcon from '@/components/icons/AzureDevOpsIcon.vue'
@@ -45,9 +45,8 @@ interface NavItem {
 const navItems: NavItem[] = [
   { name: 'dashboard', icon: LayoutDashboard, path: '/dashboard', label: 'Dashboard' },
   { name: 'tasks', icon: CheckSquare, path: '/tasks', label: 'Tasks' },
-  { name: 'projects', icon: FolderKanban, path: '/projects', label: 'Projects' },
   { name: 'ado', icon: AzureDevOpsIcon, path: '/ado', label: 'Azure DevOps' },
-  { name: 'dependencies', icon: GitBranch, path: '/dependencies', label: 'Dependencies' },
+  { name: 'dependencies', icon: Network, path: '/dependencies', label: 'Dependencies' },
 ]
 
 const isActive = (path: string) => route.path === path || route.path.startsWith(path + '/')

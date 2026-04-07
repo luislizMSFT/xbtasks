@@ -32,8 +32,8 @@ const orgsSaved = ref(false)
 
 async function loadOrgs() {
   try {
-    const { GetOrgProjects } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/config/configservice')
-    orgs.value = (await GetOrgProjects() as OrgProject[]) || []
+    const { getOrgProjects } = await import('@/api/config')
+    orgs.value = (await getOrgProjects() as OrgProject[]) || []
   } catch {
     orgs.value = []
   }
@@ -42,8 +42,8 @@ async function loadOrgs() {
 async function saveOrgs() {
   orgsLoading.value = true
   try {
-    const { SetOrgProjects } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/config/configservice')
-    await SetOrgProjects(orgs.value)
+    const { setOrgProjects } = await import('@/api/config')
+    await setOrgProjects(orgs.value)
     orgsSaved.value = true
     setTimeout(() => { orgsSaved.value = false }, 2000)
   } catch {
@@ -87,8 +87,8 @@ const syncInterval = ref(15)
 
 async function loadSyncInterval() {
   try {
-    const { GetSyncInterval } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/config/configservice')
-    syncInterval.value = (await GetSyncInterval()) || 15
+    const { getSyncInterval } = await import('@/api/config')
+    syncInterval.value = (await getSyncInterval()) || 15
   } catch {
     syncInterval.value = 15
   }
@@ -96,8 +96,8 @@ async function loadSyncInterval() {
 
 async function saveSyncInterval() {
   try {
-    const { SetSyncInterval } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/config/configservice')
-    await SetSyncInterval(syncInterval.value)
+    const { setSyncInterval } = await import('@/api/config')
+    await setSyncInterval(syncInterval.value)
   } catch {
     // Bindings unavailable
   }
@@ -126,8 +126,8 @@ const loading = ref(true)
 
 onMounted(async () => {
   try {
-    const { GetAll } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/config/configservice')
-    const all = await GetAll()
+    const { getAll } = await import('@/api/config')
+    const all = await getAll()
     if (all) {
       config.value.theme = all.theme || 'system'
       config.value.dbPath = all.db?.path || ''
@@ -147,12 +147,12 @@ onMounted(async () => {
 
 async function saveConfig() {
   try {
-    const { Set } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/config/configservice')
-    await Set('theme', config.value.theme)
-    await Set('db.path', config.value.dbPath)
-    await Set('log.level', config.value.logLevel)
-    await Set('window.width', config.value.windowWidth)
-    await Set('window.height', config.value.windowHeight)
+    const { set: setConfig } = await import('@/api/config')
+    await setConfig('theme', config.value.theme)
+    await setConfig('db.path', config.value.dbPath)
+    await setConfig('log.level', config.value.logLevel)
+    await setConfig('window.width', config.value.windowWidth)
+    await setConfig('window.height', config.value.windowHeight)
     saved.value = true
     setTimeout(() => { saved.value = false }, 2000)
   } catch {
@@ -201,10 +201,7 @@ const authMethodLabel = {
     <div class="max-w-2xl mx-auto px-6 py-6 space-y-6">
       <!-- Header -->
       <div class="flex items-center justify-between">
-        <div>
-          <h1 class="text-xl font-semibold text-foreground">Settings</h1>
-          <p class="text-sm text-muted-foreground mt-0.5">Configure your XB Tasks app</p>
-        </div>
+        <p class="text-sm text-muted-foreground">Configure your XB Tasks app</p>
         <div class="flex items-center gap-2">
           <Button variant="outline" size="sm" @click="resetDefaults">
             <RotateCcw :size="14" class="mr-1.5" />

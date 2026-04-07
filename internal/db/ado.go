@@ -6,7 +6,7 @@ import (
 	"dev.azure.com/xbox/xb-tasks/domain"
 )
 
-func (db *DB) UpsertADOWorkItem(item domain.ADOWorkItem) error {
+func (db *DB) UpsertADOWorkItem(item domain.WorkItem) error {
 	_, err := db.Exec(`
 		INSERT INTO ado_work_items (ado_id, title, state, type, assigned_to, priority, area_path, description, url, org, project, parent_id, changed_date, synced_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -31,7 +31,7 @@ func (db *DB) UpsertADOWorkItem(item domain.ADOWorkItem) error {
 	return err
 }
 
-func (db *DB) ListADOWorkItems() ([]domain.ADOWorkItem, error) {
+func (db *DB) ListADOWorkItems() ([]domain.WorkItem, error) {
 	rows, err := db.Query(`
 		SELECT id, ado_id, title, state, type, assigned_to, priority, area_path, description, url, org, project, parent_id, changed_date, synced_at
 		FROM ado_work_items
@@ -44,7 +44,7 @@ func (db *DB) ListADOWorkItems() ([]domain.ADOWorkItem, error) {
 	return scanADOWorkItems(rows)
 }
 
-func (db *DB) ListADOWorkItemsByOrg(org, project string) ([]domain.ADOWorkItem, error) {
+func (db *DB) ListADOWorkItemsByOrg(org, project string) ([]domain.WorkItem, error) {
 	rows, err := db.Query(`
 		SELECT id, ado_id, title, state, type, assigned_to, priority, area_path, description, url, org, project, parent_id, changed_date, synced_at
 		FROM ado_work_items
@@ -58,8 +58,8 @@ func (db *DB) ListADOWorkItemsByOrg(org, project string) ([]domain.ADOWorkItem, 
 	return scanADOWorkItems(rows)
 }
 
-func (db *DB) GetADOWorkItem(adoID string) (domain.ADOWorkItem, error) {
-	var item domain.ADOWorkItem
+func (db *DB) GetADOWorkItem(adoID string) (domain.WorkItem, error) {
+	var item domain.WorkItem
 	err := db.QueryRow(`
 		SELECT id, ado_id, title, state, type, assigned_to, priority, area_path, description, url, org, project, parent_id, changed_date, synced_at
 		FROM ado_work_items
@@ -147,13 +147,13 @@ func (db *DB) DeleteProjectADOLink(projectID int, adoID string) error {
 	return err
 }
 
-func (db *DB) GetProjectADOLink(projectID int) (domain.ProjectADOLink, error) {
-	var l domain.ProjectADOLink
+func (db *DB) GetProjectADOLink(projectID int) (domain.ProjectProviderLink, error) {
+	var l domain.ProjectProviderLink
 	err := db.QueryRow(`
 		SELECT project_id, ado_id, direction, created_at
 		FROM project_ado_links
 		WHERE project_id = ?`, projectID,
-	).Scan(&l.ProjectID, &l.AdoID, &l.Direction, &l.CreatedAt)
+	).Scan(&l.ProjectID, &l.ProviderItemID, &l.Direction, &l.CreatedAt)
 	if err == sql.ErrNoRows {
 		return l, nil
 	}
@@ -165,10 +165,10 @@ func scanADOWorkItems(rows interface {
 	Next() bool
 	Scan(...any) error
 	Err() error
-}) ([]domain.ADOWorkItem, error) {
-	var items []domain.ADOWorkItem
+}) ([]domain.WorkItem, error) {
+	var items []domain.WorkItem
 	for rows.Next() {
-		var item domain.ADOWorkItem
+		var item domain.WorkItem
 		if err := rows.Scan(
 			&item.ID, &item.AdoID, &item.Title, &item.State, &item.Type,
 			&item.AssignedTo, &item.Priority, &item.AreaPath, &item.Description,

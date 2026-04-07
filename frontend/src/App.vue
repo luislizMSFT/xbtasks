@@ -6,6 +6,7 @@ import { useTaskStore } from './stores/tasks'
 import { useADOStore } from './stores/ado'
 import { usePRStore } from './stores/prs'
 import { useProjectStore } from './stores/projects'
+import { Toaster } from 'vue-sonner'
 import AppShell from './layouts/AppShell.vue'
 import LoginView from './views/LoginView.vue'
 import OnboardingView from './views/OnboardingView.vue'
@@ -22,8 +23,8 @@ const onboardingChecked = ref(false)
 
 onMounted(async () => {
   try {
-    const { GetOrgProjects } = await import('../bindings/dev.azure.com/xbox/xb-tasks/internal/config/configservice')
-    const orgs = await GetOrgProjects()
+    const { getOrgProjects } = await import('./api/config')
+    const orgs = await getOrgProjects()
     needsOnboarding.value = !orgs || orgs.length === 0
   } catch {
     needsOnboarding.value = false
@@ -37,16 +38,19 @@ function onOnboardingComplete() {
   needsOnboarding.value = false
 }
 
-// When auth state changes to authenticated, prefetch all core data
+// When auth state changes to authenticated, prefetch all core data in parallel
 watch(() => authStore.isAuthenticated, (authed) => {
   if (authed) {
-    taskStore.fetchTasks()
-    projectStore.fetchProjects()
-    prStore.fetchAll()
-    adoStore.fetchWorkItemTree()
-    adoStore.fetchLinkedAdoIds()
-    adoStore.fetchPipelines()
-    adoStore.fetchSavedQueries()
+    // Fire all fetches in parallel — don't block on any single one
+    Promise.allSettled([
+      taskStore.fetchTasks(),
+      projectStore.fetchProjects(),
+      prStore.fetchAll(),
+      adoStore.fetchWorkItemTree(),
+      adoStore.fetchLinkedAdoIds(),
+      adoStore.fetchPipelines(),
+      adoStore.fetchSavedQueries(),
+    ])
   }
 }, { immediate: true })
 </script>
@@ -63,4 +67,5 @@ watch(() => authStore.isAuthenticated, (authed) => {
       </router-view>
     </AppShell>
   </template>
+  <Toaster position="bottom-right" :theme="'system'" richColors />
 </template>

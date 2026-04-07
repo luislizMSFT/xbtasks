@@ -12,8 +12,10 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
+	"dev.azure.com/xbox/xb-tasks/pkg/ado"
 	"github.com/pkg/browser"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/zalando/go-keyring"
@@ -283,9 +285,10 @@ func fetchADOProfile(token string) (*domain.User, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("ADO profile API returned %d: %s", resp.StatusCode, string(body))
+	// Check for HTML responses (SSO redirects, expired tokens)
+	ct := resp.Header.Get("Content-Type")
+	if resp.StatusCode != http.StatusOK || (ct != "" && !strings.Contains(ct, "json")) {
+		return nil, fmt.Errorf("ADO profile API returned %d (content-type: %s)", resp.StatusCode, ct)
 	}
 
 	var profile struct {
@@ -307,7 +310,7 @@ func fetchADOProfile(token string) (*domain.User, error) {
 
 // fetchAzAccountUser gets the signed-in user from `az account show`.
 func fetchAzAccountUser() (*domain.User, error) {
-	azBin := resolveAzPath()
+	azBin := ado.ResolveAzPath()
 	cmd := exec.Command(azBin, "account", "show", "--output", "json")
 	output, err := cmd.Output()
 	if err != nil {

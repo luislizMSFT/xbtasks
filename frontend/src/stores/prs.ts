@@ -1,30 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import type { PRReviewer, PullRequest } from '@/types'
+import * as prsApi from '@/api/prs'
 
-export interface PRReviewer {
-  displayName: string
-  uniqueName: string
-  vote: number // 10=approve, 5=approve-with-suggestions, -5=wait, -10=reject, 0=none
-}
-
-export interface PullRequest {
-  id: number
-  title: string
-  prUrl: string
-  prNumber: number
-  repo: string
-  taskId: number | null
-  adoId: string
-  status: string // draft, active, completed, abandoned
-  reviewers: string // JSON array
-  sourceBranch: string
-  targetBranch: string
-  votes: number
-  createdBy: string
-  createdAt: string
-  updatedAt: string
-  mergedAt: string | null
-}
+export type { PRReviewer, PullRequest }
 
 export function parseReviewers(reviewersJson: string): PRReviewer[] {
   try { return JSON.parse(reviewersJson) } catch { return [] }
@@ -54,10 +33,11 @@ export const usePRStore = defineStore('prs', () => {
   const connected = ref(false)
   const error = ref('')
 
+  let fetchInFlight = false
+
   async function fetchMyPRs() {
     try {
-      const { ListMyPRs } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/prservice')
-      myPRs.value = (await ListMyPRs()) as PullRequest[]
+      myPRs.value = (await prsApi.listMyPRs()) as PullRequest[]
       connected.value = true
     } catch (e: any) {
       console.warn('[PRStore] ListMyPRs failed:', e)
@@ -68,8 +48,7 @@ export const usePRStore = defineStore('prs', () => {
 
   async function fetchReviewPRs() {
     try {
-      const { ListReviewPRs } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/prservice')
-      reviewPRs.value = (await ListReviewPRs()) as PullRequest[]
+      reviewPRs.value = (await prsApi.listReviewPRs()) as PullRequest[]
       connected.value = true
     } catch (e: any) {
       console.warn('[PRStore] ListReviewPRs failed:', e)
@@ -79,8 +58,7 @@ export const usePRStore = defineStore('prs', () => {
 
   async function fetchTeamPRs() {
     try {
-      const { ListTeamPRs } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/prservice')
-      teamPRs.value = (await ListTeamPRs()) as PullRequest[]
+      teamPRs.value = (await prsApi.listTeamPRs()) as PullRequest[]
       connected.value = true
     } catch (e: any) {
       console.warn('[PRStore] ListTeamPRs failed:', e)
@@ -89,12 +67,15 @@ export const usePRStore = defineStore('prs', () => {
   }
 
   async function fetchAll() {
+    if (fetchInFlight) return
+    fetchInFlight = true
     loading.value = true
     error.value = ''
     try {
       await Promise.all([fetchMyPRs(), fetchReviewPRs(), fetchTeamPRs()])
     } finally {
       loading.value = false
+      fetchInFlight = false
     }
   }
 

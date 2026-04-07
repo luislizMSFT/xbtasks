@@ -109,7 +109,7 @@ func (s *ProjectService) UnlinkProject(projectID int, adoID string, deleteLocal 
 }
 
 // GetProjectADOLink returns the ADO link for a project.
-func (s *ProjectService) GetProjectADOLink(projectID int) (domain.ProjectADOLink, error) {
+func (s *ProjectService) GetProjectADOLink(projectID int) (domain.ProjectProviderLink, error) {
 	return s.db.GetProjectADOLink(projectID)
 }
 
@@ -153,7 +153,7 @@ func (s *ProjectService) GetProjectProgress(projectID int) (map[string]any, erro
 		// Real DB failure — return local-only progress
 		return result, nil
 	}
-	if link.AdoID == "" {
+	if link.ProviderItemID == "" {
 		// No ADO link exists for this project
 		return result, nil
 	}
@@ -163,10 +163,10 @@ func (s *ProjectService) GetProjectProgress(projectID int) (map[string]any, erro
 	err = s.db.QueryRow(
 		`SELECT COUNT(*) AS total,
 		        COUNT(CASE WHEN state IN ('Closed','Completed') THEN 1 END) AS done
-		 FROM ado_work_items WHERE parent_id = CAST(? AS INTEGER)`, link.AdoID,
+		 FROM ado_work_items WHERE parent_id = CAST(? AS INTEGER)`, link.ProviderItemID,
 	).Scan(&adoTotal, &adoDone)
 	if err != nil {
-		log.Printf("[project] count ADO children for %s: %v", link.AdoID, err)
+		log.Printf("[project] count ADO children for %s: %v", link.ProviderItemID, err)
 		return result, nil
 	}
 
