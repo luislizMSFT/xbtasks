@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"time"
 
 	"github.com/pkg/browser"
@@ -248,16 +249,12 @@ func (s *AuthService) SignInWithAzCli() (*domain.User, error) {
 		return nil, fmt.Errorf("az CLI auth failed: %w", err)
 	}
 
-	// Token is valid — create user session
-	// Use the token to get user profile from ADO
+	// Try ADO profile API first, fall back to az account show
 	user, err := fetchADOProfile(token)
 	if err != nil {
-		// Fallback to generic user if profile fetch fails
-		user = &domain.User{
-			ID:          "azcli-user",
-			DisplayName: "Az CLI User",
-			Email:       "",
-			AvatarURL:   "",
+		user, err = fetchAzAccountUser()
+		if err != nil {
+			return nil, fmt.Errorf("could not resolve user identity: %w", err)
 		}
 	}
 
@@ -305,6 +302,33 @@ func fetchADOProfile(token string) (*domain.User, error) {
 		DisplayName: profile.DisplayName,
 		Email:       profile.EmailAddress,
 		AvatarURL:   "",
+	}, nil
+}
+
+// fetchAzAccountUser gets the signed-in user from `az account show`.
+func fetchAzAccountUser() (*domain.User, error) {
+	azBin := resolveAzPath()
+	cmd := exec.Command(azBin, "account", "show", "--output", "json")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("az account show failed: %w", err)
+	}
+
+	var acct struct {
+		User struct {
+			Name string `json:"name"`
+			Type string `json:"type"`
+		} `json:"user"`
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(output, &acct); err != nil {
+		return nil, fmt.Errorf("parse az account: %w", err)
+	}
+
+	return &domain.User{
+		ID:          acct.ID,
+		DisplayName: acct.User.Name,
+		Email:       acct.User.Name,
 	}, nil
 }
 

@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	AppName    = "team-ado-tool"
+	AppName    = "xb-tasks"
 	ConfigName = "config"
 	ConfigType = "yaml"
 )
@@ -56,9 +56,9 @@ func setDefaults() {
 
 // ConfigDir returns the OS-appropriate config directory.
 //
-//	macOS:   ~/Library/Application Support/team-ado-tool
-//	Windows: %APPDATA%\team-ado-tool
-//	Linux:   ~/.config/team-ado-tool
+//	macOS:   ~/Library/Application Support/xb-tasks
+//	Windows: %APPDATA%\xb-tasks
+//	Linux:   ~/.config/xb-tasks
 func ConfigDir() string {
 	switch runtime.GOOS {
 	case "darwin":
@@ -77,9 +77,9 @@ func ConfigDir() string {
 
 // DataDir returns the OS-appropriate data directory.
 //
-//	macOS:   ~/Library/Application Support/team-ado-tool
-//	Windows: %LOCALAPPDATA%\team-ado-tool
-//	Linux:   ~/.local/share/team-ado-tool
+//	macOS:   ~/Library/Application Support/xb-tasks
+//	Windows: %LOCALAPPDATA%\xb-tasks
+//	Linux:   ~/.local/share/xb-tasks
 func DataDir() string {
 	switch runtime.GOOS {
 	case "darwin":

@@ -45,6 +45,7 @@ type Task struct {
 	BlockedBy        string     `json:"blockedBy"`
 	ParentID         *int       `json:"parentId"`
 	PersonalPriority string     `json:"personalPriority"` // override priority for linked ADO items
+	SortOrder        int        `json:"sortOrder"`
 	CreatedAt        time.Time  `json:"createdAt"`
 	UpdatedAt        time.Time  `json:"updatedAt"`
 	CompletedAt      *time.Time `json:"completedAt"`

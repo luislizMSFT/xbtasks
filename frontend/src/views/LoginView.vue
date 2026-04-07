@@ -12,8 +12,10 @@ const router = useRouter()
 const authStore = useAuthStore()
 const showPAT = ref(false)
 const patInput = ref('')
+const lastMethod = ref<'oauth' | 'azcli' | 'pat' | null>(null)
 
 async function signInWithMicrosoft() {
+  lastMethod.value = 'oauth'
   await authStore.signIn()
   if (authStore.isAuthenticated) {
     router.push('/tasks')
@@ -21,6 +23,7 @@ async function signInWithMicrosoft() {
 }
 
 async function signInWithAzCli() {
+  lastMethod.value = 'azcli'
   await authStore.signInWithAzCli()
   if (authStore.isAuthenticated) {
     router.push('/tasks')
@@ -30,10 +33,17 @@ async function signInWithAzCli() {
 async function signInWithPAT() {
   const token = patInput.value.trim()
   if (!token) return
+  lastMethod.value = 'pat'
   await authStore.signInWithPAT(token)
   if (authStore.isAuthenticated) {
     router.push('/tasks')
   }
+}
+
+async function retryAuth() {
+  if (lastMethod.value === 'azcli') await signInWithAzCli()
+  else if (lastMethod.value === 'pat') await signInWithPAT()
+  else await signInWithMicrosoft()
 }
 </script>
 
@@ -49,14 +59,24 @@ async function signInWithPAT() {
             </svg>
           </div>
         </div>
-        <CardTitle class="text-[20px] font-semibold">Team ADO Tool</CardTitle>
+        <CardTitle class="text-[20px] font-semibold">XB Tasks</CardTitle>
         <CardDescription class="text-[14px] font-normal text-muted-foreground">All your work in one place</CardDescription>
       </CardHeader>
 
       <CardContent class="space-y-4">
-        <!-- Error -->
-        <div v-if="authStore.error" class="px-3 py-2 rounded-md text-[12px] font-semibold bg-destructive/10 text-destructive border border-destructive/20">
-          {{ authStore.error }}
+        <!-- Error with retry -->
+        <div v-if="authStore.error" class="space-y-2">
+          <div class="px-3 py-2 rounded-md text-[12px] font-semibold bg-destructive/10 text-destructive border border-destructive/20">
+            {{ authStore.error }}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            class="w-full"
+            @click="retryAuth"
+          >
+            Retry
+          </Button>
         </div>
 
         <!-- Sign in buttons -->

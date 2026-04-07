@@ -203,7 +203,7 @@ const authMethodLabel = {
       <div class="flex items-center justify-between">
         <div>
           <h1 class="text-xl font-semibold text-foreground">Settings</h1>
-          <p class="text-sm text-muted-foreground mt-0.5">Configure your Team ADO Tool</p>
+          <p class="text-sm text-muted-foreground mt-0.5">Configure your XB Tasks app</p>
         </div>
         <div class="flex items-center gap-2">
           <Button variant="outline" size="sm" @click="resetDefaults">
@@ -579,7 +579,7 @@ const authMethodLabel = {
         <CardContent>
           <div class="flex items-center justify-between">
             <div>
-              <p class="text-sm font-medium text-foreground">Team ADO Tool</p>
+              <p class="text-sm font-medium text-foreground">XB Tasks</p>
               <p class="text-xs text-muted-foreground">Xbox Services team productivity dashboard</p>
             </div>
             <Badge variant="secondary">v0.1.0</Badge>

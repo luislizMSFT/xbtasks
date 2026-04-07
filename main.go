@@ -98,7 +98,7 @@ func main() {
 
 	mainWindow := wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:     "main",
-		Title:    "Team ADO Tool",
+		Title:    "XB Tasks",
 		Width:    config.WindowWidth(),
 		Height:   config.WindowHeight(),
 		MinWidth: 1024,

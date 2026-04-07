@@ -149,7 +149,11 @@ async function doImportAsProject() {
   try {
     const { ImportWorkItemAsProject } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/linkservice')
     await ImportWorkItemAsProject(importingAdoItem.value.adoId)
-    await Promise.all([adoStore.fetchLinkedAdoIds(), taskStore.fetchTasks()])
+    await Promise.all([
+      adoStore.fetchLinkedAdoIds(),
+      taskStore.fetchTasks(),
+      projectStore.fetchProjects(),
+    ])
   } catch (e: any) {
     adoStore.error = e?.message || 'Import as project failed'
   } finally {

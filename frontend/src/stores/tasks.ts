@@ -76,7 +76,8 @@ export const useTaskStore = defineStore('tasks', () => {
 
   // --- Enhanced filtered + sorted tasks ---
   const enhancedFilteredTasks = computed(() => {
-    let result = tasks.value
+    // Exclude subtasks — they render nested under their parent
+    let result = tasks.value.filter(t => !t.parentId)
 
     // Status filter
     if (filterStatus.value !== 'all') {

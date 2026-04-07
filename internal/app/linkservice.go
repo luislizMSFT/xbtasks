@@ -201,7 +201,7 @@ func (s *LinkService) ImportWorkItem(adoID string) (domain.Task, error) {
 }
 
 // ImportWorkItemAsProject fetches an ADO work item and creates a local project
-// with a project-ADO link, then creates a child task linked to the same ADO item.
+// with a project-ADO link, then imports child work items as tasks on the board.
 func (s *LinkService) ImportWorkItemAsProject(adoID string) (domain.Project, error) {
 	adoItem, err := s.fetchADOItem(adoID)
 	if err != nil {
@@ -224,23 +224,45 @@ func (s *LinkService) ImportWorkItemAsProject(adoID string) (domain.Project, err
 		log.Printf("[import-project] create project-ADO link: %v", err)
 	}
 
-	// Also create a task under this project linked to the ADO item
-	localStatus := ado.MapADOToStatus(adoItem.State)
-	taskRes, err := s.db.Exec(
-		`INSERT INTO tasks (title, description, status, priority, ado_id, project_id) VALUES (?, ?, ?, ?, ?, ?)`,
-		adoItem.Title, adoItem.Description, localStatus, ado.MapPriorityToLocal(adoItem.Priority), adoID, projectID,
-	)
-	if err != nil {
-		log.Printf("[import-project] create child task: %v", err)
-	} else {
-		taskID64, _ := taskRes.LastInsertId()
-		taskID := int(taskID64)
-		s.db.Exec(`INSERT INTO task_ado_links (task_id, ado_id, direction) VALUES (?, ?, 'imported')`, taskID, adoID)
-	}
-
-	// Cache the ADO item
+	// Cache the parent ADO item
 	if err := s.db.UpsertADOWorkItem(adoItem); err != nil {
 		log.Printf("[import-project] cache ADO item %s: %v", adoID, err)
+	}
+
+	// Fetch ADO children and import each as a task under this project
+	parentInt, _ := strconv.Atoi(adoID)
+	clients, clientErr := s.getClients()
+	if clientErr != nil {
+		log.Printf("[import-project] get clients for children: %v", clientErr)
+	} else {
+		for _, c := range clients {
+			children, err := ado.GetWorkItemChildren(c, parentInt)
+			if err != nil {
+				continue
+			}
+			for _, child := range children {
+				childAdoID := fmt.Sprintf("%d", child.ID)
+				localStatus := ado.MapADOToStatus(child.State)
+				taskRes, err := s.db.Exec(
+					`INSERT INTO tasks (title, description, status, priority, ado_id, project_id) VALUES (?, ?, ?, ?, ?, ?)`,
+					child.Title, child.Description, localStatus, ado.MapPriorityToLocal(child.Priority), childAdoID, projectID,
+				)
+				if err != nil {
+					log.Printf("[import-project] create child task for ADO %s: %v", childAdoID, err)
+					continue
+				}
+				taskID64, _ := taskRes.LastInsertId()
+				taskID := int(taskID64)
+				s.db.Exec(`INSERT OR IGNORE INTO task_ado_links (task_id, ado_id, direction) VALUES (?, ?, 'imported')`, taskID, childAdoID)
+
+				// Cache each child ADO item
+				domainChild := adoWorkItemToDomain(child)
+				if err := s.db.UpsertADOWorkItem(domainChild); err != nil {
+					log.Printf("[import-project] cache child ADO %s: %v", childAdoID, err)
+				}
+			}
+			break // found children from one client, done
+		}
 	}
 
 	var project domain.Project

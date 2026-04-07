@@ -78,21 +78,10 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true
     error.value = null
     try {
-      try {
-        const { SignInWithAzCli } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/auth/authservice')
-        const u = await SignInWithAzCli()
-        user.value = u as User
-        authMethod.value = 'azcli'
-      } catch (e) {
-        console.warn('[AuthStore] Wails AzCli binding unavailable, using mock:', e)
-        user.value = {
-          id: 'azcli-user-1',
-          displayName: 'Az CLI User',
-          email: 'azcli@local',
-          avatarUrl: '',
-        }
-        authMethod.value = 'azcli'
-      }
+      const { SignInWithAzCli } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/auth/authservice')
+      const u = await SignInWithAzCli()
+      user.value = u as User
+      authMethod.value = 'azcli'
     } catch (e: any) {
       error.value = e.message || 'Az CLI sign in failed — run "az login" first'
     } finally {
