@@ -1,50 +1,14 @@
-name: Build
+name: Release
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  workflow_dispatch:
+    tags: ["v*"]
 
 permissions:
   contents: write
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.25"
-          cache: true
-
-      - name: Install Wails system deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Go vet
-        run: go vet ./internal/... ./pkg/... ./domain/...
-
-      - name: Install frontend deps
-        working-directory: frontend
-        run: npm ci
-
-      - name: Frontend type check
-        working-directory: frontend
-        run: npx vue-tsc --noEmit
-
   build-windows:
-    needs: lint
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -77,7 +41,6 @@ jobs:
           if-no-files-found: error
 
   build-macos:
-    needs: lint
     strategy:
       matrix:
         include:
@@ -117,3 +80,27 @@ jobs:
           name: team-ado-tool-macos-${{ matrix.arch }}
           path: bin/team-ado-tool
           if-no-files-found: error
+
+  release:
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          mv artifacts/team-ado-tool-windows/team-ado-tool.exe artifacts/team-ado-tool-windows.exe
+          mv artifacts/team-ado-tool-macos-arm64/team-ado-tool artifacts/team-ado-tool-macos-arm64
+          mv artifacts/team-ado-tool-macos-amd64/team-ado-tool artifacts/team-ado-tool-macos-amd64
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/team-ado-tool-windows.exe
+            artifacts/team-ado-tool-macos-arm64
+            artifacts/team-ado-tool-macos-amd64
