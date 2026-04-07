@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { statusBgColor, priorityColor } from '@/lib/styles'
+
 export interface SubtaskItem {
   id: number
   title: string
@@ -53,17 +56,7 @@ const isBlocked = computed(() => props.node.status === 'blocked')
 const descendantCount = computed(() => getDescendantCount(props.node))
 const filteredChildren = computed(() => props.node.children.filter(c => nodeMatchesFilter(c, props.statusFilter)))
 
-const statusColor = computed(() => {
-  switch (props.node.status) {
-    case 'blocked': return 'bg-red-500'
-    case 'in_progress': return 'bg-blue-500'
-    case 'done': return 'bg-emerald-500'
-    case 'todo': return 'bg-zinc-400'
-    default: return 'bg-zinc-400'
-  }
-})
-
-const statusLabel = computed(() => {
+const statusLabel= computed(() => {
   switch (props.node.status) {
     case 'blocked': return 'Blocked'
     case 'in_progress': return 'In Progress'
@@ -72,18 +65,6 @@ const statusLabel = computed(() => {
     default: return props.node.status
   }
 })
-
-const priorityColor = computed(() => {
-  switch (props.node.priority) {
-    case 'P0': return 'text-red-600 dark:text-red-400'
-    case 'P1': return 'text-orange-600 dark:text-orange-400'
-    case 'P2': return 'text-amber-600 dark:text-amber-400'
-    case 'P3': return 'text-zinc-500'
-    default: return 'text-zinc-500'
-  }
-})
-
-import { computed } from 'vue'
 </script>
 
 <template>
@@ -120,7 +101,7 @@ import { computed } from 'vue'
       <div v-else class="w-5 shrink-0"></div>
 
       <!-- Status dot -->
-      <div class="flex h-2.5 w-2.5 shrink-0 rounded-full" :class="statusColor"></div>
+      <div class="flex h-2.5 w-2.5 shrink-0 rounded-full" :class="statusBgColor(node.status)"></div>
 
       <!-- Task title -->
       <button
@@ -144,7 +125,7 @@ import { computed } from 'vue'
         >{{ statusLabel }}</span>
         <span
           class="text-[10px] font-semibold"
-          :class="priorityColor"
+          :class="priorityColor(node.priority)"
         >{{ node.priority }}</span>
         <span
           v-if="descendantCount > 0"

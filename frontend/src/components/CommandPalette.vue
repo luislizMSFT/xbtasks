@@ -27,8 +27,11 @@ import {
   FlaskConical,
 } from 'lucide-vue-next'
 
+import { useAuthStore } from '@/stores/auth'
+
 const router = useRouter()
 const taskStore = useTaskStore()
+const authStore = useAuthStore()
 const isOpen = ref(false)
 
 const isDev = import.meta.env.DEV
@@ -78,7 +81,7 @@ const taskActions = computed<Action[]>(() =>
 )
 
 const accountActions: Action[] = [
-  { id: 'signout', label: 'Sign Out', icon: LogOut, hint: 'Log out of your account', action: () => router.push('/login') },
+  { id: 'signout', label: 'Sign Out', icon: LogOut, hint: 'Log out of your account', action: async () => { await authStore.signOut(); router.push('/login') } },
 ]
 
 function execute(action: Action) {

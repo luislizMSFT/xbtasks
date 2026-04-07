@@ -1,6 +1,7 @@
 package config
 
 import (
+	"dev.azure.com/xbox/xb-tasks/domain"
 	"github.com/spf13/viper"
 )
 
@@ -39,3 +40,7 @@ func (s *ConfigService) GetTheme() string        { return Theme() }
 func (s *ConfigService) SetTheme(t string) error  { return Set("theme", t) }
 func (s *ConfigService) GetADOOrg() string        { return ADOOrganization() }
 func (s *ConfigService) GetADOProject() string    { return ADOProject() }
+func (s *ConfigService) GetOrgProjects() []domain.OrgProject { return GetOrgProjects() }
+func (s *ConfigService) SetOrgProjects(orgs []domain.OrgProject) error { return SetOrgProjects(orgs) }
+func (s *ConfigService) GetSyncInterval() int { return SyncIntervalMinutes() }
+func (s *ConfigService) SetSyncInterval(minutes int) error { return Set("sync.interval_minutes", minutes) }

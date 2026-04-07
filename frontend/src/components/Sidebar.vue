@@ -11,6 +11,14 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
   LayoutDashboard,
   CheckSquare,
   FolderKanban,
@@ -18,6 +26,7 @@ import {
   Sun,
   Moon,
   GitBranch,
+  LogOut,
 } from 'lucide-vue-next'
 import AzureDevOpsIcon from '@/components/icons/AzureDevOpsIcon.vue'
 
@@ -47,6 +56,11 @@ function navigate(path: string) {
   router.push(path)
 }
 
+async function handleSignOut() {
+  await authStore.signOut()
+  router.push('/login')
+}
+
 const isDark = computed(() => mode.value === 'dark')
 </script>
 
@@ -60,6 +74,7 @@ const isDark = computed(() => mode.value === 'dark')
             <Button
               variant="ghost"
               size="icon"
+              :aria-label="item.label"
               @click="navigate(item.path)"
               :class="[
                 'w-10 h-10',
@@ -91,6 +106,7 @@ const isDark = computed(() => mode.value === 'dark')
             <Button
               variant="ghost"
               size="icon"
+              :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
               @click="toggleTheme"
               class="w-10 h-10 text-muted-foreground hover:text-foreground"
             >
@@ -109,6 +125,7 @@ const isDark = computed(() => mode.value === 'dark')
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Settings"
               @click="navigate('/settings')"
               :class="[
                 'w-10 h-10',
@@ -125,13 +142,30 @@ const isDark = computed(() => mode.value === 'dark')
           </TooltipContent>
         </Tooltip>
 
-        <!-- User avatar -->
-        <div
-          v-if="authStore.isAuthenticated"
-          class="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[10px] font-semibold mt-1 cursor-pointer"
-        >
-          {{ authStore.initials }}
-        </div>
+        <!-- User avatar with sign-out dropdown -->
+        <DropdownMenu v-if="authStore.isAuthenticated">
+          <DropdownMenuTrigger as-child>
+            <button
+              aria-label="User menu"
+              class="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-semibold mt-1 cursor-pointer hover:bg-primary/30 transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
+            >
+              {{ authStore.initials }}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="right" align="end" class="w-48">
+            <DropdownMenuLabel class="font-normal">
+              <div class="flex flex-col space-y-1">
+                <p class="text-sm font-medium leading-none">{{ authStore.user?.displayName }}</p>
+                <p class="text-xs leading-none text-muted-foreground">{{ authStore.user?.email }}</p>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem @click="handleSignOut" class="text-destructive focus:text-destructive">
+              <LogOut class="mr-2 h-4 w-4" />
+              Sign Out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </TooltipProvider>
   </nav>

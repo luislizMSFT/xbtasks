@@ -1,383 +1,383 @@
 <script setup lang="ts">
-import { onMounted, computed, reactive, ref } from 'vue'
+import { onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTaskStore } from '@/stores/tasks'
-import { usePRStore, parseReviewers, branchName, voteIcon, relativeTime } from '@/stores/prs'
+import { usePRStore, branchName, voteIcon } from '@/stores/prs'
+import { relativeTime } from '@/lib/date'
 import type { PullRequest } from '@/stores/prs'
-import { cn } from '@/lib/utils'
+import { useADOStore } from '@/stores/ado'
+import type { ADOPipeline } from '@/stores/ado'
+import TaskRow from '@/components/TaskRow.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
-import PriorityBadge from '@/components/ui/PriorityBadge.vue'
-import AdoBadge from '@/components/ui/AdoBadge.vue'
-import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import EmptyState from '@/components/EmptyState.vue'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Badge } from '@/components/ui/badge'
 import {
-  AlertTriangle,
-  Octagon,
-  GitPullRequest,
-  Plus,
-  Inbox,
-  ArrowRight,
-  X,
-  RefreshCw,
-  ChevronDown,
-  ChevronRight,
-  ExternalLink,
-  Loader2,
-  Wifi,
-  WifiOff,
+  Plus, GitPullRequest, Play, CheckCircle2, XCircle, Clock,
+  ExternalLink, GitBranch, ClipboardList,
 } from 'lucide-vue-next'
 
 const router = useRouter()
 const taskStore = useTaskStore()
 const prStore = usePRStore()
+const adoStore = useADOStore()
 
-onMounted(async () => {
-  await Promise.all([
-    taskStore.fetchTasks(),
-    prStore.fetchAll(),
-  ])
+onMounted(() => {
+  taskStore.fetchTasks()
+  prStore.fetchMyPRs()
+  prStore.fetchReviewPRs()
+  adoStore.fetchPipelines()
 })
 
-// --- Inbox / Quick Capture ---
-interface InboxItem {
-  id: number
-  text: string
-  createdAt: string
-}
-
-const inboxItems = reactive<InboxItem[]>([
-  { id: 1, text: 'Look into flaky E2E test on staging', createdAt: '2h ago' },
-  { id: 2, text: 'Ask Alex about token refresh approach', createdAt: '5h ago' },
-  { id: 3, text: 'Review new ADO permissions model doc', createdAt: '1d ago' },
-])
-
-const newInboxText = ref('')
-let nextInboxId = 100
-
-function addInboxItem() {
-  const text = newInboxText.value.trim()
-  if (!text) return
-  inboxItems.unshift({ id: nextInboxId++, text, createdAt: 'just now' })
-  newInboxText.value = ''
-}
-
-function removeInboxItem(id: number) {
-  const idx = inboxItems.findIndex(i => i.id === id)
-  if (idx !== -1) inboxItems.splice(idx, 1)
-}
-
-function promoteToTask(item: InboxItem) {
-  taskStore.createTask(item.text)
-  removeInboxItem(item.id)
-}
-
-// --- PR helpers ---
-const teamPRsExpanded = ref(false)
-const refreshing = ref(false)
-
-const activeReviewPRs = computed(() =>
-  prStore.reviewPRs.filter(pr => pr.status === 'active')
+const focusTasks = computed(() =>
+  taskStore.tasks.filter(t => t.status === 'in_progress' || t.status === 'in_review')
 )
 
-async function refreshPRs() {
-  refreshing.value = true
-  try { await prStore.fetchAll() }
-  finally { refreshing.value = false }
-}
-
-function prStatusClasses(status: string) {
-  switch (status) {
-    case 'active': return 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/20'
-    case 'draft': return 'bg-zinc-500/15 text-muted-foreground border-zinc-500/20'
-    case 'completed': return 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-    case 'abandoned': return 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/20'
-    default: return ''
-  }
-}
-
-function openPR(pr: PullRequest) {
-  if (pr.prUrl) window.open(pr.prUrl, '_blank')
-}
-
-function getInitials(name: string) { return name.slice(0, 2).toUpperCase() }
-
-const focusTasks = computed(() =>
-  taskStore.tasks.filter(t => !['blocked', 'cancelled'].includes(t.status)).slice(0, 10)
+const recentTasks = computed(() =>
+  taskStore.tasks
+    .slice()
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    .slice(0, 5)
 )
 
 const blockedTasks = computed(() =>
   taskStore.tasks.filter(t => t.status === 'blocked')
 )
+
+const statCards = computed(() => [
+  { label: 'Total', value: taskStore.stats.total },
+  { label: 'In Progress', value: taskStore.stats.inProgress },
+  { label: 'Blocked', value: taskStore.stats.blocked },
+  { label: 'Done', value: taskStore.stats.done },
+])
+
+const activePRs = computed(() =>
+  [...prStore.myPRs, ...prStore.reviewPRs].filter(pr => pr.status === 'active')
+)
+
+interface PipelineGroup {
+  pipelineName: string
+  runs: ADOPipeline[]
+  latestResult: string
+  latestTime: string
+}
+
+// Collect branches from user's PRs
+const myPRBranches = computed(() => {
+  const branches = new Set<string>()
+  for (const pr of [...prStore.myPRs, ...prStore.reviewPRs]) {
+    const branch = pr.sourceBranch.replace('refs/heads/', '')
+    branches.add(branch)
+  }
+  return branches
+})
+
+// Filter pipelines to only those matching user's PR branches, then group by pipeline name
+const groupedPipelines = computed<PipelineGroup[]>(() => {
+  const branches = myPRBranches.value
+  if (branches.size === 0) return []
+  const filtered = adoStore.pipelines.filter(p => branches.has(p.sourceBranch))
+  const groups = new Map<string, ADOPipeline[]>()
+  for (const p of filtered) {
+    const existing = groups.get(p.name) || []
+    existing.push(p)
+    groups.set(p.name, existing)
+  }
+  return Array.from(groups.entries()).map(([name, runs]) => {
+    const latest = runs[0]
+    return {
+      pipelineName: name,
+      runs: runs.slice(0, 3),
+      latestResult: latest.result || latest.status,
+      latestTime: latest.finishTime || latest.queueTime,
+    }
+  })
+})
+
+function pipelineIcon(result: string) {
+  if (result === 'succeeded') return CheckCircle2
+  if (result === 'failed') return XCircle
+  return Play
+}
+
+function pipelineColor(result: string) {
+  if (result === 'succeeded') return 'text-green-500'
+  if (result === 'failed') return 'text-red-500'
+  return 'text-yellow-500'
+}
+
+function goCreateTask() {
+  router.push({ path: '/tasks', query: { create: '1' } })
+}
+
+async function openPR(pr: PullRequest) {
+  try {
+    const { OpenURL } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/browserservice')
+    await OpenURL(pr.prUrl)
+  } catch { window.open(pr.prUrl, '_blank') }
+}
+
+async function openPipeline(p: ADOPipeline) {
+  try {
+    const { OpenURL } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/browserservice')
+    await OpenURL(p.url)
+  } catch { window.open(p.url, '_blank') }
+}
 </script>
 
 <template>
-  <div class="flex-1 flex overflow-hidden">
-    <!-- Left column: Tasks + Inbox -->
-    <ScrollArea class="flex-1 h-full">
-      <div class="px-4 py-3 space-y-4">
-        <!-- Inbox / Quick Capture -->
-        <div>
-          <div class="flex items-center gap-1.5 mb-2">
-            <Inbox :size="12" class="text-muted-foreground" />
-            <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Inbox</span>
-            <span class="text-[11px] text-muted-foreground/50 tabular-nums">{{ inboxItems.length }}</span>
-          </div>
-          <div class="flex items-center gap-2 mb-1.5">
-            <input
-              v-model="newInboxText"
-              @keydown.enter="addInboxItem"
-              class="flex-1 h-7 text-xs bg-muted/50 border border-border/50 rounded px-2.5 placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/30 text-foreground"
-              placeholder="Quick capture..."
-            />
-            <Button variant="ghost" size="icon" class="h-7 w-7 shrink-0" @click="addInboxItem">
-              <Plus :size="13" />
-            </Button>
-          </div>
-          <div v-if="inboxItems.length > 0" class="space-y-0.5">
-            <div
-              v-for="item in inboxItems"
-              :key="item.id"
-              class="group flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-muted/40 transition-colors"
-            >
-              <span class="text-[12px] text-foreground flex-1 truncate">{{ item.text }}</span>
-              <span class="text-[10px] text-muted-foreground/40 shrink-0">{{ item.createdAt }}</span>
-              <button
-                class="h-5 w-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0 rounded hover:bg-primary/10"
-                title="Convert to task"
-                @click="promoteToTask(item)"
-              >
-                <ArrowRight :size="11" class="text-primary" />
-              </button>
-              <button
-                class="h-5 w-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0 rounded hover:bg-muted"
-                title="Dismiss"
-                @click="removeInboxItem(item.id)"
-              >
-                <X :size="11" class="text-muted-foreground" />
-              </button>
+  <ScrollArea class="flex-1 h-full">
+    <div class="px-6 py-5">
+      <!-- Page header -->
+      <div class="flex items-center justify-between mb-6">
+        <h1 style="font-size: 20px; font-weight: 600; color: var(--color-text-primary)">Dashboard</h1>
+        <Button @click="goCreateTask" class="gap-1.5">
+          <Plus :size="14" />
+          Create Task
+        </Button>
+      </div>
+
+      <!-- Loading skeletons -->
+      <template v-if="taskStore.loading">
+        <div class="flex items-center gap-4 mb-5">
+          <Skeleton class="h-4 w-24" />
+          <Skeleton class="h-4 w-20" />
+          <Skeleton class="h-4 w-16" />
+          <Skeleton class="h-4 w-12" />
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          <div class="lg:col-span-3 space-y-6">
+            <div>
+              <Skeleton class="h-4 w-28 mb-3" />
+              <div class="space-y-px rounded-lg overflow-hidden">
+                <Skeleton class="h-10 w-full" />
+                <Skeleton class="h-10 w-full" />
+                <Skeleton class="h-10 w-full" />
+              </div>
+            </div>
+            <div>
+              <Skeleton class="h-4 w-32 mb-3" />
+              <div class="space-y-px rounded-lg overflow-hidden">
+                <Skeleton class="h-10 w-full" />
+                <Skeleton class="h-10 w-full" />
+                <Skeleton class="h-10 w-full" />
+                <Skeleton class="h-10 w-full" />
+                <Skeleton class="h-10 w-full" />
+              </div>
             </div>
           </div>
-          <p v-else class="text-[11px] text-muted-foreground/40 py-1 px-2.5">Inbox empty</p>
+          <div class="lg:col-span-2 space-y-6">
+            <div>
+              <Skeleton class="h-4 w-28 mb-3" />
+              <div class="space-y-2">
+                <Skeleton class="h-14 w-full rounded-lg" />
+                <Skeleton class="h-14 w-full rounded-lg" />
+              </div>
+            </div>
+            <div>
+              <Skeleton class="h-4 w-20 mb-3" />
+              <Skeleton class="h-24 w-full rounded-lg" />
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <!-- Empty state -->
+      <EmptyState
+        v-else-if="taskStore.tasks.length === 0 && activePRs.length === 0"
+        :icon="ClipboardList"
+        title="Welcome to Team ADO Tool"
+        description="Your dashboard will show today's focus, PRs, pipelines, and blocked items. Create a task to get started."
+      >
+        <template #action>
+          <Button @click="goCreateTask" class="gap-1.5">
+            <Plus :size="14" />
+            Create Task
+          </Button>
+        </template>
+      </EmptyState>
+
+      <!-- Dashboard content -->
+      <template v-else>
+        <!-- Compact stats line -->
+        <div class="flex items-center gap-4 mb-5 text-sm" style="color: var(--color-text-secondary)">
+          <span><strong class="tabular-nums" style="color: var(--color-text-primary)">{{ taskStore.stats.inProgress }}</strong> in progress</span>
+          <span><strong class="tabular-nums" style="color: var(--color-text-primary)">{{ taskStore.stats.blocked }}</strong> blocked</span>
+          <span><strong class="tabular-nums" style="color: var(--color-text-primary)">{{ taskStore.stats.done }}</strong> done</span>
+          <span class="text-muted-foreground/50">of {{ taskStore.stats.total }}</span>
         </div>
 
-        <!-- Tasks -->
-        <div>
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Tasks</span>
-            <span class="text-[11px] text-muted-foreground tabular-nums">{{ focusTasks.length }}</span>
-          </div>
-          <Card class="overflow-hidden">
-            <CardContent class="p-0">
-              <template v-if="focusTasks.length > 0">
-                <div
+        <!-- Two-column layout: Tasks left, PRs + Pipelines right -->
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          <!-- Left column (3/5): Focus + Recent + Blocked -->
+          <div class="lg:col-span-3 space-y-6">
+            <!-- Today's Focus -->
+            <div>
+              <h2 style="font-size: 14px; font-weight: 600; color: var(--color-text-primary)" class="mb-3">
+                Today's Focus
+              </h2>
+              <div
+                v-if="focusTasks.length > 0"
+                class="rounded-lg overflow-hidden"
+                style="border: 1px solid var(--color-border-default)"
+              >
+                <TaskRow
                   v-for="task in focusTasks"
                   :key="task.id"
-                  class="flex items-center gap-2.5 px-3 py-2 hover:bg-muted/50 cursor-pointer transition-colors border-b border-border/50 last:border-b-0"
-                  @click="router.push('/tasks')"
+                  :task="task"
+                  @select="(id) => { taskStore.selectTask(id); router.push('/tasks') }"
+                  @toggle-status="(id) => taskStore.setStatus(id, 'done')"
+                />
+              </div>
+              <p v-else style="font-size: 14px; font-weight: 400; color: var(--color-text-tertiary)">
+                No tasks in progress — pick something to work on.
+              </p>
+            </div>
+
+            <!-- Recent Activity -->
+            <div>
+              <h2 style="font-size: 14px; font-weight: 600; color: var(--color-text-primary)" class="mb-3">
+                Recent Activity
+              </h2>
+              <div
+                v-if="recentTasks.length > 0"
+                class="rounded-lg overflow-hidden"
+                style="border: 1px solid var(--color-border-default)"
+              >
+                <div
+                  v-for="(task, idx) in recentTasks"
+                  :key="task.id"
+                  class="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-muted/50 transition-colors"
+                  :style="idx < recentTasks.length - 1 ? 'border-bottom: 1px solid var(--color-border-default)' : ''"
+                  @click="() => { taskStore.selectTask(task.id); router.push('/tasks') }"
                 >
                   <StatusBadge :status="task.status" />
-                  <span class="text-sm text-foreground flex-1 truncate">{{ task.title }}</span>
-                  <PriorityBadge :priority="task.priority" />
-                  <AdoBadge :ado-id="task.adoId" />
+                  <span class="text-sm flex-1 truncate" style="color: var(--color-text-primary)">{{ task.title }}</span>
+                  <span class="text-xs tabular-nums" style="color: var(--color-text-secondary)">{{ relativeTime(task.updatedAt) }}</span>
                 </div>
-              </template>
-              <div v-else class="px-3 py-6 text-center">
-                <p class="text-xs text-muted-foreground">No tasks yet</p>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+              <p v-else style="font-size: 14px; font-weight: 400; color: var(--color-text-tertiary)">
+                No recent activity yet.
+              </p>
+            </div>
 
-        <!-- Blocked at bottom -->
-        <div v-if="blockedTasks.length > 0">
-          <div class="flex items-center gap-1.5 mb-2">
-            <AlertTriangle :size="12" class="text-red-500" />
-            <span class="text-[11px] font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider">Blocked</span>
-            <span class="text-[11px] text-red-500/60 tabular-nums">{{ blockedTasks.length }}</span>
-          </div>
-          <Card class="overflow-hidden border-red-500/20 bg-red-500/[0.02]">
-            <CardContent class="p-0">
+            <!-- Blocked -->
+            <div v-if="blockedTasks.length > 0">
+              <h2 style="font-size: 14px; font-weight: 600; color: var(--color-text-primary)" class="mb-3">
+                Blocked
+              </h2>
               <div
-                v-for="task in blockedTasks"
-                :key="task.id"
-                class="flex items-center gap-2.5 px-3 py-2 cursor-pointer transition-colors hover:bg-red-500/5 border-b border-red-500/10 last:border-b-0"
-                @click="router.push('/tasks')"
+                class="rounded-lg overflow-hidden"
+                style="border: 1px solid var(--color-border-default); border-left: 2px solid var(--color-status-blocked)"
               >
-                <Octagon :size="14" class="text-red-500 shrink-0" />
-                <span class="text-sm text-foreground flex-1 truncate">{{ task.title }}</span>
-                <span class="text-[11px] text-red-500/70 truncate max-w-[10rem]">{{ task.blockedReason || 'Blocked' }}</span>
+                <TaskRow
+                  v-for="task in blockedTasks"
+                  :key="task.id"
+                  :task="task"
+                  @select="(id) => { taskStore.selectTask(id); router.push('/tasks') }"
+                />
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </ScrollArea>
-
-    <!-- Right column: PRs -->
-    <ScrollArea class="w-[45%] h-full border-l border-border">
-      <div class="px-4 py-3 space-y-3">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-1.5">
-            <GitPullRequest :size="14" class="text-muted-foreground" />
-            <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Pull Requests</span>
+            </div>
           </div>
-          <div class="flex items-center gap-1.5">
-            <span
-              :class="cn(
-                'flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full',
-                prStore.connected
-                  ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
-                  : 'text-muted-foreground bg-muted/50'
-              )"
-            >
-              <Wifi v-if="prStore.connected" :size="10" />
-              <WifiOff v-else :size="10" />
-              {{ prStore.connected ? 'ADO' : 'Cached' }}
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              class="h-6 w-6"
-              :disabled="refreshing"
-              @click="refreshPRs"
-            >
-              <RefreshCw :size="12" :class="refreshing && 'animate-spin'" />
-            </Button>
-          </div>
-        </div>
 
-        <!-- Loading skeleton -->
-        <template v-if="prStore.loading">
-          <div class="space-y-2">
-            <div v-for="i in 3" :key="i" class="h-10 rounded bg-muted/50 animate-pulse" />
-          </div>
-        </template>
-
-        <template v-else>
-          <!-- Needs Your Review -->
-          <div>
-            <span class="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">Needs Your Review</span>
-            <Card v-if="activeReviewPRs.length > 0" class="mt-1.5 overflow-hidden">
-              <CardContent class="p-0">
+          <!-- Right column (2/5): PRs + Pipelines -->
+          <div class="lg:col-span-2 space-y-6">
+            <!-- Pull Requests -->
+            <div>
+              <div class="flex items-center gap-2 mb-3">
+                <GitPullRequest :size="14" class="text-muted-foreground" />
+                <h2 style="font-size: 14px; font-weight: 600; color: var(--color-text-primary)">
+                  Pull Requests
+                </h2>
+                <Badge v-if="activePRs.length > 0" variant="secondary" class="text-[10px] px-1.5 py-0 h-4">
+                  {{ activePRs.length }}
+                </Badge>
+              </div>
+              <div
+                v-if="activePRs.length > 0"
+                class="rounded-lg overflow-hidden space-y-px"
+                style="border: 1px solid var(--color-border-default)"
+              >
                 <div
-                  v-for="pr in activeReviewPRs"
-                  :key="pr.id"
-                  class="flex flex-col gap-1 px-3 py-2 cursor-pointer transition-colors hover:bg-muted/50 border-b border-border/50 last:border-b-0"
+                  v-for="pr in activePRs"
+                  :key="`${pr.repo}-${pr.id}`"
+                  class="flex flex-col gap-1 px-3 py-2.5 cursor-pointer hover:bg-muted/50 transition-colors"
+                  style="border-bottom: 1px solid var(--color-border-default)"
                   @click="openPR(pr)"
                 >
                   <div class="flex items-center gap-2">
-                    <span class="text-sm text-foreground flex-1 truncate">{{ pr.title }}</span>
-                    <Badge variant="outline" :class="cn('text-[10px] px-1.5 py-0 capitalize shrink-0', prStatusClasses(pr.status))">
-                      {{ pr.status }}
-                    </Badge>
+                    <GitPullRequest :size="13" class="text-green-500 shrink-0" />
+                    <span class="text-sm truncate flex-1" style="color: var(--color-text-primary)">{{ pr.title }}</span>
+                    <ExternalLink :size="11" class="text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100" />
                   </div>
-                  <div class="flex items-center gap-2 text-[10px] text-muted-foreground/60">
-                    <span class="font-medium">{{ pr.repo }}</span>
-                    <span>{{ branchName(pr.sourceBranch) }} → {{ branchName(pr.targetBranch) }}</span>
-                    <span class="ml-auto flex items-center gap-1">
-                      <template v-for="reviewer in parseReviewers(pr.reviewers)" :key="reviewer.uniqueName">
-                        <span v-if="reviewer.vote !== 0" :title="`${reviewer.displayName}: ${voteIcon(reviewer.vote)}`">
-                          {{ voteIcon(reviewer.vote) }}
-                        </span>
-                      </template>
-                    </span>
-                    <span class="tabular-nums shrink-0">{{ relativeTime(pr.updatedAt) }}</span>
-                    <ExternalLink :size="10" class="shrink-0 opacity-0 group-hover:opacity-100" />
+                  <div class="flex items-center gap-2 pl-5 text-[11px]" style="color: var(--color-text-secondary)">
+                    <span class="truncate">{{ pr.repo }}</span>
+                    <span>·</span>
+                    <GitBranch :size="11" class="shrink-0" />
+                    <span class="truncate">{{ branchName(pr.sourceBranch) }}</span>
+                    <span class="ml-auto shrink-0 tabular-nums">{{ relativeTime(pr.updatedAt) }}</span>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-            <p v-else class="text-[11px] text-muted-foreground/40 py-2 px-1">No PRs need your review</p>
-          </div>
+              </div>
+              <p v-else style="font-size: 13px; font-weight: 400; color: var(--color-text-tertiary)">
+                No active pull requests.
+              </p>
+            </div>
 
-          <!-- Your PRs -->
-          <div>
-            <span class="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">Your PRs</span>
-            <Card v-if="prStore.myPRs.length > 0" class="mt-1.5 overflow-hidden">
-              <CardContent class="p-0">
+            <!-- Pipelines (grouped by pipeline name, filtered to user's PR branches) -->
+            <div>
+              <div class="flex items-center gap-2 mb-3">
+                <Play :size="14" class="text-muted-foreground" />
+                <h2 style="font-size: 14px; font-weight: 600; color: var(--color-text-primary)">
+                  Pipelines
+                </h2>
+                <Badge v-if="groupedPipelines.length > 0" variant="secondary" class="text-[10px] px-1.5 py-0 h-4">
+                  {{ groupedPipelines.length }}
+                </Badge>
+              </div>
+              <div
+                v-if="groupedPipelines.length > 0"
+                class="space-y-2"
+              >
                 <div
-                  v-for="pr in prStore.myPRs"
-                  :key="pr.id"
-                  class="flex flex-col gap-1 px-3 py-2 cursor-pointer transition-colors hover:bg-muted/50 border-b border-border/50 last:border-b-0"
-                  @click="openPR(pr)"
+                  v-for="group in groupedPipelines"
+                  :key="group.pipelineName"
+                  class="rounded-lg overflow-hidden"
+                  style="border: 1px solid var(--color-border-default)"
                 >
-                  <div class="flex items-center gap-2">
-                    <span class="text-sm text-foreground flex-1 truncate">{{ pr.title }}</span>
-                    <Badge variant="outline" :class="cn('text-[10px] px-1.5 py-0 capitalize shrink-0', prStatusClasses(pr.status))">
-                      {{ pr.status }}
-                    </Badge>
+                  <div class="px-3 py-1.5" style="background: var(--color-bg-secondary); border-bottom: 1px solid var(--color-border-default)">
+                    <span class="text-xs font-medium" style="color: var(--color-text-primary)">{{ group.pipelineName }}</span>
                   </div>
-                  <div class="flex items-center gap-2 text-[10px] text-muted-foreground/60">
-                    <span class="font-medium">{{ pr.repo }}</span>
-                    <span>{{ branchName(pr.sourceBranch) }} → {{ branchName(pr.targetBranch) }}</span>
-                    <div class="ml-auto flex items-center gap-1">
-                      <template v-for="reviewer in parseReviewers(pr.reviewers)" :key="reviewer.uniqueName">
-                        <span v-if="reviewer.vote !== 0" :title="`${reviewer.displayName}: ${voteIcon(reviewer.vote)}`">
-                          {{ voteIcon(reviewer.vote) }}
-                        </span>
-                        <div
-                          v-else
-                          class="w-4 h-4 rounded-full bg-muted border border-background flex items-center justify-center"
-                          :title="reviewer.displayName"
-                        >
-                          <span class="text-[7px] font-medium text-muted-foreground">{{ getInitials(reviewer.displayName) }}</span>
-                        </div>
-                      </template>
-                    </div>
-                    <span class="tabular-nums shrink-0">{{ relativeTime(pr.updatedAt) }}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <p v-else class="text-[11px] text-muted-foreground/40 py-2 px-1">You have no active PRs</p>
-          </div>
-
-          <!-- Team PRs (collapsible) -->
-          <div>
-            <button
-              class="flex items-center gap-1 text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider hover:text-muted-foreground transition-colors"
-              @click="teamPRsExpanded = !teamPRsExpanded"
-            >
-              <ChevronRight v-if="!teamPRsExpanded" :size="10" />
-              <ChevronDown v-else :size="10" />
-              Team PRs
-              <span class="normal-case text-muted-foreground/40 tabular-nums">{{ prStore.teamPRs.length }}</span>
-            </button>
-            <template v-if="teamPRsExpanded">
-              <Card v-if="prStore.teamPRs.length > 0" class="mt-1.5 overflow-hidden">
-                <CardContent class="p-0">
                   <div
-                    v-for="pr in prStore.teamPRs"
-                    :key="pr.id"
-                    class="flex flex-col gap-1 px-3 py-2 cursor-pointer transition-colors hover:bg-muted/50 border-b border-border/50 last:border-b-0"
-                    @click="openPR(pr)"
+                    v-for="(run, idx) in group.runs"
+                    :key="run.id"
+                    class="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer hover:bg-muted/50 transition-colors"
+                    :style="idx < group.runs.length - 1 ? 'border-bottom: 1px solid var(--color-border-default)' : ''"
+                    @click="openPipeline(run)"
                   >
-                    <div class="flex items-center gap-2">
-                      <span class="text-sm text-foreground flex-1 truncate">{{ pr.title }}</span>
-                      <Badge variant="outline" :class="cn('text-[10px] px-1.5 py-0 capitalize shrink-0', prStatusClasses(pr.status))">
-                        {{ pr.status }}
-                      </Badge>
-                    </div>
-                    <div class="flex items-center gap-2 text-[10px] text-muted-foreground/60">
-                      <span class="font-medium">{{ pr.repo }}</span>
-                      <span>{{ branchName(pr.sourceBranch) }} → {{ branchName(pr.targetBranch) }}</span>
-                      <span class="ml-auto flex items-center gap-1">
-                        <template v-for="reviewer in parseReviewers(pr.reviewers)" :key="reviewer.uniqueName">
-                          <span v-if="reviewer.vote !== 0">{{ voteIcon(reviewer.vote) }}</span>
-                        </template>
-                      </span>
-                      <span class="tabular-nums shrink-0">{{ relativeTime(pr.updatedAt) }}</span>
-                    </div>
+                    <component :is="pipelineIcon(run.result)" :size="13" :class="pipelineColor(run.result)" class="shrink-0" />
+                    <span class="text-xs truncate flex-1" style="color: var(--color-text-secondary)">{{ run.sourceBranch }}</span>
+                    <Badge
+                      :variant="run.result === 'succeeded' ? 'secondary' : run.result === 'failed' ? 'destructive' : 'outline'"
+                      class="text-[10px] px-1.5 py-0 h-4 shrink-0"
+                    >{{ run.result || run.status }}</Badge>
+                    <span class="text-[11px] tabular-nums shrink-0" style="color: var(--color-text-secondary)">
+                      {{ run.finishTime ? relativeTime(run.finishTime) : relativeTime(run.queueTime) }}
+                    </span>
                   </div>
-                </CardContent>
-              </Card>
-              <p v-else class="text-[11px] text-muted-foreground/40 py-2 px-1">No other team PRs</p>
-            </template>
+                </div>
+              </div>
+              <p v-else style="font-size: 13px; font-weight: 400; color: var(--color-text-tertiary)">
+                No pipeline runs for your PRs.
+              </p>
+            </div>
           </div>
-        </template>
-      </div>
-    </ScrollArea>
-  </div>
+        </div>
+      </template>
+
+
+    </div>
+  </ScrollArea>
 </template>

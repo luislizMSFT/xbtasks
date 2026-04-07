@@ -45,6 +45,13 @@ func (db *DB) migrate() error {
 	// Add created_by column if missing (added after initial schema)
 	db.Exec(`ALTER TABLE pull_requests ADD COLUMN created_by TEXT DEFAULT ''`)
 
+	// Phase 2 migrations — add columns to existing tables
+	db.Exec(`ALTER TABLE projects ADD COLUMN is_pinned INTEGER DEFAULT 0`)
+	db.Exec(`ALTER TABLE ado_work_items ADD COLUMN org TEXT DEFAULT ''`)
+	db.Exec(`ALTER TABLE ado_work_items ADD COLUMN project TEXT DEFAULT ''`)
+	db.Exec(`ALTER TABLE ado_work_items ADD COLUMN parent_id INTEGER DEFAULT 0`)
+	db.Exec(`ALTER TABLE ado_work_items ADD COLUMN changed_date DATETIME DEFAULT CURRENT_TIMESTAMP`)
+
 	return nil
 }
 
@@ -141,6 +148,52 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_pull_requests_pr_repo ON pull_requests(pr_
 CREATE INDEX IF NOT EXISTS idx_pull_requests_status ON pull_requests(status);
 CREATE INDEX IF NOT EXISTS idx_pull_requests_task ON pull_requests(task_id);
 CREATE INDEX IF NOT EXISTS idx_ado_work_items_ado_id ON ado_work_items(ado_id);
+CREATE INDEX IF NOT EXISTS idx_ado_work_items_parent_id ON ado_work_items(parent_id);
+CREATE INDEX IF NOT EXISTS idx_task_ado_links_ado_id ON task_ado_links(ado_id);
+CREATE INDEX IF NOT EXISTS idx_sync_state_task_id ON sync_state(task_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_project_status ON tasks(project_id, status);
+
+CREATE TABLE IF NOT EXISTS task_links (
+	id         INTEGER PRIMARY KEY AUTOINCREMENT,
+	task_id    INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+	url        TEXT NOT NULL,
+	label      TEXT DEFAULT '',
+	type       TEXT DEFAULT 'url',
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_task_links_task ON task_links(task_id);
+
+CREATE TABLE IF NOT EXISTS task_comments (
+	id             INTEGER PRIMARY KEY AUTOINCREMENT,
+	task_id        INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+	content        TEXT NOT NULL,
+	is_public      INTEGER DEFAULT 0,
+	ado_comment_id TEXT DEFAULT '',
+	created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
+	updated_at     DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_task_comments_task ON task_comments(task_id);
+
+CREATE TABLE IF NOT EXISTS project_ado_links (
+	project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+	ado_id     TEXT NOT NULL,
+	direction  TEXT DEFAULT 'linked' CHECK(direction IN ('promoted','imported','linked')),
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY (project_id, ado_id)
+);
+
+CREATE TABLE IF NOT EXISTS sync_state (
+	task_id        INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+	ado_id         TEXT NOT NULL,
+	last_synced_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+	local_title    TEXT DEFAULT '',
+	local_status   TEXT DEFAULT '',
+	local_desc     TEXT DEFAULT '',
+	remote_title   TEXT DEFAULT '',
+	remote_status  TEXT DEFAULT '',
+	remote_desc    TEXT DEFAULT '',
+	PRIMARY KEY (task_id, ado_id)
+);
 `
 
 func DefaultDBPath() string {

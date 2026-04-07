@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
@@ -8,16 +10,104 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useTheme } from '@/composables/useTheme'
-import { Save, RotateCcw, FolderOpen, Database, Globe, RefreshCw, Palette } from 'lucide-vue-next'
+import { useAuthStore } from '@/stores/auth'
+import { Save, RotateCcw, FolderOpen, Database, Globe, Palette, Trash2, Plus, RefreshCw, LogOut, KeyRound, Shield } from 'lucide-vue-next'
 
+const router = useRouter()
 const { mode, toggle: toggleTheme } = useTheme()
+const authStore = useAuthStore()
+
+// ---- Org/Project Management ----
+
+interface OrgProject {
+  org: string
+  projects: string[]
+}
+
+const orgs = ref<OrgProject[]>([])
+const newOrg = ref('')
+const newProjects = ref('')
+const orgsLoading = ref(false)
+const orgsSaved = ref(false)
+
+async function loadOrgs() {
+  try {
+    const { GetOrgProjects } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/config/configservice')
+    orgs.value = (await GetOrgProjects() as OrgProject[]) || []
+  } catch {
+    orgs.value = []
+  }
+}
+
+async function saveOrgs() {
+  orgsLoading.value = true
+  try {
+    const { SetOrgProjects } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/config/configservice')
+    await SetOrgProjects(orgs.value)
+    orgsSaved.value = true
+    setTimeout(() => { orgsSaved.value = false }, 2000)
+  } catch {
+    // Bindings unavailable
+  } finally {
+    orgsLoading.value = false
+  }
+}
+
+function addOrg() {
+  const org = newOrg.value.trim()
+  if (!org) return
+  const projects = newProjects.value
+    .split(',')
+    .map(p => p.trim())
+    .filter(p => p.length > 0)
+  if (projects.length === 0) return
+
+  // Check if org already exists — merge projects
+  const existing = orgs.value.find(o => o.org.toLowerCase() === org.toLowerCase())
+  if (existing) {
+    const newPs = projects.filter(p => !existing.projects.includes(p))
+    existing.projects.push(...newPs)
+  } else {
+    orgs.value.push({ org, projects })
+  }
+
+  newOrg.value = ''
+  newProjects.value = ''
+  saveOrgs()
+}
+
+function removeOrg(index: number) {
+  orgs.value.splice(index, 1)
+  saveOrgs()
+}
+
+// ---- Sync Interval ----
+
+const syncInterval = ref(15)
+
+async function loadSyncInterval() {
+  try {
+    const { GetSyncInterval } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/config/configservice')
+    syncInterval.value = (await GetSyncInterval()) || 15
+  } catch {
+    syncInterval.value = 15
+  }
+}
+
+async function saveSyncInterval() {
+  try {
+    const { SetSyncInterval } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/config/configservice')
+    await SetSyncInterval(syncInterval.value)
+  } catch {
+    // Bindings unavailable
+  }
+}
+
+// ---- General Config ----
 
 interface ConfigState {
   theme: string
   dbPath: string
-  adoOrganization: string
-  adoProject: string
-  syncIntervalMinutes: number
   logLevel: string
   windowWidth: number
   windowHeight: number
@@ -26,9 +116,6 @@ interface ConfigState {
 const config = ref<ConfigState>({
   theme: 'system',
   dbPath: '',
-  adoOrganization: '',
-  adoProject: '',
-  syncIntervalMinutes: 15,
   logLevel: 'info',
   windowWidth: 1200,
   windowHeight: 800,
@@ -44,9 +131,6 @@ onMounted(async () => {
     if (all) {
       config.value.theme = all.theme || 'system'
       config.value.dbPath = all.db?.path || ''
-      config.value.adoOrganization = all.ado?.organization || ''
-      config.value.adoProject = all.ado?.project || ''
-      config.value.syncIntervalMinutes = all.sync?.interval_minutes || 15
       config.value.logLevel = all.log?.level || 'info'
       config.value.windowWidth = all.window?.width || 1200
       config.value.windowHeight = all.window?.height || 800
@@ -56,6 +140,9 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+
+  await loadOrgs()
+  await loadSyncInterval()
 })
 
 async function saveConfig() {
@@ -63,9 +150,6 @@ async function saveConfig() {
     const { Set } = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/config/configservice')
     await Set('theme', config.value.theme)
     await Set('db.path', config.value.dbPath)
-    await Set('ado.organization', config.value.adoOrganization)
-    await Set('ado.project', config.value.adoProject)
-    await Set('sync.interval_minutes', config.value.syncIntervalMinutes)
     await Set('log.level', config.value.logLevel)
     await Set('window.width', config.value.windowWidth)
     await Set('window.height', config.value.windowHeight)
@@ -80,14 +164,36 @@ function resetDefaults() {
   config.value = {
     theme: 'system',
     dbPath: '',
-    adoOrganization: '',
-    adoProject: '',
-    syncIntervalMinutes: 15,
     logLevel: 'info',
     windowWidth: 1200,
     windowHeight: 800,
   }
+  syncInterval.value = 15
 }
+
+// ---- Auth ----
+
+const patUpdateInput = ref('')
+const showPatUpdate = ref(false)
+
+async function handleSignOut() {
+  await authStore.signOut()
+  router.push('/')
+}
+
+async function updatePAT() {
+  const token = patUpdateInput.value.trim()
+  if (!token) return
+  await authStore.signInWithPAT(token)
+  patUpdateInput.value = ''
+  showPatUpdate.value = false
+}
+
+const authMethodLabel = {
+  oauth: 'Microsoft OAuth',
+  pat: 'Personal Access Token',
+  azcli: 'Az CLI Token',
+} as const
 </script>
 
 <template>
@@ -110,6 +216,282 @@ function resetDefaults() {
           </Button>
         </div>
       </div>
+
+      <!-- Loading skeletons -->
+      <template v-if="loading">
+        <!-- Organizations skeleton -->
+        <Card>
+          <CardHeader>
+            <Skeleton class="h-5 w-56 rounded-md" />
+            <Skeleton class="h-4 w-72 rounded-md" />
+          </CardHeader>
+          <CardContent class="space-y-4">
+            <Skeleton class="h-14 w-full rounded-md" />
+            <Skeleton class="h-14 w-full rounded-md" />
+            <Separator />
+            <Skeleton class="h-4 w-32 rounded-md" />
+            <div class="grid grid-cols-2 gap-3">
+              <Skeleton class="h-10 w-full rounded-md" />
+              <Skeleton class="h-10 w-full rounded-md" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <!-- Sync Settings skeleton -->
+        <Card>
+          <CardHeader>
+            <Skeleton class="h-5 w-36 rounded-md" />
+            <Skeleton class="h-4 w-64 rounded-md" />
+          </CardHeader>
+          <CardContent>
+            <div class="flex items-center justify-between">
+              <div class="space-y-1.5">
+                <Skeleton class="h-4 w-44 rounded-md" />
+                <Skeleton class="h-3 w-64 rounded-md" />
+              </div>
+              <Skeleton class="h-10 w-20 rounded-md" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <!-- Authentication skeleton -->
+        <Card>
+          <CardHeader>
+            <Skeleton class="h-5 w-36 rounded-md" />
+            <Skeleton class="h-4 w-52 rounded-md" />
+          </CardHeader>
+          <CardContent class="space-y-4">
+            <div class="flex items-center justify-between">
+              <div class="space-y-1.5">
+                <Skeleton class="h-4 w-32 rounded-md" />
+                <Skeleton class="h-3 w-44 rounded-md" />
+              </div>
+              <Skeleton class="h-6 w-16 rounded-full" />
+            </div>
+            <Skeleton class="h-12 w-full rounded-md" />
+            <Separator />
+            <Skeleton class="h-9 w-24 rounded-md" />
+          </CardContent>
+        </Card>
+
+        <!-- Appearance skeleton -->
+        <Card>
+          <CardHeader>
+            <Skeleton class="h-5 w-32 rounded-md" />
+            <Skeleton class="h-4 w-56 rounded-md" />
+          </CardHeader>
+          <CardContent class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+              <div class="space-y-1.5">
+                <Skeleton class="h-3 w-16 rounded-md" />
+                <Skeleton class="h-10 w-full rounded-md" />
+              </div>
+              <div class="space-y-1.5">
+                <Skeleton class="h-3 w-20 rounded-md" />
+                <Skeleton class="h-10 w-full rounded-md" />
+              </div>
+            </div>
+            <Separator />
+            <div class="grid grid-cols-2 gap-4">
+              <div class="space-y-1.5">
+                <Skeleton class="h-3 w-24 rounded-md" />
+                <Skeleton class="h-10 w-full rounded-md" />
+              </div>
+              <div class="space-y-1.5">
+                <Skeleton class="h-3 w-24 rounded-md" />
+                <Skeleton class="h-10 w-full rounded-md" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <!-- Data skeleton -->
+        <Card>
+          <CardHeader>
+            <Skeleton class="h-5 w-20 rounded-md" />
+            <Skeleton class="h-4 w-48 rounded-md" />
+          </CardHeader>
+          <CardContent>
+            <div class="space-y-1.5">
+              <Skeleton class="h-3 w-28 rounded-md" />
+              <Skeleton class="h-10 w-full rounded-md" />
+              <Skeleton class="h-3 w-52 rounded-md" />
+            </div>
+          </CardContent>
+        </Card>
+      </template>
+
+      <!-- Loaded content -->
+      <template v-else>
+      <!-- Azure DevOps Organizations -->
+      <Card>
+        <CardHeader>
+          <div class="flex items-center gap-2">
+            <Globe :size="16" class="text-muted-foreground" />
+            <CardTitle class="text-sm">Azure DevOps Organizations</CardTitle>
+          </div>
+          <CardDescription>Configure which ADO orgs and projects to sync</CardDescription>
+        </CardHeader>
+        <CardContent class="space-y-4">
+          <!-- Org list -->
+          <div v-if="orgs.length > 0" class="space-y-2">
+            <div
+              v-for="(orgItem, index) in orgs"
+              :key="orgItem.org"
+              class="flex items-center justify-between px-3 py-2 rounded-md border border-border bg-muted/30"
+            >
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-foreground truncate">{{ orgItem.org }}</p>
+                <p class="text-xs text-muted-foreground truncate">{{ orgItem.projects.join(', ') }}</p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                class="shrink-0 h-8 w-8 text-muted-foreground hover:text-destructive"
+                @click="removeOrg(index)"
+              >
+                <Trash2 :size="14" />
+              </Button>
+            </div>
+          </div>
+
+          <div v-else class="px-3 py-4 rounded-md border border-dashed border-border text-center">
+            <p class="text-sm text-muted-foreground">No organizations configured</p>
+            <p class="text-xs text-muted-foreground mt-0.5">Add an org below to start syncing</p>
+          </div>
+
+          <Separator />
+
+          <!-- Add org form -->
+          <div class="space-y-3">
+            <p class="text-xs font-medium text-muted-foreground">Add Organization</p>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="space-y-1">
+                <label class="text-xs text-muted-foreground">Organization</label>
+                <Input
+                  v-model="newOrg"
+                  placeholder="e.g., xbox"
+                  @keydown.enter="addOrg"
+                />
+              </div>
+              <div class="space-y-1">
+                <label class="text-xs text-muted-foreground">Projects</label>
+                <Input
+                  v-model="newProjects"
+                  placeholder="e.g., XES, XboxLive"
+                  @keydown.enter="addOrg"
+                />
+              </div>
+            </div>
+            <p class="text-[11px] text-muted-foreground">Separate multiple projects with commas</p>
+            <Button
+              variant="outline"
+              size="sm"
+              @click="addOrg"
+              :disabled="!newOrg.trim() || !newProjects.trim()"
+            >
+              <Plus :size="14" class="mr-1.5" />
+              Add Organization
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <!-- Sync Settings -->
+      <Card>
+        <CardHeader>
+          <div class="flex items-center gap-2">
+            <RefreshCw :size="16" class="text-muted-foreground" />
+            <CardTitle class="text-sm">Sync Settings</CardTitle>
+          </div>
+          <CardDescription>Background sync frequency and behavior</CardDescription>
+        </CardHeader>
+        <CardContent class="space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-foreground">Background sync interval</p>
+              <p class="text-xs text-muted-foreground">How often to pull updates from ADO (minutes)</p>
+            </div>
+            <Input
+              v-model.number="syncInterval"
+              type="number"
+              :min="1"
+              :max="120"
+              class="w-20"
+              @change="saveSyncInterval"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <!-- Authentication -->
+      <Card>
+        <CardHeader>
+          <div class="flex items-center gap-2">
+            <Shield :size="16" class="text-muted-foreground" />
+            <CardTitle class="text-sm">Authentication</CardTitle>
+          </div>
+          <CardDescription>Manage your sign-in method</CardDescription>
+        </CardHeader>
+        <CardContent class="space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-foreground">Current method</p>
+              <p class="text-xs text-muted-foreground">
+                {{ authStore.authMethod ? authMethodLabel[authStore.authMethod] : 'Not signed in' }}
+              </p>
+            </div>
+            <Badge variant="secondary">
+              {{ authStore.isAuthenticated ? 'Active' : 'Inactive' }}
+            </Badge>
+          </div>
+
+          <div v-if="authStore.user" class="flex items-center gap-3 px-3 py-2 rounded-md border border-border bg-muted/30">
+            <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
+              {{ authStore.initials }}
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-foreground truncate">{{ authStore.user.displayName }}</p>
+              <p v-if="authStore.user.email" class="text-xs text-muted-foreground truncate">{{ authStore.user.email }}</p>
+            </div>
+          </div>
+
+          <!-- PAT update -->
+          <div v-if="authStore.authMethod === 'pat'" class="space-y-2">
+            <Button
+              v-if="!showPatUpdate"
+              variant="outline"
+              size="sm"
+              @click="showPatUpdate = true"
+            >
+              <KeyRound :size="14" class="mr-1.5" />
+              Update PAT
+            </Button>
+            <div v-if="showPatUpdate" class="flex gap-2">
+              <Input
+                v-model="patUpdateInput"
+                type="password"
+                placeholder="New personal access token"
+                class="flex-1"
+                @keydown.enter="updatePAT"
+              />
+              <Button size="sm" @click="updatePAT" :disabled="!patUpdateInput.trim()">Save</Button>
+              <Button variant="outline" size="sm" @click="showPatUpdate = false">Cancel</Button>
+            </div>
+          </div>
+
+          <Separator />
+
+          <Button
+            variant="destructive"
+            size="sm"
+            @click="handleSignOut"
+          >
+            <LogOut :size="14" class="mr-1.5" />
+            Sign Out
+          </Button>
+        </CardContent>
+      </Card>
 
       <!-- Appearance -->
       <Card>
@@ -164,41 +546,6 @@ function resetDefaults() {
         </CardContent>
       </Card>
 
-      <!-- Azure DevOps -->
-      <Card>
-        <CardHeader>
-          <div class="flex items-center gap-2">
-            <Globe :size="16" class="text-muted-foreground" />
-            <CardTitle class="text-sm">Azure DevOps</CardTitle>
-          </div>
-          <CardDescription>Connect to your ADO organization</CardDescription>
-        </CardHeader>
-        <CardContent class="space-y-4">
-          <div class="space-y-1.5">
-            <label class="text-xs font-medium text-muted-foreground">Organization</label>
-            <Input v-model="config.adoOrganization" placeholder="e.g. xbox" />
-          </div>
-          <div class="space-y-1.5">
-            <label class="text-xs font-medium text-muted-foreground">Default Project</label>
-            <Input v-model="config.adoProject" placeholder="e.g. xb-tasks" />
-          </div>
-          <Separator />
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-sm font-medium text-foreground">Sync Interval</p>
-              <p class="text-xs text-muted-foreground">How often to sync ADO items (minutes)</p>
-            </div>
-            <Input
-              v-model.number="config.syncIntervalMinutes"
-              type="number"
-              :min="1"
-              :max="120"
-              class="w-20"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
       <!-- Data -->
       <Card>
         <CardHeader>
@@ -239,6 +586,7 @@ function resetDefaults() {
           </div>
         </CardContent>
       </Card>
+      </template>
     </div>
   </ScrollArea>
 </template>

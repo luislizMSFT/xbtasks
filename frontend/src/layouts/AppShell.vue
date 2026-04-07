@@ -57,14 +57,18 @@ function openSearch() {
 </script>
 
 <template>
-  <div class="h-screen w-screen flex overflow-hidden bg-background text-foreground">
-    <!-- Sidebar -->
+  <!-- App shell: 56px sidebar + content area, themed via CSS custom properties -->
+  <div
+    class="h-screen w-screen flex overflow-hidden text-foreground"
+    :style="{ backgroundColor: 'var(--color-bg-primary, var(--surface-primary))' }"
+  >
+    <!-- Sidebar (w-14 = 56px) -->
     <Sidebar />
 
     <!-- Main column -->
     <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
       <!-- Top bar: breadcrumb + stats + actions -->
-      <div class="h-[40px] flex items-center gap-2 px-4 border-b border-border bg-card/50 titlebar-drag shrink-0">
+      <div class="h-[40px] flex items-center gap-2 px-4 border-b border-border titlebar-drag shrink-0" :style="{ backgroundColor: 'var(--color-bg-secondary, var(--surface-secondary))' }">
         <!-- Breadcrumb -->
         <span class="text-xs text-muted-foreground font-medium titlebar-no-drag select-none shrink-0">
           {{ breadcrumb }}

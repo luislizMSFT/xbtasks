@@ -48,7 +48,20 @@ Decimal phases appear between their surrounding integers in numeric order.
   10. User can attach external URLs (ICMs, Grafana dashboards, wikis) to any task with auto-detected type icons and fallback manual labels
   11. User can add local comments (private) and selectively push comments to ADO (clearly marked as public)
   12. List view filterable by status, priority, project, due date, and ADO link status
-**Plans**: TBD
+**Plans:** 10 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Token Provider + ADO REST Client Foundation
+- [ ] 02-02-PLAN.md — Schema Migration + Multi-Org Config + Domain Types
+- [ ] 02-03-PLAN.md — ADO Service Refactor + Link Service
+- [ ] 02-04-PLAN.md — Sync Service + Comments + External Links + Projects Backend
+- [ ] 02-05-PLAN.md — Login UI (Az CLI Token) + Settings (Multi-Org)
+- [ ] 02-06-PLAN.md — Task List — Personal/Public Model + Quick-Add + Filters
+- [ ] 02-07-PLAN.md — ADO Browser View (Tree + Link/Promote Dialogs)
+- [ ] 02-08-PLAN.md — Sync Confirmation UI + Conflict Resolution
+- [ ] 02-09-PLAN.md — External Links + Comments + Task Detail Integration
+- [ ] 02-10-PLAN.md — Projects Page + Project ADO Linking
+
 **UI hint**: yes
 
 ### Phase 3: PR Monitoring & Team Views
@@ -72,5 +85,5 @@ Phases execute in numeric order: 1 → 1.1 → 2 → 3
 |-------|----------------|--------|-----------|
 | 1. Foundation & Personal Tasks | 6/6 | Complete | ✓ |
 | 1.1. UI Overhaul & Cleanup | 0/0 | Not started | - |
-| 2. ADO Integration & Sync Workflow | 0/0 | Not started | - |
+| 2. ADO Integration & Sync Workflow | 0/10 | Planned | - |
 | 3. PR Monitoring & Team Views | 0/0 | Not started | - |

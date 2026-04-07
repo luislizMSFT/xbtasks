@@ -9,9 +9,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Authentication
 
-- [ ] **AUTH-01**: App authenticates to ADO via abstracted token provider — az cli `get-access-token` initially, swappable for PAT or OAuth later
-- [ ] **AUTH-02**: Token auto-refreshes transparently; user doesn't need to re-auth unless az cli session expires
-- [ ] **AUTH-03**: Token provider abstraction allows future swap to Entra ID OAuth2 PKCE or PAT without changing consuming code
+- [x] **AUTH-01**: App authenticates to ADO via abstracted token provider — az cli `get-access-token` initially, swappable for PAT or OAuth later
+- [x] **AUTH-02**: Token auto-refreshes transparently; user doesn't need to re-auth unless az cli session expires
+- [x] **AUTH-03**: Token provider abstraction allows future swap to Entra ID OAuth2 PKCE or PAT without changing consuming code
 
 ### Personal Tasks
 
@@ -22,72 +22,72 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **TASK-05**: User can set a personal priority overlay independent of ADO priority
 - [x] **TASK-06**: User can define dependencies between tasks (task A blocks task B)
 - [x] **TASK-07**: User can add tags to tasks for organization
-- [ ] **TASK-08**: Tasks start as personal (local-only). Linking/promoting to ADO makes them "public" (synced). Subtasks of public tasks stay personal unless individually linked.
-- [ ] **TASK-09**: Quick-add task with just a title for fast capture; expand with full details (description, priority, project, due date) later
+- [x] **TASK-08**: Tasks start as personal (local-only). Linking/promoting to ADO makes them "public" (synced). Subtasks of public tasks stay personal unless individually linked.
+- [x] **TASK-09**: Quick-add task with just a title for fast capture; expand with full details (description, priority, project, due date) later
 
 ### ADO Integration
 
-- [ ] **ADO-01**: User can view all ADO work items assigned to them in the dashboard
-- [ ] **ADO-02**: User can view ADO work item details (state, priority, type, assigned_to, description, area path)
-- [ ] **ADO-03**: User can link a personal task to an ADO work item (bidirectional)
-- [ ] **ADO-04**: User can promote a personal task to a new ADO work item (with confirmation)
-- [ ] **ADO-05**: User can import an ADO work item as a personal task with local tracking
-- [ ] **ADO-06**: ADO browser view — browse all assigned ADO items, show which are already linked to local tasks, toggle to hide already-linked items, select items to import/link
-- [ ] **ADO-07**: User can unlink a task from ADO — with option to keep or delete the local task
-- [ ] **ADO-08**: Direct ADO REST API calls from Go using token from abstracted provider — no shelling out to az cli per query
-- [ ] **ADO-09**: User can configure multiple ADO orgs, then pick specific projects within each org to follow
-- [ ] **ADO-10**: Items from all configured org/project pairs appear in a unified list with org/project label; toggleable group-by-project view
+- [x] **ADO-01**: User can view all ADO work items assigned to them in the dashboard
+- [x] **ADO-02**: User can view ADO work item details (state, priority, type, assigned_to, description, area path)
+- [x] **ADO-03**: User can link a personal task to an ADO work item (bidirectional)
+- [x] **ADO-04**: User can promote a personal task to a new ADO work item (with confirmation)
+- [x] **ADO-05**: User can import an ADO work item as a personal task with local tracking
+- [x] **ADO-06**: ADO browser view — browse all assigned ADO items, show which are already linked to local tasks, toggle to hide already-linked items, select items to import/link
+- [x] **ADO-07**: User can unlink a task from ADO — with option to keep or delete the local task
+- [x] **ADO-08**: Direct ADO REST API calls from Go using token from abstracted provider — no shelling out to az cli per query
+- [x] **ADO-09**: User can configure multiple ADO orgs, then pick specific projects within each org to follow
+- [x] **ADO-10**: Items from all configured org/project pairs appear in a unified list with org/project label; toggleable group-by-project view
 
 ### External Links & Context
 
-- [ ] **LINK-01**: User can attach external URLs to any task (ICMs, dashboards, wiki pages, etc.) as structured links with label
-- [ ] **LINK-02**: Auto-detect known URL patterns (ICM → incident icon, Grafana → dashboard icon, ADO → work item icon, Wiki) with fallback to manual label
-- [ ] **LINK-03**: Links displayed in a dedicated section on task detail — clickable, labeled, with type icon
+- [x] **LINK-01**: User can attach external URLs to any task (ICMs, dashboards, wiki pages, etc.) as structured links with label
+- [x] **LINK-02**: Auto-detect known URL patterns (ICM → incident icon, Grafana → dashboard icon, ADO → work item icon, Wiki) with fallback to manual label
+- [x] **LINK-03**: Links displayed in a dedicated section on task detail — clickable, labeled, with type icon
 
 ### Comments & Sync
 
-- [ ] **CMT-01**: User can add local comments to any task (private, never pushed to ADO by default)
-- [ ] **CMT-02**: User can selectively push a comment to linked ADO work item (with confirmation); synced comments clearly marked as public
-- [ ] **CMT-03**: User can update task description locally, then confirm-push to ADO (preview diff)
+- [x] **CMT-01**: User can add local comments to any task (private, never pushed to ADO by default)
+- [x] **CMT-02**: User can selectively push a comment to linked ADO work item (with confirmation); synced comments clearly marked as public
+- [x] **CMT-03**: User can update task description locally, then confirm-push to ADO (preview diff)
 
 ### ADO Sync
 
-- [ ] **SYNC-01**: Background auto-sync pulls ADO changes to linked items silently on configurable timer (default 15 min) + manual refresh trigger
-- [ ] **SYNC-02**: All outbound pushes to ADO require user confirmation via preview diff — never auto-push
-- [ ] **SYNC-03**: Per-field conflict resolution when both local and ADO sides changed the same linked item — user picks per field
-- [ ] **SYNC-04**: Linked task syncs title, status, and description to ADO; subtasks and personal breakdowns never pushed unless individually linked
+- [x] **SYNC-01**: Background auto-sync pulls ADO changes to linked items silently on configurable timer (default 15 min) + manual refresh trigger
+- [x] **SYNC-02**: All outbound pushes to ADO require user confirmation via preview diff — never auto-push
+- [x] **SYNC-03**: Per-field conflict resolution when both local and ADO sides changed the same linked item — user picks per field
+- [x] **SYNC-04**: Linked task syncs title, status, and description to ADO; subtasks and personal breakdowns never pushed unless individually linked
 
 ### Dashboard & Views
 
-- [ ] **DASH-01**: Unified list view showing all tasks (personal + public/ADO-linked) with visual indicator (icon/badge/color) distinguishing personal from public
-- [ ] **DASH-02**: List view filterable by status, priority, project, due date, and ADO link status; sortable by these dimensions
-- [ ] **DASH-03**: Linked items show the connection (e.g., task → ADO work item with status badge)
+- [x] **DASH-01**: Unified list view showing all tasks (personal + public/ADO-linked) with visual indicator (icon/badge/color) distinguishing personal from public
+- [x] **DASH-02**: List view filterable by status, priority, project, due date, and ADO link status; sortable by these dimensions
+- [x] **DASH-03**: Linked items show the connection (e.g., task → ADO work item with status badge)
 
 ### Task List
 
-- [ ] **TL-01**: Single global task list across all projects; filter by project to scope down
-- [ ] **TL-02**: Medium-density rows: checkbox + title + priority badge + project tag + ADO badge + due date + description preview (1 line) + subtask progress bar
-- [ ] **TL-03**: Flat sorted by default (priority then due date). Optional group-by toggle: status, priority, or project
-- [ ] **TL-04**: Click task → slide-out right panel (TaskDetail sidebar)
-- [ ] **TL-05**: Tasks can exist without a project (orphan/inbox — unassigned tasks)
+- [x] **TL-01**: Single global task list across all projects; filter by project to scope down
+- [x] **TL-02**: Medium-density rows: checkbox + title + priority badge + project tag + ADO badge + due date + description preview (1 line) + subtask progress bar
+- [x] **TL-03**: Flat sorted by default (priority then due date). Optional group-by toggle: status, priority, or project
+- [x] **TL-04**: Click task → slide-out right panel (TaskDetail sidebar)
+- [x] **TL-05**: Tasks can exist without a project (orphan/inbox — unassigned tasks)
 
 ### Projects
 
-- [ ] **PROJ-01**: Projects page — card grid layout. Each card: name, ADO badge (filled if linked to scenario/deliverable, hollow if local), dual progress (ADO children % + local tasks %), task count
-- [ ] **PROJ-02**: Pin/star favorite projects to top of the grid
-- [ ] **PROJ-03**: Projects are flat (no sub-projects). Hierarchy lives at the task level (subtasks/dependencies)
-- [ ] **PROJ-04**: Projects can be local-only groupings or linked to ADO scenarios/deliverables (same personal/public model as tasks)
-- [ ] **PROJ-05**: Click project card → project dashboard: stats, ADO progress, linked ADO context, then tasks filtered to that project
-- [ ] **PROJ-06**: Project progress shows two indicators: ADO children completion (from linked ADO item) and local task completion (personal tasks under project) — kept separate, never mixed
-- [ ] **PROJ-07**: User can link a project to an ADO scenario or deliverable; user can unlink with same keep/delete option as tasks
+- [x] **PROJ-01**: Projects page — card grid layout. Each card: name, ADO badge (filled if linked to scenario/deliverable, hollow if local), dual progress (ADO children % + local tasks %), task count
+- [x] **PROJ-02**: Pin/star favorite projects to top of the grid
+- [x] **PROJ-03**: Projects are flat (no sub-projects). Hierarchy lives at the task level (subtasks/dependencies)
+- [x] **PROJ-04**: Projects can be local-only groupings or linked to ADO scenarios/deliverables (same personal/public model as tasks)
+- [x] **PROJ-05**: Click project card → project dashboard: stats, ADO progress, linked ADO context, then tasks filtered to that project
+- [x] **PROJ-06**: Project progress shows two indicators: ADO children completion (from linked ADO item) and local task completion (personal tasks under project) — kept separate, never mixed
+- [x] **PROJ-07**: User can link a project to an ADO scenario or deliverable; user can unlink with same keep/delete option as tasks
 
 ### UX Patterns
 
-- [ ] **UX-01**: Clicking an ADO work item opens an in-app detail panel (relevant fields + link/import action). "Open in ADO" button deep-links to real browser.
-- [ ] **UX-02**: Clicking external links (ICMs, Grafana, wikis) opens in real browser — never in-app webview
-- [ ] **UX-03**: Tabs + sync button + filter chips all in same toolbar row (compact, no wasted space)
-- [ ] **UX-04**: ADO browser shows tree view (Scenario → Deliverable → Task/Bug/Story) — not a flat list
-- [ ] **UX-05**: ADO browser supports filter chips (status, type, area) + text search + saved ADO query picker (queries created in ADO, browsed/executed in app)
+- [x] **UX-01**: Clicking an ADO work item opens an in-app detail panel (relevant fields + link/import action). "Open in ADO" button deep-links to real browser.
+- [x] **UX-02**: Clicking external links (ICMs, Grafana, wikis) opens in real browser — never in-app webview
+- [x] **UX-03**: Tabs + sync button + filter chips all in same toolbar row (compact, no wasted space)
+- [x] **UX-04**: ADO browser shows tree view (Scenario → Deliverable → Task/Bug/Story) — not a flat list
+- [x] **UX-05**: ADO browser supports filter chips (status, type, area) + text search + saved ADO query picker (queries created in ADO, browsed/executed in app)
 - [ ] **UX-06**: PR view scoped to: user's authored PRs + PRs user is required/reviewing. Excludes abandoned. No "all team PRs" flooding.
 - [ ] **UX-07**: Pipeline runs show proper pipeline names (not just IDs), readable status
 
@@ -166,9 +166,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| AUTH-02 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| AUTH-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| AUTH-01 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| AUTH-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| AUTH-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | TASK-01 | Phase 1: Foundation, Auth & Personal Tasks | Complete |
 | TASK-02 | Phase 1: Foundation, Auth & Personal Tasks | Complete |
 | TASK-03 | Phase 1: Foundation, Auth & Personal Tasks | Complete |
@@ -176,48 +176,48 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TASK-05 | Phase 1: Foundation, Auth & Personal Tasks | Complete |
 | TASK-06 | Phase 1: Foundation, Auth & Personal Tasks | Complete |
 | TASK-07 | Phase 1: Foundation, Auth & Personal Tasks | Complete |
-| TASK-08 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| TASK-09 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| ADO-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| ADO-02 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| ADO-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| ADO-04 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| ADO-05 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| ADO-06 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| ADO-07 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| ADO-08 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| ADO-09 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| ADO-10 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| SYNC-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| SYNC-02 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| SYNC-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| SYNC-04 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| LINK-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| LINK-02 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| LINK-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| CMT-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| CMT-02 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| CMT-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| DASH-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| DASH-02 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| DASH-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| TL-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| TL-02 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| TL-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| TL-04 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| TL-05 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| PROJ-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| PROJ-02 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| PROJ-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| PROJ-04 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| PROJ-05 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| PROJ-06 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| PROJ-07 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| UX-01 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| UX-02 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| UX-03 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| UX-04 | Phase 2: ADO Integration & Sync Workflow | Pending |
-| UX-05 | Phase 2: ADO Integration & Sync Workflow | Pending |
+| TASK-08 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| TASK-09 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| ADO-01 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| ADO-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| ADO-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| ADO-04 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| ADO-05 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| ADO-06 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| ADO-07 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| ADO-08 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| ADO-09 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| ADO-10 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| SYNC-01 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| SYNC-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| SYNC-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| SYNC-04 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| LINK-01 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| LINK-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| LINK-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| CMT-01 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| CMT-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| CMT-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| DASH-01 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| DASH-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| DASH-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| TL-01 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| TL-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| TL-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| TL-04 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| TL-05 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| PROJ-01 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| PROJ-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| PROJ-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| PROJ-04 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| PROJ-05 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| PROJ-06 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| PROJ-07 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| UX-01 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| UX-02 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| UX-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| UX-04 | Phase 2: ADO Integration & Sync Workflow | Complete |
+| UX-05 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | UX-06 | Phase 3: PR Monitoring & Team Views | Pending |
 | UX-07 | Phase 3: PR Monitoring & Team Views | Pending |
 

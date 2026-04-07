@@ -105,6 +105,13 @@ func stripRefPrefix(ref string) string {
 	return strings.TrimPrefix(ref, "refs/heads/")
 }
 
+func buildPRWebURL(org, project, repo string, prID int) string {
+	if org == "" || project == "" {
+		return ""
+	}
+	return fmt.Sprintf("https://dev.azure.com/%s/%s/_git/%s/pullrequest/%d", org, project, repo, prID)
+}
+
 func (s *PRService) mapPR(raw azPR) domain.PullRequest {
 	status := raw.Status
 	if raw.IsDraft {
@@ -118,9 +125,14 @@ func (s *PRService) mapPR(raw azPR) domain.PullRequest {
 		totalVotes += r.Vote
 	}
 
+	prURL := buildPRWebURL(s.cfg.GetADOOrg(), s.cfg.GetADOProject(), raw.Repository.Name, raw.PullRequestID)
+	if prURL == "" {
+		prURL = raw.URL
+	}
+
 	pr := domain.PullRequest{
 		Title:        raw.Title,
-		PRURL:        raw.URL,
+		PRURL:        prURL,
 		PRNumber:     raw.PullRequestID,
 		Repo:         raw.Repository.Name,
 		Status:       status,

@@ -148,6 +148,7 @@ func (s *AuthService) SignOut() error {
 	_ = keyring.Delete(serviceName, "refresh_token")
 	_ = keyring.Delete(serviceName, "token_expiry")
 	_ = keyring.Delete(serviceName, "pat")
+	_ = keyring.Delete(serviceName, "auth_method")
 	s.currentUser = nil
 	s.app.Event.Emit("auth:state-changed", map[string]any{"authenticated": false})
 	return nil
@@ -156,6 +157,12 @@ func (s *AuthService) SignOut() error {
 // TryRestoreSession attempts to restore a previous session using stored refresh token.
 // Returns (nil, nil) if no session exists.
 func (s *AuthService) TryRestoreSession() (*domain.User, error) {
+	// Check auth method first
+	authMethod, _ := keyring.Get(serviceName, "auth_method")
+	if authMethod == "azcli" {
+		return s.SignInWithAzCli()
+	}
+
 	refreshToken, err := keyring.Get(serviceName, "refresh_token")
 	if err != nil {
 		// Check for PAT session
@@ -230,6 +237,75 @@ func (s *AuthService) SignInWithPAT(pat string) (*domain.User, error) {
 	s.currentUser = user
 	s.app.Event.Emit("auth:state-changed", map[string]any{"authenticated": true})
 	return user, nil
+}
+
+// SignInWithAzCli authenticates using the az CLI token for ADO access.
+// Requires the user to have run `az login` first.
+func (s *AuthService) SignInWithAzCli() (*domain.User, error) {
+	provider := NewAzCliTokenProvider()
+	token, err := provider.GetToken()
+	if err != nil {
+		return nil, fmt.Errorf("az CLI auth failed: %w", err)
+	}
+
+	// Token is valid — create user session
+	// Use the token to get user profile from ADO
+	user, err := fetchADOProfile(token)
+	if err != nil {
+		// Fallback to generic user if profile fetch fails
+		user = &domain.User{
+			ID:          "azcli-user",
+			DisplayName: "Az CLI User",
+			Email:       "",
+			AvatarURL:   "",
+		}
+	}
+
+	if err := s.upsertUser(user); err != nil {
+		return nil, fmt.Errorf("store user: %w", err)
+	}
+
+	// Store auth method for session restore
+	_ = keyring.Set(serviceName, "auth_method", "azcli")
+	s.currentUser = user
+	s.app.Event.Emit("auth:state-changed", map[string]any{"authenticated": true})
+	return user, nil
+}
+
+// fetchADOProfile uses an ADO token to get the current user's profile.
+func fetchADOProfile(token string) (*domain.User, error) {
+	req, err := http.NewRequest("GET", "https://app.vssps.visualstudio.com/_apis/profile/profiles/me?api-version=7.0", nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("ADO profile request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("ADO profile API returned %d: %s", resp.StatusCode, string(body))
+	}
+
+	var profile struct {
+		ID          string `json:"id"`
+		DisplayName string `json:"displayName"`
+		EmailAddress string `json:"emailAddress"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&profile); err != nil {
+		return nil, fmt.Errorf("decode ADO profile: %w", err)
+	}
+
+	return &domain.User{
+		ID:          profile.ID,
+		DisplayName: profile.DisplayName,
+		Email:       profile.EmailAddress,
+		AvatarURL:   "",
+	}, nil
 }
 
 func (s *AuthService) restoreFromPAT(pat string) (*domain.User, error) {

@@ -5,21 +5,29 @@ import { cn } from '@/lib/utils'
 
 const props = defineProps<{ priority: string }>()
 
-const config = computed(() => {
+// Uses semantic --color-priority-* tokens from UI-SPEC (defined in style.css @theme)
+const colorVar = computed(() => {
   switch (props.priority) {
-    case 'P0': return { variant: 'outline' as const, classes: 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/20' }
-    case 'P1': return { variant: 'outline' as const, classes: 'bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/20' }
-    case 'P2': return { variant: 'outline' as const, classes: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20' }
-    case 'P3': return { variant: 'outline' as const, classes: 'bg-zinc-500/15 text-muted-foreground border-zinc-500/20' }
-    default: return { variant: 'outline' as const, classes: 'bg-zinc-500/15 text-muted-foreground border-zinc-500/20' }
+    case 'P0': return '--color-priority-p0'
+    case 'P1': return '--color-priority-p1'
+    case 'P2': return '--color-priority-p2'
+    case 'P3': return '--color-priority-p3'
+    default: return '--color-priority-p3'
   }
 })
+
+const badgeStyle = computed(() => ({
+  color: `var(${colorVar.value})`,
+  backgroundColor: `color-mix(in srgb, var(${colorVar.value}) 15%, transparent)`,
+  borderColor: `color-mix(in srgb, var(${colorVar.value}) 20%, transparent)`,
+}))
 </script>
 
 <template>
   <Badge
-    :variant="config.variant"
-    :class="cn('text-[11px] font-semibold uppercase tracking-wide', config.classes)"
+    variant="outline"
+    :class="cn('text-[11px] font-semibold uppercase tracking-wide border', '')"
+    :style="badgeStyle"
   >
     {{ priority }}
   </Badge>

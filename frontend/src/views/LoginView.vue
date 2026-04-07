@@ -5,7 +5,8 @@ import { useAuthStore } from '@/stores/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
-import { Loader2, KeyRound } from 'lucide-vue-next'
+import { KeyRound, Terminal } from 'lucide-vue-next'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -19,10 +20,17 @@ async function signInWithMicrosoft() {
   }
 }
 
+async function signInWithAzCli() {
+  await authStore.signInWithAzCli()
+  if (authStore.isAuthenticated) {
+    router.push('/tasks')
+  }
+}
+
 async function signInWithPAT() {
   const token = patInput.value.trim()
   if (!token) return
-  authStore.signIn()
+  await authStore.signInWithPAT(token)
   if (authStore.isAuthenticated) {
     router.push('/tasks')
   }
@@ -41,25 +49,27 @@ async function signInWithPAT() {
             </svg>
           </div>
         </div>
-        <CardTitle class="text-xl">Team ADO Tool</CardTitle>
-        <CardDescription>Tasks · ADO · PRs — one pane of glass</CardDescription>
+        <CardTitle class="text-[20px] font-semibold">Team ADO Tool</CardTitle>
+        <CardDescription class="text-[14px] font-normal text-muted-foreground">All your work in one place</CardDescription>
       </CardHeader>
 
       <CardContent class="space-y-4">
         <!-- Error -->
-        <div v-if="authStore.error" class="px-3 py-2 rounded-md text-sm bg-destructive/10 text-destructive border border-destructive/20">
+        <div v-if="authStore.error" class="px-3 py-2 rounded-md text-[12px] font-semibold bg-destructive/10 text-destructive border border-destructive/20">
           {{ authStore.error }}
         </div>
 
         <!-- Sign in buttons -->
         <div class="space-y-3">
+          <!-- 1. Microsoft OAuth (primary) -->
           <Button
             @click="signInWithMicrosoft"
             :disabled="authStore.loading"
             class="w-full"
             size="lg"
           >
-            <Loader2 v-if="authStore.loading" :size="16" class="animate-spin" />
+            <LoadingSpinner v-if="authStore.loading" size="sm" class="inline-flex" />
+            <template v-if="authStore.loading">Signing in...</template>
             <template v-else>
               <svg class="w-4 h-4" viewBox="0 0 21 21" fill="none">
                 <rect width="10" height="10" fill="#F25022"/>
@@ -71,12 +81,32 @@ async function signInWithPAT() {
             </template>
           </Button>
 
+          <!-- 2. Az CLI Token (outline) -->
+          <div class="space-y-1">
+            <Button
+              @click="signInWithAzCli"
+              variant="outline"
+              class="w-full"
+              size="lg"
+              :disabled="authStore.loading"
+            >
+              <LoadingSpinner v-if="authStore.loading" size="sm" class="inline-flex" />
+              <template v-else>
+                <Terminal :size="16" />
+                Use Az CLI Token
+              </template>
+            </Button>
+            <p class="text-[11px] text-muted-foreground text-center">Requires az login — run in terminal first</p>
+          </div>
+
+          <!-- 3. PAT (ghost) -->
           <Button
             v-if="!showPAT"
             @click="showPAT = true"
-            variant="outline"
+            variant="ghost"
             class="w-full"
             size="lg"
+            :disabled="authStore.loading"
           >
             <KeyRound :size="16" />
             Use Personal Access Token
@@ -108,10 +138,13 @@ async function signInWithPAT() {
                 </Button>
                 <Button
                   @click="signInWithPAT"
+                  :disabled="authStore.loading || !patInput.trim()"
                   size="sm"
                   class="flex-1"
                 >
-                  Sign In
+                  <LoadingSpinner v-if="authStore.loading" size="sm" class="inline-flex" />
+                  <template v-if="authStore.loading">Signing in...</template>
+                  <template v-else>Connect</template>
                 </Button>
               </div>
             </div>

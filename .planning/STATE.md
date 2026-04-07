@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Phase 2 UI iteration — playgrounds + real views
-last_updated: "2026-04-03T00:30:00.000Z"
+status: Deep UI iteration — playgrounds built, real views being refined
+stopped_at: Completed 02-07-PLAN.md
+last_updated: "2026-04-06T19:36:25.387Z"
 last_activity: 2026-04-03
 progress:
-  total_phases: 2
-  completed_phases: 1
-  total_plans: 6
-  completed_plans: 6
+  total_phases: 3
+  completed_phases: 2
+  total_plans: 16
+  completed_plans: 16
   percent: 50
 ---
 
@@ -92,6 +92,43 @@ Progress: [█████░░░░░] 50%
 - Quick-add: title-only capture, expand later
 - Work tasks only (dev + non-dev) — not personal/life tasks
 - Desktop app primary, design for future VS Code/MCP integration
+- [Phase 01]: Semantic status/priority CSS custom properties added to style.css for UI-SPEC color contract
+- [Phase 01]: Accent color uses hex values from UI-SPEC (blue-600 light, blue-500 dark)
+- [Phase 01]: Badge components use CSS custom properties via inline style binding for UI-SPEC color contract (not Tailwind utility classes)
+- [Phase 01]: color-mix(in srgb, ...) for opacity variants on semantic tokens
+- [Phase 01]: PAT button uses ghost variant per UI-SPEC
+- [Phase 01]: Kept AppShell in layouts/ directory (Vue convention) rather than components/
+- [Phase 01]: Auth guard in App.vue with tryRestore() on mount for session persistence
+- [Phase 01]: shadcn-vue Command (cmdk-vue) preferred over raw Headless UI Dialog+Combobox for command palette
+- [Phase 01]: DashboardView rebuilt with stat cards layout per UI-SPEC (replacing 2-column playground layout)
+- [Phase 01]: TasksView uses useMagicKeys for keyboard shortcuts (Cmd+N/Ctrl+N, Escape)
+- [Phase 01]: Expanded status tabs to 6 (All, Todo, In Progress, In Review, Done, Blocked) per UI-SPEC
+- [Phase 02]: Multi-org config falls back to legacy single-org when ado.orgs is empty
+- [Phase 02]: SyncState uses composite PK (task_id, ado_id) for per-link conflict tracking
+- [Phase 02]: TokenProvider interface uses GetToken()+Name(); CachedTokenProvider wraps with TTL mutex caching
+- [Phase 02]: ADO client accepts token string (not provider)  caller manages token lifecycle
+- [Phase 02]: ADOService refactored from az-cli to pkg/ado REST client with multi-org iteration
+- [Phase 02]: Token provider chain: AzCli -> CachedWrapper created once in main.go, shared across services
+- [Phase 02]: LinkService implements personal-to-public model with 4 flows: link/promote/import/unlink
+- [Phase 02]: IsPublic computed from task_ado_links presence (not a column)
+- [Phase 02]: Sync store uses dynamic imports for Wails bindings (same pattern as ado.ts)
+- [Phase 02]: ConflictResolver walks conflicts sequentially - shows first, resolves, advances to next
+- [Phase 02]: SyncService uses ticker goroutine with configurable interval; outbound never auto-pushes
+- [Phase 02]: Domain SyncDiff/FieldDiff types separate from ado package for frontend decoupling
+- [Phase 02]: Comments always private/local by default; PushCommentToADO is explicit opt-in
+- [Phase 02]: ProjectService constructor extended with tokenProv+cfg for ADO operations
+- [Phase 02]: ExternalLinks uses window.open for real browser opening (UX-02)
+- [Phase 02]: CommentsSection shows Push to ADO only for private comments on linked tasks
+- [Phase 02]: Az CLI auth fetches ADO profile for real user info, falls back to generic user
+- [Phase 02]: Settings page replaced legacy single-org inputs with multi-org list management
+- [Phase 02]: Card grid replaces list+detail split panel for Projects page
+- [Phase 02]: Dual progress bars (local+ADO) kept separate, not merged, per PROJ-06
+- [Phase 02]: FilterBar uses AcceptableValue from reka-ui for type-safe Select handlers
+- [Phase 02]: Quick-add always-visible Input (not toggle) for faster task capture
+- [Phase 02]: enhancedFilteredTasks replaces grouped-by-status as primary rendering pipeline
+- [Phase 02]: Recursive render function component for tree nodes (defineComponent with h()) for same-file recursion
+- [Phase 02]: ListLinkedAdoIDs method added to LinkService for frontend linked status tracking (ADO IDs not task IDs)
+- [Phase 02]: Saved query picker uses sentinel value __my_assignments__ to revert to default tree fetch
 
 ### Pending Todos
 
@@ -118,6 +155,6 @@ Progress: [█████░░░░░] 50%
 
 ## Session Continuity
 
-Last session: 2026-04-03T00:30:00.000Z
-Stopped at: Phase 2 UI iteration — playgrounds + real views
+Last session: 2026-04-06T19:26:50.644Z
+Stopped at: Completed 02-07-PLAN.md
 Resume: Continue refining shell header, then wire backend services

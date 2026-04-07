@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	"log"
+	"time"
 
 	"dev.azure.com/xbox/xb-tasks/internal/app"
 	"dev.azure.com/xbox/xb-tasks/internal/auth"
@@ -28,9 +29,15 @@ func main() {
 
 	configService := config.NewConfigService()
 	taskService := app.NewTaskService(database)
-	projectService := app.NewProjectService(database)
 	depService := app.NewDependencyService(database)
-	adoService := app.NewADOService(database, configService)
+
+	// Token provider chain: AzCli → CachedWrapper (5 min buffer)
+	azCliProvider := auth.NewAzCliTokenProvider()
+	tokenProvider := auth.NewCachedTokenProvider(azCliProvider, 5*time.Minute)
+
+	projectService := app.NewProjectService(database, tokenProvider, configService)
+	adoService := app.NewADOService(database, configService, tokenProvider)
+	linkService := app.NewLinkService(database, tokenProvider, configService)
 	prService := app.NewPRService(database, configService)
 	pipelineService := app.NewPipelineService(database, configService)
 
@@ -47,14 +54,26 @@ func main() {
 
 	// Register services after app creation so authService can reference wailsApp
 	authService := auth.NewAuthService(database, wailsApp)
+
+	// New Phase 2 services
+	syncService := app.NewSyncService(database, tokenProvider, configService, wailsApp)
+	commentService := app.NewCommentService(database, tokenProvider, configService)
+	linksService := app.NewExternalLinksService(database)
+	browserService := app.NewBrowserService()
+
 	wailsApp.RegisterService(application.NewService(configService))
 	wailsApp.RegisterService(application.NewService(taskService))
 	wailsApp.RegisterService(application.NewService(projectService))
 	wailsApp.RegisterService(application.NewService(depService))
 	wailsApp.RegisterService(application.NewService(authService))
 	wailsApp.RegisterService(application.NewService(adoService))
+	wailsApp.RegisterService(application.NewService(linkService))
 	wailsApp.RegisterService(application.NewService(prService))
 	wailsApp.RegisterService(application.NewService(pipelineService))
+	wailsApp.RegisterService(application.NewService(syncService))
+	wailsApp.RegisterService(application.NewService(commentService))
+	wailsApp.RegisterService(application.NewService(linksService))
+	wailsApp.RegisterService(application.NewService(browserService))
 
 	// System tray
 	tray := wailsApp.SystemTray.New()
@@ -78,10 +97,12 @@ func main() {
 	})
 
 	mainWindow := wailsApp.Window.NewWithOptions(application.WebviewWindowOptions{
-		Name:   "main",
-		Title:  "Team ADO Tool",
-		Width:  config.WindowWidth(),
-		Height: config.WindowHeight(),
+		Name:     "main",
+		Title:    "Team ADO Tool",
+		Width:    config.WindowWidth(),
+		Height:   config.WindowHeight(),
+		MinWidth: 1024,
+		MinHeight: 640,
 		Mac: application.MacWindow{
 			InvisibleTitleBarHeight: 40,
 			Backdrop:                application.MacBackdropTranslucent,
@@ -97,12 +118,8 @@ func main() {
 		mainWindow.Hide()
 	})
 
-	// Restore session in background
-	go func() {
-		if _, err := authService.TryRestoreSession(); err != nil {
-			log.Printf("session restore: %v", err)
-		}
-	}()
+	// Start background sync (auth is restored via frontend TryRestoreSession binding)
+	go syncService.StartBackgroundSync()
 
 	if err := wailsApp.Run(); err != nil {
 		log.Fatal(err)
