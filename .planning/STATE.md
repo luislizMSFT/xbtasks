@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Deep UI iteration — playgrounds built, real views being refined
-stopped_at: Completed 02-07-PLAN.md
-last_updated: "2026-04-06T19:36:25.387Z"
+stopped_at: Phase 4 UI-SPEC approved
+last_updated: "2026-04-07T23:01:57.425Z"
 last_activity: 2026-04-03
 progress:
-  total_phases: 3
+  total_phases: 4
   completed_phases: 2
   total_plans: 16
   completed_plans: 16
@@ -34,12 +34,15 @@ Progress: [█████░░░░░] 50%
 ## What's Been Done
 
 ### Phase 01 — Foundation (COMPLETE)
+
 - Go backend: auth service, task CRUD, dependencies, projects, SQLite
 - Viper config with OS-appropriate paths
 - Frontend scaffold with Wails v3 + Vue 3 + vue-router
 
 ### Phase 02 — UI Build-Out (IN PROGRESS → SCOPE RESTRUCTURED)
+
 **Completed this session:**
+
 - shadcn-vue installed (79 components), Zinc theme, Tailwind v4
 - AppShell: 40px top bar (breadcrumb + stats pills + search/new/activity), icon sidebar, global activity panel
 - TasksView: richer rows (checkbox, subtask expand, progress bar, ADO badge with AzureDevOpsIcon, PR count)
@@ -51,12 +54,14 @@ Progress: [█████░░░░░] 50%
 - Codebase mapped: 7 docs in .planning/codebase/ (1519 lines)
 
 **Scope change (2026-04-03):**
+
 - Phase 2 restructured: PRs deferred to Phase 3
 - Phase 2 now focused on: auth (az cli token), personal→public task model, ADO browser, sync with confirmation, conflict resolution
 - New requirements added: TASK-08/09, ADO-06/07/08, SYNC-01-04, updated DASH-01/02
 - Phase 3 added: PR Monitoring & Team Views
 
 **Playgrounds built:**
+
 - /playground/tasks — Todoist hybrid layout
 - /playground/detail — 2-col with full shell, compact variant
 - /playground/chain — Task→PR→Build→Deploy flow chains + blockers dashboard
@@ -64,6 +69,7 @@ Progress: [█████░░░░░] 50%
 - /playground/ado — ADO tree + GParted queue (now promoted to /ado)
 
 **Still needed:**
+
 - Shell header fix (padding, traffic light overlap, cross-platform macOS/Windows)
 - Wire stores to real Go backend (flip useMock to false)
 - ADO service implementation (Go backend for ADO API)
@@ -159,6 +165,6 @@ Progress: [█████░░░░░] 50%
 
 ## Session Continuity
 
-Last session: 2026-04-06T19:26:50.644Z
-Stopped at: Completed 02-07-PLAN.md
+Last session: 2026-04-07T23:01:57.420Z
+Stopped at: Phase 4 UI-SPEC approved
 Resume: Continue refining shell header, then wire backend services

@@ -218,14 +218,21 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UX-03 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | UX-04 | Phase 2: ADO Integration & Sync Workflow | Complete |
 | UX-05 | Phase 2: ADO Integration & Sync Workflow | Complete |
-| UX-06 | Phase 3: PR Monitoring & Team Views | Pending |
-| UX-07 | Phase 3: PR Monitoring & Team Views | Pending |
+| UX-06 | Phase 4: Work Item Lifecycle Tracking | Planned |
+| UX-07 | Phase 4: Work Item Lifecycle Tracking | Planned |
+| PR-01 | Phase 4: Work Item Lifecycle Tracking | Planned |
+| PR-02 | Phase 4: Work Item Lifecycle Tracking | Planned |
+| PR-03 | Phase 4: Work Item Lifecycle Tracking | Planned |
+| PR-04 | Phase 4: Work Item Lifecycle Tracking | Planned |
+| PIPE-01 | Phase 4: Work Item Lifecycle Tracking | Planned |
+| PIPE-02 | Phase 4: Work Item Lifecycle Tracking | Planned |
 
 **Coverage:**
 - v1 requirements: 54 total
 - Mapped to phases: 54 ✓
 - Unmapped: 0
+- v2 requirements pulled into Phase 4: PR-01-04, PIPE-01-02
 
 ---
 *Requirements defined: 2026-03-31*
-*Last updated: 2026-04-03 — added multi-org (ADO-09/10), external links (LINK-01/02/03), comments sync (CMT-01/02/03)*
+*Last updated: 2026-04-08 — Phase 4 planned: PR-01-04, PIPE-01-02, UX-06-07 moved from Phase 3*

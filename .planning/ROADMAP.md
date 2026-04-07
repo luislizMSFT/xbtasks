@@ -86,14 +86,26 @@ Phases execute in numeric order: 1 → 1.1 → 2 → 3
 | 1. Foundation & Personal Tasks | 6/6 | Complete | ✓ |
 | 1.1. UI Overhaul & Cleanup | 0/0 | Not started | - |
 | 2. ADO Integration & Sync Workflow | 0/10 | Planned | - |
-| 3. PR Monitoring & Team Views | 0/0 | Not started | - |
+| 3. PR Monitoring & Team Views | 0/0 | Superseded by Phase 4 | - |
 
 ### Phase 4: Work Item Lifecycle Tracking — PRs, Pipelines & Task Traceability
 
-**Goal:** [To be planned]
-**Requirements**: TBD
-**Depends on:** Phase 3
-**Plans:** 0 plans
+**Goal:** Surface the full connection chain — tasks ↔ ADO work items ↔ PRs ↔ pipeline runs — so users see all work item progress in one place without hunting through ADO. Migrate PR/Pipeline services to REST API, add completed PR presentation with connected badges, PR snooze, merge nudges, AB# detection, hierarchical graph view, and chronological timeline.
+**Requirements**: PR-01, PR-02, PR-03, PR-04, PIPE-01, PIPE-02, UX-06, UX-07
+**Depends on:** Phase 2
+**Plans:** 5 plans
+**Success Criteria** (what must be TRUE):
+  1. PR and pipeline services fetch data via ADO REST API (not az cli subprocess)
+  2. Dashboard shows completed PRs with connected badges (linked tasks, ADO items, pipelines)
+  3. PRs can be snoozed with preset durations; snoozed PRs hidden from active views
+  4. When a linked PR merges, user gets a nudge toast (never auto-changes task status)
+  5. AB# references in PR titles/descriptions trigger linking suggestions
+  6. Graph view shows hierarchical layout with all entity types (tasks, PRs, pipelines, ADO items)
+  7. Timeline tab shows chronological archive of all work events
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 4 to break down)
+- [ ] 04-01-PLAN.md — ADO REST API Functions + PR/Pipeline Service Migration
+- [ ] 04-02-PLAN.md — Snooze Schema + AB# Detection Backend
+- [ ] 04-03-PLAN.md — Frontend Types + PR Store + Dashboard PR Enhancements
+- [ ] 04-04-PLAN.md — Hierarchical Graph View (Connections Page)
+- [ ] 04-05-PLAN.md — Timeline Tab
