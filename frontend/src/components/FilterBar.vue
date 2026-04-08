@@ -99,6 +99,26 @@ function handleGroupByChange(value: AcceptableValue) {
         </SelectContent>
       </Select>
 
+      <span class="text-[10px] text-muted-foreground shrink-0">Project</span>
+      <Select
+        :model-value="filterProject !== null ? String(filterProject) : 'all'"
+        @update:model-value="handleProjectChange"
+      >
+        <SelectTrigger size="sm" class="h-6 text-[10px] gap-0.5 w-[72px] px-1.5">
+          <SelectValue placeholder="All" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All</SelectItem>
+          <SelectItem
+            v-for="proj in projects"
+            :key="proj.id"
+            :value="String(proj.id)"
+          >
+            {{ proj.name }}
+          </SelectItem>
+        </SelectContent>
+      </Select>
+
       <span class="text-[10px] text-muted-foreground shrink-0">Due</span>
       <Select
         :model-value="filterDueDate"

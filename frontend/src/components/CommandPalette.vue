@@ -53,10 +53,13 @@ const navigationActions: Action[] = [
 ]
 
 const devActions: Action[] = [
-  { id: 'pg-tasks', label: 'Task Layouts', icon: FlaskConical, hint: 'Compare layouts', action: () => router.push('/playground/tasks') },
-  { id: 'pg-dashboard', label: 'Dashboard Layouts', icon: FlaskConical, hint: 'Compare dashboards', action: () => router.push('/playground/dashboard') },
-  { id: 'pg-detail', label: 'Detail Layouts', icon: FlaskConical, hint: 'Compare panels', action: () => router.push('/playground/detail') },
-  { id: 'pg-ado', label: 'ADO Management', icon: FlaskConical, hint: 'ADO tree & team view', action: () => router.push('/playground/ado') },
+  { id: 'pg-integrated', label: 'Integrated Task View', icon: FlaskConical, hint: 'Tree list + detail pane', action: () => router.push('/playground/integrated') },
+  { id: 'pg-dashboard-v2', label: 'Dashboard Redesign', icon: FlaskConical, hint: 'Full dashboard rethink', action: () => router.push('/playground/dashboard') },
+  { id: 'pg-lifecycle', label: 'Lifecycle Tracking', icon: FlaskConical, hint: 'Task→PR→Build→Deploy', action: () => router.push('/playground/lifecycle') },
+  { id: 'pg-tasks', label: 'Task Layouts', icon: FlaskConical, hint: 'Compare layouts', action: () => router.push('/playground/task-styling') },
+  { id: 'pg-dashboard', label: 'Dashboard Layouts', icon: FlaskConical, hint: 'Compare dashboards', action: () => router.push('/playground/dashboard-header') },
+  { id: 'pg-detail', label: 'Detail Layouts', icon: FlaskConical, hint: 'Compare panels', action: () => router.push('/playground/task-detail') },
+  { id: 'pg-tree', label: 'Tree Layouts', icon: FlaskConical, hint: 'Flat vs tree', action: () => router.push('/playground/task-tree') },
 ]
 
 const createActions: Action[] = [

@@ -323,14 +323,17 @@ onMounted(async () => {
       <FilterBar
         :filter-status="taskStore.filterStatus"
         :filter-priority="taskStore.filterPriority"
+        :filter-project="taskStore.filterProject"
         :filter-due-date="taskStore.filterDueDate"
         :filter-ado-link="taskStore.filterAdoLink"
         :sort-by="taskStore.sortBy"
         :group-by="taskStore.groupBy"
         :tree-view="treeView"
+        :projects="projectStore.projects"
         :syncing="syncStore.syncing"
         @update:filter-status="taskStore.filterStatus = $event"
         @update:filter-priority="taskStore.filterPriority = $event"
+        @update:filter-project="taskStore.filterProject = $event"
         @update:filter-due-date="taskStore.filterDueDate = $event"
         @update:filter-ado-link="taskStore.filterAdoLink = $event"
         @update:sort-by="taskStore.sortBy = $event"
@@ -338,80 +341,6 @@ onMounted(async () => {
         @update:tree-view="treeView = $event"
         @sync="syncStore.manualSync()"
       />
-
-      <!-- Project context bar -->
-      <div
-        v-if="taskStore.filterProject !== null"
-        class="px-4 py-1.5 border-b border-border bg-muted/30 flex items-center gap-2"
-      >
-        <component
-          v-if="projectAdoLookup.get(taskStore.filterProject)?.type"
-          :is="typeIcon(projectAdoLookup.get(taskStore.filterProject)!.type)"
-          :size="14"
-          :class="adoTypeColor(projectAdoLookup.get(taskStore.filterProject)!.type)"
-          class="shrink-0"
-        />
-        <span class="text-xs font-medium text-foreground truncate">
-          {{ projectStore.projects.find(p => p.id === taskStore.filterProject)?.name ?? 'Project' }}
-        </span>
-        <span
-          v-if="projectAdoLookup.get(taskStore.filterProject)?.number"
-          class="text-[10px] text-blue-500 tabular-nums shrink-0"
-        >
-          {{ projectAdoLookup.get(taskStore.filterProject)!.number }}
-        </span>
-        <div class="flex-1" />
-        <Select
-          :model-value="String(taskStore.filterProject)"
-          @update:model-value="(v: AcceptableValue) => taskStore.filterProject = Number(v)"
-        >
-          <SelectTrigger size="sm" class="h-5 text-[10px] gap-0.5 w-auto px-1.5 border-none shadow-none bg-transparent">
-            <SelectValue placeholder="Switch" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem
-              v-for="proj in projectStore.projects"
-              :key="proj.id"
-              :value="String(proj.id)"
-            >
-              {{ proj.name }}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        <button
-          class="text-[10px] text-muted-foreground hover:text-destructive transition-colors shrink-0"
-          title="Clear project filter"
-          @click="taskStore.filterProject = null"
-        >
-          ✕
-        </button>
-      </div>
-
-      <!-- Project picker when no project selected -->
-      <div
-        v-else
-        class="px-4 py-1.5 border-b border-border flex items-center gap-2"
-      >
-        <span class="text-[10px] text-muted-foreground shrink-0">Project</span>
-        <Select
-          model-value="all"
-          @update:model-value="(v: AcceptableValue) => taskStore.filterProject = String(v) === 'all' ? null : Number(v)"
-        >
-          <SelectTrigger size="sm" class="h-5 text-[10px] gap-0.5 w-[100px] px-1.5">
-            <SelectValue placeholder="All Projects" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem
-              v-for="proj in projectStore.projects"
-              :key="proj.id"
-              :value="String(proj.id)"
-            >
-              {{ proj.name }}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
 
       <ScrollArea class="flex-1 h-full">
         <!-- Loading skeleton -->

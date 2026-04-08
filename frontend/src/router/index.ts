@@ -43,6 +43,49 @@ const router = createRouter({
       component: () => import('../views/LoginView.vue'),
       meta: { hideShell: true },
     },
+    // ── Playground pages (isolated testing) ──
+    {
+      path: '/playground/task-detail',
+      name: 'playground-task-detail',
+      component: () => import('../views/playground/PlaygroundTaskDetail.vue'),
+      meta: { hideShell: true },
+    },
+    {
+      path: '/playground/dashboard-header',
+      name: 'playground-dashboard-header',
+      component: () => import('../views/playground/PlaygroundDashboardHeader.vue'),
+      meta: { hideShell: true },
+    },
+    {
+      path: '/playground/task-tree',
+      name: 'playground-task-tree',
+      component: () => import('../views/playground/PlaygroundTaskTree.vue'),
+      meta: { hideShell: true },
+    },
+    {
+      path: '/playground/task-styling',
+      name: 'playground-task-styling',
+      component: () => import('../views/playground/PlaygroundTaskStyling.vue'),
+      meta: { hideShell: true },
+    },
+    {
+      path: '/playground/lifecycle',
+      name: 'playground-lifecycle',
+      component: () => import('../views/playground/PlaygroundLifecycle.vue'),
+      meta: { hideShell: true },
+    },
+    {
+      path: '/playground/dashboard',
+      name: 'playground-dashboard',
+      component: () => import('../views/playground/PlaygroundDashboard.vue'),
+      meta: { hideShell: true },
+    },
+    {
+      path: '/playground/integrated',
+      name: 'playground-integrated',
+      component: () => import('../views/playground/PlaygroundIntegrated.vue'),
+      meta: { hideShell: true },
+    },
   ],
 })
 

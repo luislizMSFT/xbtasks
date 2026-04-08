@@ -27,6 +27,7 @@ import {
   Moon,
   Network,
   LogOut,
+  FlaskConical,
 } from 'lucide-vue-next'
 import AzureDevOpsIcon from '@/components/icons/AzureDevOpsIcon.vue'
 
@@ -47,6 +48,15 @@ const navItems: NavItem[] = [
   { name: 'tasks', icon: CheckSquare, path: '/tasks', label: 'Tasks' },
   { name: 'ado', icon: AzureDevOpsIcon, path: '/ado', label: 'Azure DevOps' },
   { name: 'dependencies', icon: Network, path: '/dependencies', label: 'Dependencies' },
+]
+
+const playgroundItems = [
+  { path: '/playground/dashboard', label: 'Dashboard Redesign' },
+  { path: '/playground/lifecycle', label: 'Lifecycle Tracking' },
+  { path: '/playground/task-detail', label: 'Task Detail' },
+  { path: '/playground/dashboard-header', label: 'Dashboard Header' },
+  { path: '/playground/task-tree', label: 'Task Tree' },
+  { path: '/playground/task-styling', label: 'Task Styling' },
 ]
 
 const isActive = (path: string) => route.path === path || route.path.startsWith(path + '/')
@@ -140,6 +150,44 @@ const isDark = computed(() => mode.value === 'dark')
             Settings
           </TooltipContent>
         </Tooltip>
+
+        <!-- Playground dropdown -->
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <DropdownMenuTrigger as-child>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Playgrounds"
+                  :class="[
+                    'w-10 h-10',
+                    route.path.startsWith('/playground')
+                      ? 'bg-primary/15 text-primary hover:bg-primary/20 hover:text-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  ]"
+                >
+                  <FlaskConical :size="18" :stroke-width="1.75" />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              Playgrounds
+            </TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent side="right" align="end" class="w-48">
+            <DropdownMenuLabel class="text-xs text-muted-foreground">Playgrounds</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              v-for="pg in playgroundItems"
+              :key="pg.path"
+              @click="navigate(pg.path)"
+              class="text-xs gap-2"
+            >
+              {{ pg.label }}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <!-- User avatar with sign-out dropdown -->
         <DropdownMenu v-if="authStore.isAuthenticated">
