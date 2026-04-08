@@ -36,11 +36,9 @@ Declared values (multiples of 4, mapped to Tailwind v4 utilities):
 | Token | Value | Tailwind | Usage in this phase |
 |-------|-------|----------|---------------------|
 | xs | 4px | `gap-1`, `p-1`, `px-1.5` | Badge internal padding, icon-to-icon micro gap |
-| sm | 8px | `gap-2`, `p-2`, `px-2` | Sync cluster element gaps, badge-to-badge gaps |
-| sm+ | 12px | `gap-3`, `px-3`, `py-3` | Attention Bar nudge pill padding (px-3 py-2), nudge-to-nudge gap |
+| sm | 8px | `gap-2`, `p-2`, `px-2`, `py-2` | Sync cluster element gaps, badge-to-badge gaps, nudge pill padding (`px-2 py-2`), nudge-to-nudge gap |
 | md | 16px | `gap-4`, `px-4` | Row horizontal padding, section horizontal padding |
-| md+ | 20px | `mb-5`, `pb-5` | Attention Bar bottom margin, section spacing |
-| lg | 24px | `gap-6`, `p-6` | Dashboard column gap, card internal padding |
+| lg | 24px | `gap-6`, `p-6`, `mb-6`, `pb-6` | Dashboard column gap, card internal padding, Attention Bar bottom margin |
 | xl | 32px | `gap-8` | Major section breaks |
 
 **Fixed structural dimensions (not spacing tokens):**
@@ -50,14 +48,14 @@ Declared values (multiples of 4, mapped to Tailwind v4 utilities):
 | AppShell top bar height | 46px (`h-[46px]`) |
 | Sidebar icon rail width | 56px |
 | Activity panel width | 240px |
-| Dashboard task row height | ~36px (`py-2.5` + 14px content) |
+| Dashboard task row height | ~30px (`py-2` + 14px content) |
 | Sync cluster dot size | 6px (`w-1.5 h-1.5`) |
 | Priority dot size | 8px (`size-2`) |
 | Pending sync dot | 6px (`size-1.5`) |
 | Refresh button touch target | 24px (`h-6 w-6`) |
 | Badge height (header/cluster) | 16px (`h-4`) |
 
-Exceptions: `pb-1` on Attention Bar scroll container (scrollbar clearance). `py-2.5` on task rows (10px, non-multiple of 4 — inherited from playground approval). `h-[46px]` on top bar (locked from prior phase).
+Exceptions: `pb-1` on Attention Bar scroll container (scrollbar clearance). `h-[46px]` on top bar (locked from prior phase).
 
 ---
 
@@ -76,13 +74,12 @@ Four sizes, two weights:
 
 | Context | Weight |
 |---------|--------|
-| Section headings ("Today's Focus", "Upcoming", "Blocked") | 500 (`font-medium`) at 14px |
-| Page name in top bar left zone | 500 (`font-medium`) at 14px |
+| Section headings ("Today's Focus", "Upcoming", "Blocked") | 600 (`font-semibold`) at 14px |
+| Page name in top bar left zone | 600 (`font-semibold`) at 14px |
 | Stats summary line ("3 in progress · 1 blocked") | 400 at 14px, muted-foreground color |
-| Nudge count emphasis (`<strong>`) | 600 (`font-semibold`) at 12px (`text-xs`) |
+| Nudge count emphasis (`<strong>`) | 600 (`font-semibold`) at 14px (`text-sm`) — mapped to Body size |
 | Greeting sub-line | 400 at 14px, muted-foreground |
-| Due date amber highlight | 500 (`font-medium`) at 10px (`text-[10px]`) |
-| Due date normal | 400 at 10px (`text-[10px]`) tabular-nums |
+| Due date (amber or normal) | 400 at 11px (`text-[11px]`) — maps to Label size; amber variant uses `text-amber-600`; tabular-nums |
 
 Heading line-height: 1.2. Body line-height: 1.5. Label line-height: 1.3.
 
@@ -150,7 +147,7 @@ Heading line-height: 1.2. Body line-height: 1.5. Label line-height: 1.3.
 ```
 
 **Left zone:**
-- Page name: `text-sm font-medium text-foreground select-none shrink-0 titlebar-no-drag`
+- Page name: `text-sm font-semibold text-foreground select-none shrink-0 titlebar-no-drag`
 - Divider: `w-px h-4 bg-border mx-1 shrink-0`
 - SyncCluster component: `titlebar-no-drag shrink-0`
 
@@ -179,9 +176,9 @@ Heading line-height: 1.2. Body line-height: 1.5. Label line-height: 1.3.
 
 ```
 [●priority-dot] [icon/SquareCheckBig] [task title truncate] [personal badge?] [sync dot?] [status badge] [due date]
- size-2           14px icon             flex-1 text-sm        text-[8px]         size-1.5    text-[9px] h-4  text-[10px]
+ size-2           14px icon             flex-1 text-sm        text-[8px]         size-1.5    text-[9px] h-4  text-[11px]
 ```
-Row padding: `px-4 py-2.5`. Hover: `hover:bg-muted/50 transition-colors`. Cursor: `cursor-pointer`.
+Row padding: `px-4 py-2`. Hover: `hover:bg-muted/50 transition-colors`. Cursor: `cursor-pointer`.
 
 ### Blocked Section Row Anatomy
 
@@ -199,7 +196,7 @@ Section container: `rounded-lg overflow-hidden border border-border border-l-2 b
 
 | Component | Path | Purpose |
 |-----------|------|---------|
-| `SyncCluster` | `frontend/src/components/SyncCluster.vue` | Sync status dot + label + relative time + pending badge + refresh button. Used in AppShell left zone. |
+| `SyncCluster` | `frontend/src/components/SyncCluster.vue` | Sync status dot + label + relative time + pending badge + refresh button (`aria-label="Refresh sync"`, icon-only). Used in AppShell left zone. |
 | `DashboardTaskRow` *(recommended)* | `frontend/src/components/tasks/DashboardTaskRow.vue` | Richer row for Today's Focus + Upcoming sections. Accepts `task`, `showDueDate` props. |
 
 ### Existing Components (modify in this phase)
@@ -245,9 +242,9 @@ Section container: `rounded-lg overflow-hidden border border-border border-l-2 b
 | Greeting heading | `Good morning, {firstName}` | Dynamic, 18px semibold. Greeting changes by time of day (morning/afternoon/evening). |
 | Greeting sub-line | `{N} tasks in progress · {N} blocked` | 14px regular, muted-foreground. Hidden if both counts are 0. |
 | Stats line | `{N} in progress · {N} blocked · {done}/{total} done` | 14px regular, muted-foreground. Always visible. |
-| Section: active | `Today's Focus` | 14px medium. |
-| Section: upcoming | `Upcoming` | 14px medium. |
-| Section: blocked | `Blocked` | 14px medium, shown only when `blockedTasks.length > 0`. |
+| Section: active | `Today's Focus` | 14px semibold. |
+| Section: upcoming | `Upcoming` | 14px semibold. |
+| Section: blocked | `Blocked` | 14px semibold, shown only when `blockedTasks.length > 0`. |
 | Empty — Today's Focus | `All caught up` | 14px, muted. No emoji. |
 | Empty — Upcoming | `No tasks due soon` | 14px, muted. |
 
@@ -300,7 +297,7 @@ No destructive actions are introduced in this phase. This is a visual/layout-onl
 
 | Interaction | Behavior |
 |-------------|---------|
-| Refresh button click | Calls `syncStore.manualSync()` |
+| Refresh button click | Calls `syncStore.manualSync()`. Button must carry `aria-label="Refresh sync"` (icon-only — no visible text label). |
 | While syncing | Refresh button disabled, icon swaps to `Loader2` with `animate-spin` |
 | Connected state | Driven by `adoStore.connected` (green dot / red dot) |
 
