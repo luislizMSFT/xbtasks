@@ -159,10 +159,31 @@ Plans:
 
 ### Phase 10: Implement dashboard redesign and unified header bars
 
+**Goal:** Redesign dashboard with Attention Bar, Upcoming section, richer task rows, and implement unified 3-zone header bar pattern across all 6 pages with shared SyncCluster component
+**Requirements**: P10-HEADER-01, P10-DASH-01
+**Depends on:** Phase 9
+**Plans:** 2 plans
+
+Plans:
+- [ ] 10-01-PLAN.md — Unified Header Bar: SyncCluster + AppShell 3-zone + view teleport migration
+- [ ] 10-02-PLAN.md — Dashboard Redesign: DashboardTaskRow + Attention Bar + Upcoming + Blocked
+
+### Phase 11: Integrate new task list into real app
+
 **Goal:** [To be planned]
 **Requirements**: TBD
-**Depends on:** Phase 9
+**Depends on:** Phase 10
 **Plans:** 0 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 10 to break down)
+- [ ] TBD (run /gsd-plan-phase 11 to break down)
+
+### Phase 12: Backend and frontend normalization for ADO integration
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 11
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 12 to break down)
