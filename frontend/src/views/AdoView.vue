@@ -496,7 +496,7 @@ const teamPRsToShow = computed(() =>
                       variant="ghost"
                       size="sm"
                       class="h-6 text-[10px] gap-1"
-                      @click="openExternal(adoStore.selectedItem!.url)"
+                      @click="adoStore.selectedItem && openExternal(adoStore.selectedItem.url)"
                     >
                       <ExternalLink :size="11" />
                       Open in ADO

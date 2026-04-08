@@ -45,6 +45,7 @@ import {
   Folder,
   CalendarDays,
   Link2Off,
+  Loader2,
 } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
 import { statusBgColor, prStatusClasses } from '@/lib/styles'
@@ -63,24 +64,35 @@ const editStatus = ref('')
 const editPriority = ref('')
 const editTags = ref<string[]>([])
 const editDueDate = ref('')
-const editProject = ref('')
+const editProject = ref('none')
 const newTag = ref('')
 
 const statuses = ['todo', 'in_progress', 'in_review', 'done', 'blocked', 'cancelled']
 const priorities = ['P0', 'P1', 'P2', 'P3']
 
-const task = computed(() => taskStore.selectedTask)
+// Keep a stable task reference that persists during Transition leave phase.
+// Without this, task becomes null mid-render causing "$setup.task.adoId" crash.
+const selectedTask = computed(() => taskStore.selectedTask)
+const lastTask = ref<Task | null>(null)
+const task = computed(() => selectedTask.value ?? lastTask.value)
+const isOpen = computed(() => !!selectedTask.value)
+const detailLoading = ref(false)
 
-watch(task, (t, oldT) => {
+watch(selectedTask, (t, oldT) => {
   if (t) {
-    // Reset saving guard when switching to a different task
-    if (oldT && t.id !== oldT.id) saving = false
+    // Show brief loading flash when switching to a different task
+    if (oldT && t.id !== oldT.id) {
+      saving = false
+      detailLoading.value = true
+      requestAnimationFrame(() => { detailLoading.value = false })
+    }
+    lastTask.value = t
     editTitle.value = t.title
-    editDescription.value = t.description
+    editDescription.value = t.description.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
     editStatus.value = t.status
     editPriority.value = t.priority
     editDueDate.value = t.dueDate
-    editProject.value = t.projectId ? String(t.projectId) : ''
+    editProject.value = t.projectId ? String(t.projectId) : 'none'
     editTags.value = t.tags ? t.tags.split(',').map(s => s.trim()).filter(Boolean) : []
   }
 }, { immediate: true })
@@ -99,7 +111,7 @@ async function save() {
     editPriority.value === task.value.priority &&
     editDueDate.value === task.value.dueDate &&
     editTags.value.join(',') === task.value.tags &&
-    (editProject.value ? Number(editProject.value) : null) === (task.value.projectId ?? null)
+    (editProject.value !== 'none' ? Number(editProject.value) : null) === (task.value.projectId ?? null)
   ) return
   saving = true
   saveTaskId = currentId
@@ -114,7 +126,7 @@ async function save() {
       priority: editPriority.value,
       dueDate: editDueDate.value,
       tags: editTags.value.join(','),
-      projectId: editProject.value ? Number(editProject.value) : null,
+      projectId: editProject.value !== 'none' ? Number(editProject.value) : null,
     }
     await taskStore.updateTask(updated)
   } catch (e) {
@@ -213,14 +225,15 @@ async function addSubtask() {
   }
 }
 
-watch(task, () => { loadSubtasks() }, { immediate: true })
+watch(selectedTask, () => { loadSubtasks() }, { immediate: true })
 
 // ── Pull Requests (from store) ──
 const taskPRs = computed(() => {
   if (!task.value) return []
+  const t = task.value
   return [...prStore.myPRs, ...prStore.reviewPRs].filter(pr =>
-    pr.taskId === task.value!.id ||
-    (task.value!.adoId && pr.adoId === task.value!.adoId)
+    pr.taskId === t.id ||
+    (t.adoId && pr.adoId === t.adoId)
   )
 })
 function prIconColor(status: string) {
@@ -268,7 +281,7 @@ function adoNumber(adoId: string): string {
 // Build ADO URL using cached org/project from the work item
 const adoUrl = ref('')
 const lastAdoId = ref('')
-watch(task, async (t) => {
+watch(selectedTask, async (t) => {
   const adoId = t?.adoId || ''
   if (adoId === lastAdoId.value) return
   lastAdoId.value = adoId
@@ -330,11 +343,25 @@ const timeUpdated = computed(() => {
     leave-active-class="transition-transform duration-150 ease-in"
     leave-from-class="translate-x-0"
     leave-to-class="translate-x-full"
+    @after-leave="lastTask = null"
   >
     <aside
-      v-if="task"
+      v-if="isOpen"
       class="w-[45%] shrink-0 border-l border-border bg-background flex flex-col h-full min-h-0 relative"
     >
+      <!-- Loading overlay when switching tasks -->
+      <Transition
+        enter-active-class="transition-opacity duration-100"
+        enter-from-class="opacity-100"
+        enter-to-class="opacity-0"
+        leave-active-class="transition-opacity duration-75"
+        leave-from-class="opacity-0"
+        leave-to-class="opacity-100"
+      >
+        <div v-if="detailLoading" class="absolute inset-0 z-10 bg-background/80 flex items-center justify-center">
+          <Loader2 :size="20" class="animate-spin text-muted-foreground" />
+        </div>
+      </Transition>
       <!-- ─── Header (shrink-0, border-b) ─────────────────── -->
       <div class="shrink-0 border-b border-border px-4 pt-3 pb-3">
         <div class="flex items-start gap-2">
@@ -387,7 +414,7 @@ const timeUpdated = computed(() => {
               <SelectValue placeholder="Project" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">None</SelectItem>
+              <SelectItem value="none">None</SelectItem>
               <SelectItem v-for="proj in projectStore.projects" :key="proj.id" :value="String(proj.id)">
                 {{ proj.name }}
               </SelectItem>
@@ -405,13 +432,13 @@ const timeUpdated = computed(() => {
             />
           </div>
 
-          <DropdownMenu v-if="task.adoId">
+          <DropdownMenu v-if="task?.adoId">
             <DropdownMenuTrigger asChild>
               <span
                 class="inline-flex items-center gap-1.5 text-xs font-medium text-blue-500 border border-blue-500/30 rounded-full px-2 py-0.5 cursor-pointer hover:bg-blue-500/10 transition-colors"
               >
                 <AzureDevOpsIcon :size="12" />
-                {{ adoNumber(task.adoId) }}
+                {{ adoNumber(task?.adoId) }}
                 <ChevronDown :size="10" />
               </span>
             </DropdownMenuTrigger>
@@ -426,7 +453,7 @@ const timeUpdated = computed(() => {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <span v-if="task.adoId" class="text-[9px] text-muted-foreground/60">local copy</span>
+          <span v-if="task?.adoId" class="text-[9px] text-muted-foreground/60">local copy</span>
         </div>
 
         <!-- Subtask progress bar -->
@@ -524,7 +551,7 @@ const timeUpdated = computed(() => {
                   <h3 class="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Details</h3>
                 </button>
                 <div v-if="detailsOpen" class="mt-2 space-y-4">
-                  <ExternalLinks :task-id="task.id" />
+                  <ExternalLinks v-if="task" :task-id="task.id" />
 
                   <!-- Pull Requests -->
                   <div>
@@ -560,11 +587,11 @@ const timeUpdated = computed(() => {
 
                   <!-- Push to ADO -->
                   <Button
-                    v-if="task.adoId && taskStore.isPublic(task.id)"
+                    v-if="task?.adoId && taskStore.isPublic(task.id)"
                     variant="outline"
                     size="sm"
                     class="h-7 text-[11px] gap-1.5"
-                    @click="syncStore.generateOutboundDiff(task.id)"
+                    @click="task && syncStore.generateOutboundDiff(task.id)"
                   >
                     <Upload :size="11" />
                     Push to ADO
@@ -575,23 +602,23 @@ const timeUpdated = computed(() => {
               <!-- Discussion Tabs -->
               <div>
                 <Tabs :default-value="'private'">
-                  <TabsList class="w-full grid" :class="task.adoId ? 'grid-cols-2' : 'grid-cols-1'">
+                  <TabsList class="w-full grid" :class="task?.adoId ? 'grid-cols-2' : 'grid-cols-1'">
                     <TabsTrigger value="private" class="text-xs gap-1.5">
                       <Lock :size="12" />
                       Private Notes
                     </TabsTrigger>
-                    <TabsTrigger v-if="task.adoId" value="ado" class="text-xs gap-1.5">
+                    <TabsTrigger v-if="task?.adoId" value="ado" class="text-xs gap-1.5">
                       <AzureDevOpsIcon :size="12" />
                       ADO Discussion
                     </TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="private" class="mt-3">
-                    <CommentsSection :task-id="task.id" :is-public-task="taskStore.isPublic(task.id)" />
+                    <CommentsSection v-if="task" :task-id="task.id" :is-public-task="taskStore.isPublic(task.id)" />
                   </TabsContent>
 
-                  <TabsContent v-if="task.adoId" value="ado" class="mt-3">
-                    <ADODiscussion :task-id="task.id" :ado-id="task.adoId" />
+                  <TabsContent v-if="task?.adoId" value="ado" class="mt-3">
+                    <ADODiscussion v-if="task" :task-id="task.id" :ado-id="task.adoId" />
                   </TabsContent>
                 </Tabs>
               </div>

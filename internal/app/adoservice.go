@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"time"
 
 	"dev.azure.com/xbox/xb-tasks/domain"
 	"dev.azure.com/xbox/xb-tasks/internal/auth"
@@ -63,7 +64,8 @@ func adoWorkItemToDomain(w ado.WorkItem) domain.WorkItem {
 }
 
 // ListMyWorkItems queries ADO for work items assigned to the current user
-// across all configured org/project pairs.
+// across all configured org/project pairs. Uses a 20s timeout so a single
+// slow/unreachable org doesn't freeze the UI indefinitely.
 func (s *ADOService) ListMyWorkItems() ([]domain.WorkItem, error) {
 	clients, err := s.getClients()
 	if err != nil {
@@ -73,6 +75,7 @@ func (s *ADOService) ListMyWorkItems() ([]domain.WorkItem, error) {
 	type result struct {
 		items []domain.WorkItem
 		err   error
+		org   string
 	}
 	ch := make(chan result, len(clients))
 	for _, c := range clients {
@@ -80,23 +83,42 @@ func (s *ADOService) ListMyWorkItems() ([]domain.WorkItem, error) {
 			items, err := ado.QueryMyWorkItems(c)
 			if err != nil {
 				log.Printf("[ado] query %s/%s failed: %v", c.Org(), c.Project(), err)
-				ch <- result{nil, err}
+				ch <- result{nil, err, c.Org() + "/" + c.Project()}
 				return
 			}
 			mapped := make([]domain.WorkItem, len(items))
 			for i, item := range items {
 				mapped[i] = adoWorkItemToDomain(item)
 			}
-			ch <- result{mapped, nil}
+			ch <- result{mapped, nil, c.Org() + "/" + c.Project()}
 		}(c)
 	}
 
 	var all []domain.WorkItem
-	for range clients {
-		r := <-ch
-		if r.err == nil {
-			all = append(all, r.items...)
+	var failures int
+	timeout := time.After(20 * time.Second)
+	remaining := len(clients)
+
+	for remaining > 0 {
+		select {
+		case r := <-ch:
+			remaining--
+			if r.err == nil {
+				all = append(all, r.items...)
+			} else {
+				failures++
+			}
+		case <-timeout:
+			log.Printf("[ado] ListMyWorkItems timed out waiting for %d/%d orgs", remaining, len(clients))
+			if len(all) == 0 {
+				return nil, fmt.Errorf("timed out waiting for ADO responses (%d org(s) unreachable)", remaining)
+			}
+			return all, nil
 		}
+	}
+
+	if failures > 0 && len(all) == 0 {
+		return nil, fmt.Errorf("all %d org(s) failed to respond", failures)
 	}
 	return all, nil
 }

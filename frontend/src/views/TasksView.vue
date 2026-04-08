@@ -12,6 +12,7 @@ import TaskDetail from '@/components/tasks/TaskDetail.vue'
 import ProjectDetail from '@/components/projects/ProjectDetail.vue'
 import TaskRow from '@/components/tasks/TaskRow.vue'
 import FilterBar from '@/components/FilterBar.vue'
+import AzureDevOpsIcon from '@/components/icons/AzureDevOpsIcon.vue'
 import { adoTypeColor, adoTypeIcon, adoStateClasses, adoPriorityClasses } from '@/lib/styles'
 import {
   ClipboardList, RefreshCw, ChevronRight, ChevronDown,
@@ -39,6 +40,8 @@ const quickAddTitle = ref('')
 const expandedSubtasks = ref<Set<number>>(new Set())
 const expandedGroups = ref<Set<string>>(new Set())
 const selectedProjectId = ref<number | null>(null)
+const treeView = ref(false)
+const expandedTreeNodes = ref<Set<number>>(new Set())
 
 const statusChips = [
   { id: 'all', label: 'All' },
@@ -208,24 +211,56 @@ function closeDetail() {
   selectedProjectId.value = null
 }
 
-function projectAdoType(projectId: number): string {
-  const lnk = projectStore.projectLinks.get(projectId)
-  if (!lnk) return ''
-  const wi = adoStore.workItemTree.find(w => w.adoId === lnk.adoId)
-  return wi?.type || ''
-}
-
-function projectAdoItem(projectId: number) {
-  const lnk = projectStore.projectLinks.get(projectId)
-  if (!lnk) return null
-  return adoStore.workItemTree.find(w => w.adoId === lnk.adoId) ?? null
-}
+// Reactive lookup: project → ADO info (type, adoId, #number)
+const projectAdoLookup = computed(() => {
+  const result = new Map<number, { type: string; adoId: string; number: string }>()
+  const tree = adoStore.workItemTree
+  const links = projectStore.projectLinks
+  for (const [pid, lnk] of links) {
+    const wi = tree.find(w => w.adoId === lnk.adoId)
+    const num = lnk.adoId?.match(/\d+/)
+    result.set(pid, {
+      type: wi?.type || '',
+      adoId: lnk.adoId,
+      number: num ? `#${num[0]}` : lnk.adoId,
+    })
+  }
+  return result
+})
 
 function typeIcon(type: string) {
   return adoTypeIcon(type)
 }
 
 const hasAnyTasks = computed(() => taskStore.tasks.length > 0)
+
+// ── Tree view helpers ──
+const rootTasks = computed(() =>
+  taskStore.enhancedFilteredTasks.filter(t => !t.parentId)
+)
+
+function treeChildren(taskId: number): Task[] {
+  return taskStore.enhancedFilteredTasks.filter(t => t.parentId === taskId)
+}
+
+function hasTreeChildren(taskId: number): boolean {
+  return taskStore.enhancedFilteredTasks.some(t => t.parentId === taskId)
+}
+
+function toggleTreeNode(id: number) {
+  if (expandedTreeNodes.value.has(id)) {
+    expandedTreeNodes.value.delete(id)
+  } else {
+    expandedTreeNodes.value.add(id)
+  }
+}
+
+function treeSubtaskProgress(taskId: number) {
+  const children = treeChildren(taskId)
+  if (children.length === 0) return null
+  const done = children.filter(c => c.status === 'done').length
+  return { done, total: children.length, pct: Math.round((done / children.length) * 100) }
+}
 
 // Writable list for drag & drop — syncs back to store on reorder
 const draggableList = computed({
@@ -288,22 +323,95 @@ onMounted(async () => {
       <FilterBar
         :filter-status="taskStore.filterStatus"
         :filter-priority="taskStore.filterPriority"
-        :filter-project="taskStore.filterProject"
         :filter-due-date="taskStore.filterDueDate"
         :filter-ado-link="taskStore.filterAdoLink"
         :sort-by="taskStore.sortBy"
         :group-by="taskStore.groupBy"
-        :projects="projectStore.projects"
+        :tree-view="treeView"
         :syncing="syncStore.syncing"
         @update:filter-status="taskStore.filterStatus = $event"
         @update:filter-priority="taskStore.filterPriority = $event"
-        @update:filter-project="taskStore.filterProject = $event"
         @update:filter-due-date="taskStore.filterDueDate = $event"
         @update:filter-ado-link="taskStore.filterAdoLink = $event"
         @update:sort-by="taskStore.sortBy = $event"
         @update:group-by="taskStore.groupBy = $event"
+        @update:tree-view="treeView = $event"
         @sync="syncStore.manualSync()"
       />
+
+      <!-- Project context bar -->
+      <div
+        v-if="taskStore.filterProject !== null"
+        class="px-4 py-1.5 border-b border-border bg-muted/30 flex items-center gap-2"
+      >
+        <component
+          v-if="projectAdoLookup.get(taskStore.filterProject)?.type"
+          :is="typeIcon(projectAdoLookup.get(taskStore.filterProject)!.type)"
+          :size="14"
+          :class="adoTypeColor(projectAdoLookup.get(taskStore.filterProject)!.type)"
+          class="shrink-0"
+        />
+        <span class="text-xs font-medium text-foreground truncate">
+          {{ projectStore.projects.find(p => p.id === taskStore.filterProject)?.name ?? 'Project' }}
+        </span>
+        <span
+          v-if="projectAdoLookup.get(taskStore.filterProject)?.number"
+          class="text-[10px] text-blue-500 tabular-nums shrink-0"
+        >
+          {{ projectAdoLookup.get(taskStore.filterProject)!.number }}
+        </span>
+        <div class="flex-1" />
+        <Select
+          :model-value="String(taskStore.filterProject)"
+          @update:model-value="(v: AcceptableValue) => taskStore.filterProject = Number(v)"
+        >
+          <SelectTrigger size="sm" class="h-5 text-[10px] gap-0.5 w-auto px-1.5 border-none shadow-none bg-transparent">
+            <SelectValue placeholder="Switch" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem
+              v-for="proj in projectStore.projects"
+              :key="proj.id"
+              :value="String(proj.id)"
+            >
+              {{ proj.name }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        <button
+          class="text-[10px] text-muted-foreground hover:text-destructive transition-colors shrink-0"
+          title="Clear project filter"
+          @click="taskStore.filterProject = null"
+        >
+          ✕
+        </button>
+      </div>
+
+      <!-- Project picker when no project selected -->
+      <div
+        v-else
+        class="px-4 py-1.5 border-b border-border flex items-center gap-2"
+      >
+        <span class="text-[10px] text-muted-foreground shrink-0">Project</span>
+        <Select
+          model-value="all"
+          @update:model-value="(v: AcceptableValue) => taskStore.filterProject = String(v) === 'all' ? null : Number(v)"
+        >
+          <SelectTrigger size="sm" class="h-5 text-[10px] gap-0.5 w-[100px] px-1.5">
+            <SelectValue placeholder="All Projects" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All</SelectItem>
+            <SelectItem
+              v-for="proj in projectStore.projects"
+              :key="proj.id"
+              :value="String(proj.id)"
+            >
+              {{ proj.name }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
       <ScrollArea class="flex-1 h-full">
         <!-- Loading skeleton -->
@@ -338,7 +446,7 @@ onMounted(async () => {
         </div>
 
         <!-- Grouped rendering -->
-        <div v-if="hasAnyTasks && !taskStore.loading && taskStore.groupBy">
+        <div v-if="hasAnyTasks && !taskStore.loading && taskStore.groupBy && !treeView">
           <!-- Project groups (with headers) -->
           <div v-for="key in groupKeys.filter(k => k !== 'No Project')" :key="key">
             <!-- Project group header -->
@@ -358,20 +466,28 @@ onMounted(async () => {
                 />
               </button>
               <component
-                v-if="taskStore.groupBy === 'project' && projectAdoType(Number(key))"
-                :is="typeIcon(projectAdoType(Number(key)))"
+                v-if="taskStore.groupBy === 'project' && projectAdoLookup.get(Number(key))?.type"
+                :is="typeIcon(projectAdoLookup.get(Number(key))!.type)"
                 :size="14"
-                :class="adoTypeColor(projectAdoType(Number(key)))"
+                :class="adoTypeColor(projectAdoLookup.get(Number(key))!.type)"
                 class="shrink-0"
               />
               <span class="text-sm font-medium text-foreground truncate flex-1" @click="selectProject(key)">
                 {{ groupLabel(key) }}
               </span>
-              <Badge
+              <span
                 v-if="taskStore.groupBy === 'project' && projectStore.isLinked(Number(key))"
-                variant="outline"
-                class="text-[9px] h-4 px-1 text-blue-500 border-blue-500/30 shrink-0"
-              >ADO</Badge>
+                class="inline-flex items-center gap-1 text-[10px] text-blue-500 shrink-0"
+              >
+                <component
+                  v-if="projectAdoLookup.get(Number(key))?.type"
+                  :is="typeIcon(projectAdoLookup.get(Number(key))!.type)"
+                  :size="12"
+                  :class="adoTypeColor(projectAdoLookup.get(Number(key))!.type)"
+                />
+                <AzureDevOpsIcon v-else :size="12" />
+                <span class="tabular-nums">{{ projectAdoLookup.get(Number(key))?.number ?? '' }}</span>
+              </span>
               <span class="text-[11px] text-muted-foreground tabular-nums shrink-0">
                 {{ groupedTasks[key]?.length ?? 0 }}
               </span>
@@ -405,9 +521,112 @@ onMounted(async () => {
           </template>
         </div>
 
-        <!-- Non-grouped rendering (enhanced filtered + sorted, drag & drop) -->
+        <!-- Tree rendering (hierarchical parent → child nesting) -->
+        <div v-else-if="hasAnyTasks && !taskStore.loading && treeView">
+          <template v-for="task in rootTasks" :key="task.id">
+            <!-- Root node -->
+            <div
+              class="flex items-center gap-2 px-4 py-2.5 cursor-pointer hover:bg-muted/50 transition-colors"
+              :class="taskStore.selectedTaskId === task.id && 'bg-primary/5 border-l-2 border-l-primary'"
+              @click="selectTask(task.id)"
+            >
+              <button
+                v-if="hasTreeChildren(task.id)"
+                class="shrink-0 p-0.5 hover:bg-muted rounded"
+                @click.stop="toggleTreeNode(task.id)"
+              >
+                <component
+                  :is="expandedTreeNodes.has(task.id) ? ChevronDown : ChevronRight"
+                  :size="14" class="text-muted-foreground"
+                />
+              </button>
+              <span v-else class="w-5 shrink-0" />
+              <div class="flex-1 min-w-0">
+                <TaskRow
+                  :task="task"
+                  :is-public="taskStore.isPublic(task.id)"
+                  :selected="taskStore.selectedTaskId === task.id"
+                  :project-name="task.projectId ? projectNameMap[task.projectId] : undefined"
+                  @select="selectTask"
+                  @toggle-status="(id) => { const t = taskStore.tasks.find(x => x.id === id); if (t) toggleDone(t) }"
+                />
+              </div>
+              <template v-if="treeSubtaskProgress(task.id)">
+                <span class="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                  {{ treeSubtaskProgress(task.id)!.done }}/{{ treeSubtaskProgress(task.id)!.total }}
+                </span>
+                <div class="w-10 h-1 bg-muted rounded-full overflow-hidden shrink-0">
+                  <div class="h-full bg-green-500 rounded-full" :style="{ width: treeSubtaskProgress(task.id)!.pct + '%' }" />
+                </div>
+              </template>
+            </div>
+
+            <!-- Children (level 1) -->
+            <template v-if="expandedTreeNodes.has(task.id)">
+              <template v-for="child in treeChildren(task.id)" :key="child.id">
+                <div
+                  class="flex items-center gap-2 cursor-pointer hover:bg-muted/50 transition-colors border-l-2 border-l-muted-foreground/10"
+                  :class="taskStore.selectedTaskId === child.id && 'bg-primary/5'"
+                  :style="{ paddingLeft: '36px', paddingRight: '16px' }"
+                  @click="selectTask(child.id)"
+                >
+                  <button
+                    v-if="hasTreeChildren(child.id)"
+                    class="shrink-0 p-0.5 hover:bg-muted rounded"
+                    @click.stop="toggleTreeNode(child.id)"
+                  >
+                    <component
+                      :is="expandedTreeNodes.has(child.id) ? ChevronDown : ChevronRight"
+                      :size="14" class="text-muted-foreground"
+                    />
+                  </button>
+                  <span v-else class="w-5 shrink-0" />
+                  <div class="flex-1 min-w-0">
+                    <TaskRow
+                      :task="child"
+                      :is-public="taskStore.isPublic(child.id)"
+                      :selected="taskStore.selectedTaskId === child.id"
+                      @select="selectTask"
+                      @toggle-status="(id) => { const t = taskStore.tasks.find(x => x.id === id); if (t) toggleDone(t) }"
+                    />
+                  </div>
+                  <template v-if="treeSubtaskProgress(child.id)">
+                    <span class="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                      {{ treeSubtaskProgress(child.id)!.done }}/{{ treeSubtaskProgress(child.id)!.total }}
+                    </span>
+                  </template>
+                </div>
+
+                <!-- Grandchildren (level 2) -->
+                <template v-if="expandedTreeNodes.has(child.id)">
+                  <div
+                    v-for="grandchild in treeChildren(child.id)"
+                    :key="grandchild.id"
+                    class="flex items-center gap-2 cursor-pointer hover:bg-muted/50 transition-colors border-l-2 border-l-muted-foreground/5"
+                    :class="taskStore.selectedTaskId === grandchild.id && 'bg-primary/5'"
+                    :style="{ paddingLeft: '60px', paddingRight: '16px' }"
+                    @click="selectTask(grandchild.id)"
+                  >
+                    <span class="w-5 shrink-0" />
+                    <div class="flex-1 min-w-0">
+                      <TaskRow
+                        :task="grandchild"
+                        :is-public="taskStore.isPublic(grandchild.id)"
+                        :selected="taskStore.selectedTaskId === grandchild.id"
+                        @select="selectTask"
+                        @toggle-status="(id) => { const t = taskStore.tasks.find(x => x.id === id); if (t) toggleDone(t) }"
+                      />
+                    </div>
+                  </div>
+                </template>
+              </template>
+            </template>
+          </template>
+        </div>
+
+        <!-- Non-grouped flat rendering (enhanced filtered + sorted, drag & drop) -->
         <draggable
-          v-else-if="hasAnyTasks && !taskStore.loading"
+          v-else-if="hasAnyTasks && !taskStore.loading && !treeView"
           v-model="draggableList"
           item-key="id"
           handle=".drag-handle"

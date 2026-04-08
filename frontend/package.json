@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "clean": "rm -rf dist node_modules/.vite",
+    "clean": "node -e \"const fs=require('fs');['dist','node_modules/.vite'].forEach(d=>{try{fs.rmSync(d,{recursive:true,force:true})}catch{}})\"",
     "build:dev": "npm run clean && vue-tsc && vite build --minify false --mode development",
     "build": "npm run clean && vue-tsc && vite build --mode production",
     "preview": "vite preview"

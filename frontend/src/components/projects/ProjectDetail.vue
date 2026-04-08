@@ -49,7 +49,7 @@ const progressDone = computed(() => childTasks.value.filter(t => t.status === 'd
 // ADO type for linked project
 const adoType = computed(() => {
   if (!link.value) return ''
-  const wi = adoStore.workItemTree.find(w => w.adoId === link.value!.adoId)
+  const wi = adoStore.workItemTree.find(w => w.adoId === link.value?.adoId)
   return wi?.type || ''
 })
 

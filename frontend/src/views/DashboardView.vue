@@ -7,6 +7,7 @@ import { usePRStore, branchName, voteIcon } from '@/stores/prs'
 import { relativeTime } from '@/lib/date'
 import type { PullRequest } from '@/stores/prs'
 import { useADOStore } from '@/stores/ado'
+import { useSyncStore } from '@/stores/sync'
 import type { ADOPipeline } from '@/stores/ado'
 import TaskRow from '@/components/tasks/TaskRow.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
@@ -18,6 +19,7 @@ import { Badge } from '@/components/ui/badge'
 import {
   Plus, GitPullRequest, Play, CheckCircle2, XCircle, Clock,
   ExternalLink, GitBranch, ClipboardList, Loader2,
+  RefreshCw,
 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -25,6 +27,7 @@ const taskStore = useTaskStore()
 const authStore = useAuthStore()
 const prStore = usePRStore()
 const adoStore = useADOStore()
+const syncStore = useSyncStore()
 
 const isActive = ref(false)
 onActivated(() => { isActive.value = true })
@@ -160,11 +163,25 @@ async function openPipeline(p: ADOPipeline) {
   <ScrollArea class="flex-1 h-full">
     <!-- Dashboard top bar: summary stats -->
     <Teleport v-if="isActive" to="#topbar-actions">
-      <div class="flex items-center gap-2 text-[10px]">
-        <span class="text-muted-foreground">{{ taskStore.stats.total }} tasks</span>
-        <Badge v-if="taskStore.stats.inProgress" variant="secondary" class="text-[9px] h-4 px-1.5">{{ taskStore.stats.inProgress }} active</Badge>
-        <Badge v-if="taskStore.stats.blocked" variant="destructive" class="text-[9px] h-4 px-1.5">{{ taskStore.stats.blocked }} blocked</Badge>
-        <Badge v-if="prStore.reviewPRs.length" variant="outline" class="text-[9px] h-4 px-1.5">{{ prStore.reviewPRs.length }} PRs to review</Badge>
+      <div class="flex items-center gap-2 text-[11px]">
+        <!-- Task ratio -->
+        <span class="tabular-nums text-muted-foreground">{{ taskStore.stats.inProgress }}/{{ taskStore.stats.total }}</span>
+        <!-- Blocked alert dot -->
+        <span
+          v-if="taskStore.stats.blocked"
+          class="w-2 h-2 rounded-full bg-red-500 animate-pulse"
+          :title="`${taskStore.stats.blocked} blocked`"
+        />
+        <!-- ADO connection dot -->
+        <span
+          class="w-2 h-2 rounded-full"
+          :class="adoStore.connected ? 'bg-green-500' : 'bg-red-500'"
+          :title="adoStore.connected ? 'ADO connected' : 'ADO offline'"
+        />
+        <!-- Sync button -->
+        <Button variant="ghost" size="sm" class="h-6 w-6 p-0" @click="syncStore.manualSync()" :disabled="syncStore.syncing">
+          <component :is="syncStore.syncing ? Loader2 : RefreshCw" :size="12" :class="syncStore.syncing && 'animate-spin'" class="text-muted-foreground" />
+        </Button>
       </div>
     </Teleport>
     <div class="px-6 py-5">
