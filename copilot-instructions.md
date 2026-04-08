@@ -89,13 +89,46 @@ A unified productivity dashboard for the Xbox Services team — a native desktop
 <!-- GSD:conventions-start source:CONVENTIONS.md -->
 ## Conventions
 
-Conventions not yet established. Will populate as patterns emerge during development.
+### Async & Concurrency Patterns (Go)
+- **Wails bindings are synchronous** — the frontend blocks until Go returns. All network-bound methods must have timeouts.
+- **az CLI calls**: Always use `RunAzCliCtx` with `exec.CommandContext` and `AzCliTimeout` (15s). Never shell out without a timeout.
+- **Token caching**: `CachedTokenProvider` uses RWMutex for reads + separate `refreshMu` for serializing refresh. Double-check pattern: re-verify cache after acquiring refreshMu. Never hold locks during I/O.
+- **Sync mutual exclusion**: `SyncService.syncMu` serializes background and manual sync. Use `TryLock()` — background sync skips if locked; manual sync returns "already in progress" error.
+- **Lifecycle events**: Backend emits Wails events (`sync:started`, `sync:completed`, `sync:failed`) for frontend reactivity. Use `s.emitEvent()` helper.
+- **Multi-org fan-out**: `ListMyWorkItems` uses goroutine-per-org with `time.After(20s)` select. Returns partial results on timeout; only errors if ALL orgs fail.
+- **Context propagation**: Timeouts are applied at entry points (service methods). Full context.Context propagation deferred to Phase 9.
+
+### Frontend Patterns (Vue)
+- **Wails event listeners**: Use `Events.On('event-name', callback)` from `@wailsio/runtime`. Initialize once on auth via `initEvents()` in stores.
+- **Debouncing**: Use `useDebounceFn` from `@vueuse/core` for search/filter inputs (200ms default).
+- **Flight guards**: Stores use `isLoading` / `isSyncing` flags to prevent duplicate concurrent calls.
+- **Binding imports**: Import from `@/api/` wrapper modules, never from deep `bindings/` paths.
+- **Toast notifications**: Stores use `import { toast } from 'vue-sonner'` directly; components use `useNotify` composable.
 <!-- GSD:conventions-end -->
 
 <!-- GSD:architecture-start source:ARCHITECTURE.md -->
 ## Architecture
 
-Architecture not yet mapped. Follow existing patterns found in the codebase.
+### Request Flow
+```
+Vue Component → await api/xxx.ts → Wails IPC → Go Service Method → (ADO REST / SQLite / az CLI) → return → UI updates
+```
+Wails bindings are **synchronous from the frontend's perspective** — the UI thread blocks until Go returns. All Go service methods with network I/O must include timeouts.
+
+### Backend Goroutines
+1. **Background sync** (`SyncService.StartBackgroundSync`) — 15-min ticker, pulls ADO changes
+2. **OAuth callback** (`AuthService`) — HTTP listener for Entra ID redirect
+3. **Multi-org fan-out** (`ADOService.ListMyWorkItems`) — goroutine-per-org, 20s timeout
+
+### Concurrency Control
+- `CachedTokenProvider`: RWMutex (cache reads) + refreshMu (serialize token refresh)
+- `SyncService.syncMu`: Serializes background and manual sync operations
+- az CLI calls: 15s `exec.CommandContext` timeout via `RunAzCliCtx`
+
+### Event Communication (Backend → Frontend)
+Backend emits Wails events for lifecycle state changes:
+- `sync:started` / `sync:completed` / `sync:failed` — sync lifecycle
+- Frontend subscribes via `Events.On()` in store `initEvents()` functions
 <!-- GSD:architecture-end -->
 
 <!-- GSD:workflow-start source:GSD defaults -->

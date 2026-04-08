@@ -97,3 +97,72 @@ Phases execute in numeric order: 1 → 1.1 → 2 → 3
 
 Plans:
 - [ ] TBD (run /gsd-plan-phase 4 to break down)
+
+### Phase 5: Fix TaskDetail null crash and UI freeze
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 4
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 5 to break down)
+
+### Phase 6: Dashboard header summary display
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 5
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 6 to break down)
+
+### Phase 7: Task hierarchy tree rendering
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 6
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 7 to break down)
+
+### Phase 8: Task row styling parity with ADO
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 7
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 8 to break down)
+
+### Phase 9: Async Architecture Polish
+
+**Goal:** Complete the async hardening started in the Phase 2 hotfix — full context propagation, lazy-loading, circuit breakers, and SQLite resilience
+**Requirements**: TBD
+**Depends on:** Phase 2
+**Plans:** 0 plans
+
+**Scope (from async audit):**
+- Full context.Context propagation through Go call chains (not just entry-point timeouts)
+- Debounce frontend task filter (`enhancedFilteredTasks`) for large datasets (100+ tasks)
+- Lazy-load project links/progress in ProjectsView (currently O(n) API calls on mount)
+- Circuit breaker pattern for failing ADO orgs (skip after repeated failures)
+- SQLite "database is locked" retry logic with exponential backoff
+- Convert remaining synchronous Wails bindings (PRService, PipelineService) to event-driven pattern
+- Graceful shutdown with context cancellation across all goroutines
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 9 to break down)
+
+### Phase 10: Implement dashboard redesign and unified header bars
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 9
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 10 to break down)

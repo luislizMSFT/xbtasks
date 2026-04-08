@@ -114,6 +114,13 @@ Progress: [█████░░░░░] 50%
 - [Phase 02]: Sync store uses dynamic imports for Wails bindings (same pattern as ado.ts)
 - [Phase 02]: ConflictResolver walks conflicts sequentially - shows first, resolves, advances to next
 - [Phase 02]: SyncService uses ticker goroutine with configurable interval; outbound never auto-pushes
+- [Phase 02]: SyncService uses syncMu to serialize background and manual sync; emits lifecycle events (sync:started/completed/failed)
+- [Phase 02]: CachedTokenProvider uses RWMutex + refreshMu double-check pattern — reads non-blocking, refresh serialized
+- [Phase 02]: All az CLI calls use exec.CommandContext with 15s timeout (AzCliTimeout constant)
+- [Phase 02]: ADO multi-org fan-out has 20s timeout; returns partial results on slow orgs
+- [Phase 02]: Frontend subscribes to backend Wails events via Events.On() from @wailsio/runtime
+- [Phase 02]: Sync store has initEvents() called once on auth in App.vue for backend→frontend push
+- [Phase 02]: ADO tree search uses useDebounceFn (200ms) from @vueuse/core
 - [Phase 02]: Domain SyncDiff/FieldDiff types separate from ado package for frontend decoupling
 - [Phase 02]: Comments always private/local by default; PushCommentToADO is explicit opt-in
 - [Phase 02]: ProjectService constructor extended with tokenProv+cfg for ADO operations
@@ -133,6 +140,12 @@ Progress: [█████░░░░░] 50%
 ### Roadmap Evolution
 
 - Phase 4 added: Work Item Lifecycle Tracking — PRs, Pipelines & Task Traceability (unified progress view so you never have to hunt across ADO)
+- Phase 5 added: Fix TaskDetail null crash and UI freeze
+- Phase 6 added: Dashboard header summary display
+- Phase 7 added: Task hierarchy tree rendering
+- Phase 8 added: Task row styling parity with ADO
+- Phase 9 added: Async Architecture Polish — context propagation, debounce, circuit breakers, SQLite retry, lazy-load (deferred items from async audit)
+- Phase 10 added: Implement dashboard redesign and unified header bars
 
 ### Pending Todos
 
