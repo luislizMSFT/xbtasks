@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { useDebounceFn } from '@vueuse/core'
 import type { ADOWorkItem, ADOPipeline, SavedQuery } from '@/types'
 import * as workitemsApi from '@/api/workitems'
 import { listRecentRuns } from '@/api/pipelines'
@@ -24,11 +25,19 @@ export const useADOStore = defineStore('ado', () => {
   const linkedAdoIds = ref<Set<string>>(new Set())
   const hideLinked = ref(false)
   const searchQuery = ref('')
+  const debouncedSearchQuery = ref('')
   const filterType = ref<string>('all')
   const filterState = ref<string>('all')
   const filterArea = ref<string>('all')
   const savedQueries = ref<SavedQuery[]>([])
   const selectedItem = ref<ADOWorkItem | null>(null)
+
+  // Debounce search input so treeRoots doesn't recalc on every keystroke
+  const applySearch = useDebounceFn((q: string) => {
+    debouncedSearchQuery.value = q
+  }, 200)
+
+  watch(searchQuery, (q) => applySearch(q))
 
   // Computed: available area paths from tree data
   const availableAreaPaths = computed(() => {
@@ -36,12 +45,12 @@ export const useADOStore = defineStore('ado', () => {
     return Array.from(paths).sort()
   })
 
-  // Computed: tree roots after filtering
+  // Computed: tree roots after filtering (uses debounced search for perf)
   const treeRoots = computed(() => {
     let items = workItemTree.value
     if (hideLinked.value) items = items.filter(i => !isLinked(i.adoId))
-    if (searchQuery.value) {
-      const q = searchQuery.value.toLowerCase()
+    if (debouncedSearchQuery.value) {
+      const q = debouncedSearchQuery.value.toLowerCase()
       items = items.filter(i => i.title.toLowerCase().includes(q) || i.adoId.includes(q))
     }
     if (filterType.value !== 'all') items = items.filter(i => i.type === filterType.value)

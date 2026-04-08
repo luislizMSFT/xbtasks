@@ -6,6 +6,7 @@ import { useTaskStore } from './stores/tasks'
 import { useADOStore } from './stores/ado'
 import { usePRStore } from './stores/prs'
 import { useProjectStore } from './stores/projects'
+import { useSyncStore } from './stores/sync'
 import { Toaster } from 'vue-sonner'
 import AppShell from './layouts/AppShell.vue'
 import LoginView from './views/LoginView.vue'
@@ -17,6 +18,7 @@ const taskStore = useTaskStore()
 const adoStore = useADOStore()
 const prStore = usePRStore()
 const projectStore = useProjectStore()
+const syncStore = useSyncStore()
 
 const needsOnboarding = ref(false)
 const onboardingChecked = ref(false)
@@ -41,6 +43,9 @@ function onOnboardingComplete() {
 // When auth state changes to authenticated, prefetch all core data in parallel
 watch(() => authStore.isAuthenticated, (authed) => {
   if (authed) {
+    // Initialize Wails event listeners for backend→frontend communication
+    syncStore.initEvents()
+
     // Fire all fetches in parallel — don't block on any single one
     Promise.allSettled([
       taskStore.fetchTasks(),

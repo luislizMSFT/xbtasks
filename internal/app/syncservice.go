@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"sync"
 	"time"
 
 	"dev.azure.com/xbox/xb-tasks/domain"
@@ -24,11 +25,19 @@ type SyncService struct {
 	cfg       *config.ConfigService
 	app       *application.App
 	stopCh    chan struct{}
+	syncMu    sync.Mutex // serializes pullChanges between background and manual sync
 }
 
 // NewSyncService creates a SyncService with all required dependencies.
 func NewSyncService(database *db.DB, tokenProv auth.TokenProvider, cfg *config.ConfigService, app *application.App) *SyncService {
 	return &SyncService{db: database, tokenProv: tokenProv, cfg: cfg, app: app}
+}
+
+// emitEvent sends a named event to the frontend if the app is available.
+func (s *SyncService) emitEvent(name string, data any) {
+	if s.app != nil {
+		s.app.Event.Emit(name, data)
+	}
 }
 
 // StartBackgroundSync launches a goroutine that pulls ADO changes on a configurable interval.
@@ -48,9 +57,19 @@ func (s *SyncService) StartBackgroundSync() {
 		for {
 			select {
 			case <-ticker.C:
+				if !s.syncMu.TryLock() {
+					log.Printf("[sync] background sync skipped — manual sync in progress")
+					continue
+				}
+				s.emitEvent("sync:started", map[string]string{"trigger": "background"})
+
 				diffs, err := s.pullChanges()
+
+				s.syncMu.Unlock()
+
 				if err != nil {
 					log.Printf("[sync] background pull error: %v", err)
+					s.emitEvent("sync:failed", map[string]string{"error": err.Error(), "trigger": "background"})
 				} else {
 					conflicts := 0
 					for _, d := range diffs {
@@ -59,6 +78,11 @@ func (s *SyncService) StartBackgroundSync() {
 						}
 					}
 					log.Printf("[sync] background pull complete: %d updated, %d conflicts", len(diffs)-conflicts, conflicts)
+					s.emitEvent("sync:completed", map[string]any{
+						"conflicts": conflicts,
+						"updated":   len(diffs) - conflicts,
+						"trigger":   "background",
+					})
 				}
 			case <-s.stopCh:
 				ticker.Stop()
@@ -78,10 +102,18 @@ func (s *SyncService) StopSync() {
 }
 
 // ManualSync triggers an immediate sync and returns any diffs/conflicts found.
-// Called when user clicks the sync button.
+// Called when user clicks the sync button. Returns an error if a sync is already running.
 func (s *SyncService) ManualSync() ([]domain.SyncDiff, error) {
+	if !s.syncMu.TryLock() {
+		return nil, fmt.Errorf("sync already in progress")
+	}
+	defer s.syncMu.Unlock()
+
+	s.emitEvent("sync:started", map[string]string{"trigger": "manual"})
+
 	diffs, err := s.pullChanges()
 	if err != nil {
+		s.emitEvent("sync:failed", map[string]string{"error": err.Error(), "trigger": "manual"})
 		return nil, fmt.Errorf("manual sync: %w", err)
 	}
 
@@ -95,13 +127,11 @@ func (s *SyncService) ManualSync() ([]domain.SyncDiff, error) {
 		}
 	}
 
-	// Emit sync:completed event to frontend
-	if s.app != nil {
-		s.app.Event.Emit("sync:completed", map[string]int{
-			"conflicts": conflicts,
-			"updated":   updated,
-		})
-	}
+	s.emitEvent("sync:completed", map[string]any{
+		"conflicts": conflicts,
+		"updated":   updated,
+		"trigger":   "manual",
+	})
 
 	return diffs, nil
 }

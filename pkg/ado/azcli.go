@@ -1,12 +1,17 @@
 package ado
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 )
+
+// AzCliTimeout is the maximum time to wait for an az CLI command to complete.
+const AzCliTimeout = 15 * time.Second
 
 // ResolveAzPath finds the az CLI binary, expanding PATH for macOS .app bundles.
 func ResolveAzPath() string {
@@ -26,11 +31,21 @@ func ResolveAzPath() string {
 	return "az"
 }
 
-// RunAzCli executes an az CLI command and returns the output.
+// RunAzCli executes an az CLI command with a default timeout and returns the output.
 func RunAzCli(args ...string) ([]byte, error) {
-	cmd := exec.Command(ResolveAzPath(), args...)
+	ctx, cancel := context.WithTimeout(context.Background(), AzCliTimeout)
+	defer cancel()
+	return RunAzCliCtx(ctx, args...)
+}
+
+// RunAzCliCtx executes an az CLI command with the given context and returns the output.
+func RunAzCliCtx(ctx context.Context, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, ResolveAzPath(), args...)
 	output, err := cmd.Output()
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, fmt.Errorf("az cli timed out after %s", AzCliTimeout)
+		}
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			return nil, fmt.Errorf("az cli error: %s", string(exitErr.Stderr))
 		}

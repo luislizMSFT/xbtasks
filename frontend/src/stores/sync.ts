@@ -4,6 +4,7 @@ import { toast } from 'vue-sonner'
 import { useTaskStore } from './tasks'
 import type { FieldDiff, SyncDiff, Conflict } from '@/types'
 import * as syncApi from '@/api/sync'
+import { Events } from '@wailsio/runtime'
 
 export type { FieldDiff, SyncDiff, Conflict }
 
@@ -19,6 +20,51 @@ export const useSyncStore = defineStore('sync', () => {
 
     const hasConflicts = computed(() => conflicts.value.length > 0)
     const conflictCount = computed(() => conflicts.value.length)
+
+    // Listen to backend sync lifecycle events so the UI stays in sync
+    // even when the background goroutine triggers a pull.
+    let eventsInitialized = false
+    function initEvents() {
+        if (eventsInitialized) return
+        eventsInitialized = true
+
+        Events.On('sync:started', () => {
+            syncing.value = true
+            error.value = null
+        })
+
+        Events.On('sync:completed', (event: any) => {
+            const data = event?.data?.[0] ?? event?.data ?? {}
+            syncing.value = false
+            lastSyncedAt.value = new Date().toISOString()
+
+            // When a background sync finds updates, silently refresh task data
+            if (data.trigger === 'background' && (data.updated > 0 || data.conflicts > 0)) {
+                const taskStore = useTaskStore()
+                taskStore.fetchTasks().catch(() => {})
+
+                if (data.conflicts > 0) {
+                    toast.warning(`Sync conflict on ${data.conflicts} item(s)`, { duration: 5000 })
+                }
+            }
+        })
+
+        Events.On('sync:failed', (event: any) => {
+            const data = event?.data?.[0] ?? event?.data ?? {}
+            syncing.value = false
+            const msg = data.error || 'Sync failed'
+            error.value = msg
+            if (data.trigger === 'background') {
+                console.warn('[sync] background sync failed:', msg)
+            }
+        })
+
+        Events.On('sync:conflict', () => {
+            // Background conflict detected — refresh tasks to pick up any auto-merged changes
+            const taskStore = useTaskStore()
+            taskStore.fetchTasks().catch(() => {})
+        })
+    }
 
     async function manualSync() {
         syncing.value = true
@@ -97,5 +143,6 @@ export const useSyncStore = defineStore('sync', () => {
         showConfirmDialog, showConflictResolver, currentConflict,
         hasConflicts, conflictCount,
         manualSync, generateOutboundDiff, confirmPush, resolveConflict, cancelPush,
+        initEvents,
     }
 })
