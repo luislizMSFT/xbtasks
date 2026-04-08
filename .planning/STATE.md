@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Deep UI iteration — playgrounds built, real views being refined
-stopped_at: Phase 10 context gathered
-last_updated: "2026-04-08T19:40:24.851Z"
+stopped_at: Phase 11 context gathered
+last_updated: "2026-04-08T23:16:57.003Z"
 last_activity: 2026-04-03
 progress:
-  total_phases: 10
+  total_phases: 12
   completed_phases: 2
   total_plans: 16
   completed_plans: 16
@@ -146,6 +146,8 @@ Progress: [█████░░░░░] 50%
 - Phase 8 added: Task row styling parity with ADO
 - Phase 9 added: Async Architecture Polish — context propagation, debounce, circuit breakers, SQLite retry, lazy-load (deferred items from async audit)
 - Phase 10 added: Implement dashboard redesign and unified header bars
+- Phase 11 added: Integrate new task list into real app — extract shared components (TreeTaskRow, QuickAddInput, FilterCycleButton), wire stores, replace current TasksView
+- Phase 12 added: Backend and frontend normalization for ADO integration — batch ADO metadata, sync state API, PR-task linking, N+1 fixes, composable bridges
 
 ### Pending Todos
 
@@ -172,6 +174,6 @@ Progress: [█████░░░░░] 50%
 
 ## Session Continuity
 
-Last session: 2026-04-08T19:40:24.847Z
-Stopped at: Phase 10 context gathered
+Last session: 2026-04-08T23:16:56.998Z
+Stopped at: Phase 11 context gathered
 Resume: Continue refining shell header, then wire backend services
