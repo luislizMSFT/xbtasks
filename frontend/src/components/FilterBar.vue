@@ -12,6 +12,8 @@ import {
 import {
   ArrowUpDown,
   LayoutGrid,
+  List,
+  Network,
 } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -22,6 +24,7 @@ const props = defineProps<{
   filterAdoLink: string
   sortBy: string
   groupBy: string | null
+  treeView: boolean
   projects: Array<{ id: number; name: string }>
   syncing: boolean
 }>()
@@ -34,6 +37,7 @@ const emit = defineEmits<{
   'update:filterAdoLink': [value: string]
   'update:sortBy': [value: string]
   'update:groupBy': [value: string | null]
+  'update:treeView': [value: boolean]
   'sync': []
 }>()
 
@@ -92,26 +96,6 @@ function handleGroupByChange(value: AcceptableValue) {
           <SelectItem value="P1">P1</SelectItem>
           <SelectItem value="P2">P2</SelectItem>
           <SelectItem value="P3">P3</SelectItem>
-        </SelectContent>
-      </Select>
-
-      <span class="text-[10px] text-muted-foreground shrink-0">Project</span>
-      <Select
-        :model-value="filterProject !== null ? String(filterProject) : 'all'"
-        @update:model-value="handleProjectChange"
-      >
-        <SelectTrigger size="sm" class="h-6 text-[10px] gap-0.5 w-[72px] px-1.5">
-          <SelectValue placeholder="All" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All</SelectItem>
-          <SelectItem
-            v-for="proj in projects"
-            :key="proj.id"
-            :value="String(proj.id)"
-          >
-            {{ proj.name }}
-          </SelectItem>
         </SelectContent>
       </Select>
 
@@ -188,6 +172,18 @@ function handleGroupByChange(value: AcceptableValue) {
           <SelectItem value="project">Project</SelectItem>
         </SelectContent>
       </Select>
+
+      <!-- Tree/flat toggle -->
+      <button
+        class="inline-flex items-center gap-1 h-6 px-1.5 rounded text-[10px] transition-colors"
+        :class="treeView
+          ? 'bg-primary/10 text-primary'
+          : 'text-muted-foreground hover:text-foreground'"
+        :title="treeView ? 'Tree view (click for flat)' : 'Flat view (click for tree)'"
+        @click="emit('update:treeView', !treeView)"
+      >
+        <component :is="treeView ? Network : List" :size="12" />
+      </button>
     </div>
   </div>
 </template>

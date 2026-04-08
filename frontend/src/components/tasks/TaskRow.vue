@@ -53,6 +53,10 @@ const timeAgo = computed(() => relativeTime(props.task.updatedAt))
 
 const isDone = computed(() => props.task.status === 'done' || props.task.status === 'cancelled')
 
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
 const dueDateDisplay = computed(() => {
   if (!props.task.dueDate) return null
   const d = new Date(props.task.dueDate)
@@ -127,14 +131,6 @@ function onAdoBadgeClick(e: Event) {
 
           <PriorityBadge :priority="task.priority" />
 
-          <!-- Project tag -->
-          <span
-            v-if="projectName"
-            class="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground truncate max-w-[6rem] shrink-0"
-          >
-            {{ projectName }}
-          </span>
-
           <TagChip v-for="tag in visibleTags" :key="tag" :tag="tag" />
           <span
             v-if="overflowCount > 0"
@@ -159,12 +155,20 @@ function onAdoBadgeClick(e: Event) {
         </div>
       </div>
 
+      <!-- Project name caption -->
+      <div
+        v-if="projectName"
+        class="mt-0.5 text-[11px] text-muted-foreground/50 truncate"
+      >
+        {{ projectName }}
+      </div>
+
       <!-- Description preview (1 line) -->
       <div
         v-if="task.description && !isDone"
         class="mt-0.5 text-xs text-muted-foreground/60 truncate"
       >
-        {{ task.description }}
+        {{ stripHtml(task.description) }}
       </div>
 
       <!-- Blocked subtitle -->
