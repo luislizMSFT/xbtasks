@@ -35,7 +35,7 @@ Declared values (multiples of 4, mapped to Tailwind v4 utilities):
 
 | Token | Value | Tailwind | Usage in this phase |
 |-------|-------|----------|---------------------|
-| xs | 4px | `gap-1`, `p-1`, `px-1.5` | Badge internal padding, icon-to-icon micro gap |
+| xs | 4px | `gap-1`, `p-1`, `px-1` | Icon-to-icon micro gap, tighter badge horizontal padding |
 | sm | 8px | `gap-2`, `p-2`, `px-2`, `py-2` | Sync cluster element gaps, badge-to-badge gaps, nudge pill padding (`px-2 py-2`), nudge-to-nudge gap |
 | md | 16px | `gap-4`, `px-4` | Row horizontal padding, section horizontal padding |
 | lg | 24px | `gap-6`, `p-6`, `mb-6`, `pb-6` | Dashboard column gap, card internal padding, Attention Bar bottom margin |
@@ -55,7 +55,7 @@ Declared values (multiples of 4, mapped to Tailwind v4 utilities):
 | Refresh button touch target | 24px (`h-6 w-6`) |
 | Badge height (header/cluster) | 16px (`h-4`) |
 
-Exceptions: `pb-1` on Attention Bar scroll container (scrollbar clearance). `h-[46px]` on top bar (locked from prior phase).
+Exceptions: `pb-1` on Attention Bar scroll container (scrollbar clearance). `h-[46px]` on top bar (locked from prior phase). `px-1.5` (6px) on `h-4` badges only — optical compensation for 9px micro text at 16px badge height; the standard `px-1` (4px) leaves insufficient breathing room for legibility at this size.
 
 ---
 
