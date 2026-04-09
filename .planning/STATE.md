@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Deep UI iteration — playgrounds built, real views being refined
-stopped_at: Completed 11-02-PLAN.md
-last_updated: "2026-04-09T00:36:48.315Z"
+stopped_at: Completed 11-03-PLAN.md
+last_updated: "2026-04-09T00:45:39.240Z"
 last_activity: 2026-04-03
 progress:
   total_phases: 12
   completed_phases: 2
   total_plans: 22
-  completed_plans: 18
+  completed_plans: 19
   percent: 50
 ---
 
@@ -138,6 +138,9 @@ Progress: [█████░░░░░] 50%
 - [Phase 02]: Saved query picker uses sentinel value __my_assignments__ to revert to default tree fetch
 - [Phase 11]: ADOMetaCacheService uses DELETE+INSERT rebuild; useAdoMeta uses module-level refs for singleton shared state
 - [Phase 11]: TreeTaskRow uses formatDate from lib/date.ts; FilterCycleButton uses 'linked' value to match taskStore semantics
+- [Phase 11]: TaskDetail permanent panel (no Transition)  parent controls split sizing
+- [Phase 11]: Push to ADO consolidated into ADO dropdown menu alongside Open/Unlink
+- [Phase 11]: statusIcon/priorityDotBgColor from styles.ts for subtask rendering consistency
 
 ### Roadmap Evolution
 
@@ -176,6 +179,6 @@ Progress: [█████░░░░░] 50%
 
 ## Session Continuity
 
-Last session: 2026-04-09T00:36:48.307Z
-Stopped at: Completed 11-02-PLAN.md
+Last session: 2026-04-09T00:45:39.235Z
+Stopped at: Completed 11-03-PLAN.md
 Resume: Continue refining shell header, then wire backend services
