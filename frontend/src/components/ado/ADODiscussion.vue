@@ -3,11 +3,9 @@ import { ref, watch } from 'vue'
 import DOMPurify from 'dompurify'
 import { relativeTime } from '@/lib/date'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
-import EmptyState from '@/components/EmptyState.vue'
-import { Globe, RefreshCw } from 'lucide-vue-next'
+import { Globe } from 'lucide-vue-next'
 
 function sanitize(html: string): string {
   return DOMPurify.sanitize(html, {
@@ -61,35 +59,36 @@ watch(() => props.taskId, () => fetchComments(), { immediate: true })
 </script>
 
 <template>
-  <div class="border border-blue-500/20 rounded-lg bg-blue-50/5">
-    <!-- Header -->
-    <div class="flex items-center gap-2 px-3 py-1.5 border-b border-blue-500/20">
-      <Globe :size="13" class="text-blue-500" />
-      <span class="font-semibold text-[11px] text-blue-500">ADO Discussion</span>
-      <Badge v-if="comments.length > 0" variant="secondary" class="h-4 text-[10px] px-1.5 ml-auto">
-        {{ comments.length }}
-      </Badge>
-      <Button variant="ghost" size="icon" class="h-5 w-5 shrink-0" :class="loading && 'animate-spin'" @click="fetchComments" title="Refresh">
-        <RefreshCw :size="11" class="text-blue-500" />
-      </Button>
+  <div class="space-y-2">
+    <!-- Reply input (on top) -->
+    <div class="space-y-1.5">
+      <Textarea
+        v-model="replyText"
+        placeholder="Reply on ADO..."
+        class="text-xs min-h-[40px] resize-none"
+        :rows="2"
+      />
+      <div class="flex justify-between items-center">
+        <span class="text-[9px] text-muted-foreground/50">Posted to ADO</span>
+        <Button
+          size="sm"
+          class="h-6 text-[10px] bg-blue-600 hover:bg-blue-700 text-white gap-1"
+          @click="reply"
+          :disabled="!replyText.trim() || replying"
+        >
+          <Globe :size="10" />
+          {{ replying ? 'Posting...' : 'Reply' }}
+        </Button>
+      </div>
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="py-6">
+    <div v-if="loading" class="py-4">
       <LoadingSpinner size="sm" label="Loading ADO comments..." />
     </div>
 
-    <!-- Empty state -->
-    <EmptyState
-      v-else-if="comments.length === 0"
-      :icon="Globe"
-      title="No ADO discussion yet"
-      description="Comments from the linked work item appear here."
-      class="py-4"
-    />
-
     <!-- Comments list (bubble style, left-aligned for ADO authors) -->
-    <div v-else class="px-3 py-2 flex flex-col gap-2 max-h-72 overflow-y-auto">
+    <div v-else-if="comments.length > 0" class="flex flex-col gap-2 max-h-60 overflow-y-auto">
       <div
         v-for="c in comments"
         :key="c.id"
@@ -103,26 +102,9 @@ watch(() => props.taskId, () => fetchComments(), { immediate: true })
       </div>
     </div>
 
-    <!-- Reply input -->
-    <div class="px-3 py-2 border-t border-blue-500/20">
-      <Textarea
-        v-model="replyText"
-        placeholder="Reply on ADO..."
-        class="text-xs min-h-[40px] resize-none mb-1.5"
-        :rows="2"
-      />
-      <div class="flex justify-between items-center">
-        <span class="text-[9px] text-muted-foreground/50">Posted to ADO</span>
-        <Button
-          size="sm"
-          class="h-6 text-[10px] bg-blue-600 hover:bg-blue-700 text-white gap-1"
-          @click="reply"
-          :disabled="!replyText.trim() || replying"
-        >
-          <Globe :size="10" />
-          {{ replying ? 'Posting...' : 'Reply on ADO' }}
-        </Button>
-      </div>
+    <!-- Empty state -->
+    <div v-else class="text-[11px] text-muted-foreground/40 italic text-center py-2">
+      No ADO comments yet
     </div>
   </div>
 </template>

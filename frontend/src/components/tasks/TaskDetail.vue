@@ -62,6 +62,7 @@ const editTags = ref<string[]>([])
 const editDueDate = ref('')
 const editProject = ref('none')
 const newTag = ref('')
+const notesTab = ref<'notes' | 'ado'>('notes')
 
 const statuses = ['todo', 'in_progress', 'in_review', 'done', 'blocked', 'cancelled']
 const priorities = ['P0', 'P1', 'P2', 'P3']
@@ -592,11 +593,31 @@ const projectName = computed(() => {
         <div class="px-4 py-3">
           <div class="flex items-center gap-2 mb-2">
             <h3 class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Notes</h3>
+            <!-- Chip toggle (only when task is linked to ADO) -->
+            <div v-if="task?.adoId" class="flex items-center gap-1 ml-auto">
+              <button
+                class="text-[9px] font-medium px-2 py-0.5 rounded-full transition-colors"
+                :class="notesTab === 'notes'
+                  ? 'bg-foreground/10 text-foreground'
+                  : 'text-muted-foreground/60 hover:text-muted-foreground'"
+                @click="notesTab = 'notes'"
+              >
+                Notes
+              </button>
+              <button
+                class="text-[9px] font-medium px-2 py-0.5 rounded-full transition-colors"
+                :class="notesTab === 'ado'
+                  ? 'bg-blue-500/15 text-blue-500'
+                  : 'text-muted-foreground/60 hover:text-muted-foreground'"
+                @click="notesTab = 'ado'"
+              >
+                ADO
+              </button>
+            </div>
           </div>
-          <!-- ADO Discussion (only for linked tasks) -->
-          <ADODiscussion v-if="task?.adoId" :task-id="task.id" :ado-id="task.adoId" class="mb-3" />
-          <!-- Local comments -->
-          <CommentsSection v-if="task" :task-id="task.id" :is-public-task="taskStore.isPublic(task.id)" />
+          <!-- Tab content -->
+          <ADODiscussion v-if="task?.adoId && notesTab === 'ado'" :task-id="task.id" :ado-id="task.adoId" />
+          <CommentsSection v-else-if="task" :task-id="task.id" :is-public-task="taskStore.isPublic(task.id)" />
         </div>
 
       </div>

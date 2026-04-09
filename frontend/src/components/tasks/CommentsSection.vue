@@ -60,10 +60,31 @@ watch(() => props.taskId, () => fetchComments(), { immediate: true })
 </script>
 
 <template>
-  <div class="space-y-3">
-    <div class="text-xs font-semibold text-muted-foreground uppercase">Comments</div>
+  <div class="space-y-2">
+    <!-- Add comment (on top) -->
+    <div class="space-y-1.5">
+      <Textarea
+        v-model="newComment"
+        placeholder="Add a note..."
+        class="text-xs min-h-[40px] resize-none"
+        :rows="2"
+        @keydown.meta.enter="addComment"
+        @keydown.ctrl.enter="addComment"
+      />
+      <div class="flex justify-between items-center">
+        <span class="text-[9px] text-muted-foreground/50">Private by default</span>
+        <Button
+          size="sm"
+          class="h-6 text-[10px]"
+          @click="addComment"
+          :disabled="!newComment.trim()"
+        >
+          Add
+        </Button>
+      </div>
+    </div>
 
-    <!-- Comments list (bubble style) -->
+    <!-- Comments list (bubble style, newest first) -->
     <div v-if="comments.length > 0" class="flex flex-col gap-2 max-h-60 overflow-y-auto">
       <div
         v-for="c in comments"
@@ -73,7 +94,6 @@ watch(() => props.taskId, () => fetchComments(), { immediate: true })
           ? 'bg-blue-500/10 border border-blue-500/20'
           : 'bg-muted/60 border border-border/50'"
       >
-        <!-- Bubble header: visibility + timestamp -->
         <div class="flex items-center gap-1.5 mb-1">
           <Badge
             v-if="c.isPublic"
@@ -93,9 +113,7 @@ watch(() => props.taskId, () => fetchComments(), { immediate: true })
             {{ relativeTime(c.createdAt) }}
           </span>
         </div>
-        <!-- Content -->
         <div class="text-[13px] text-foreground whitespace-pre-wrap leading-relaxed">{{ c.content }}</div>
-        <!-- Push to ADO (only private on public tasks) -->
         <div v-if="!c.isPublic && isPublicTask" class="mt-1.5 flex justify-end">
           <Button
             variant="ghost"
@@ -113,30 +131,7 @@ watch(() => props.taskId, () => fetchComments(), { immediate: true })
 
     <!-- Empty state -->
     <div v-if="!comments.length && !loading" class="text-[11px] text-muted-foreground/40 italic text-center py-2">
-      No comments yet
-    </div>
-
-    <!-- Add comment -->
-    <div class="space-y-1.5">
-      <Textarea
-        v-model="newComment"
-        placeholder="Add a comment..."
-        class="text-xs min-h-[50px] resize-none"
-        :rows="2"
-        @keydown.meta.enter="addComment"
-        @keydown.ctrl.enter="addComment"
-      />
-      <div class="flex justify-between items-center">
-        <span class="text-[9px] text-muted-foreground/50">Comments are private by default</span>
-        <Button
-          size="sm"
-          class="h-6 text-[10px]"
-          @click="addComment"
-          :disabled="!newComment.trim()"
-        >
-          Add Comment
-        </Button>
-      </div>
+      No notes yet
     </div>
   </div>
 </template>
