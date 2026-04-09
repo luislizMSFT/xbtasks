@@ -418,7 +418,7 @@ const projectName = computed(() => {
         </Button>
       </div>
 
-      <!-- Row 3: Project context bar -->
+      <!-- Row 3: Project context bar (only when project assigned) -->
       <div v-if="projectName" class="flex items-center gap-2 px-2 py-1.5 rounded-md bg-muted/40 border border-border/50">
         <component
           v-if="taskAdoMeta?.type"
@@ -430,12 +430,8 @@ const projectName = computed(() => {
         <Folder v-else :size="13" class="text-muted-foreground shrink-0" />
         <span class="text-xs font-medium text-foreground truncate flex-1">{{ projectName }}</span>
       </div>
-      <div v-else class="flex items-center gap-2 px-2 py-1.5 rounded-md border border-dashed border-border/50">
-        <User :size="12" class="text-muted-foreground/40 shrink-0" />
-        <span class="text-[10px] text-muted-foreground/60">Personal task — not linked to a project</span>
-      </div>
 
-      <!-- Row 4: ADO integration bar -->
+      <!-- Row 4: ADO integration bar OR personal task indicator -->
       <div v-if="task?.adoId" class="flex items-center gap-2 px-2 py-1 rounded-md bg-blue-500/5 border border-blue-500/15">
         <AzureDevOpsIcon :size="12" class="text-blue-500 shrink-0" />
         <span class="text-[10px] text-blue-500 tabular-nums font-medium">{{ adoNumber(task.adoId) }}</span>
@@ -456,7 +452,7 @@ const projectName = computed(() => {
           <Link2Off :size="10" />
         </Button>
       </div>
-      <div v-else-if="isPersonal" class="flex items-center gap-2 px-2 py-1 rounded-md border border-dashed border-border/50">
+      <div v-else class="flex items-center gap-2 px-2 py-1 rounded-md border border-dashed border-border/50">
         <User :size="12" class="text-muted-foreground/40 shrink-0" />
         <span class="text-[10px] text-muted-foreground/60">Personal task — not linked to ADO</span>
       </div>
