@@ -30,6 +30,11 @@ const prStore = usePRStore()
 const adoStore = useADOStore()
 const syncStore = useSyncStore()
 
+// Normalize a Date to midnight local time for day-level comparisons
+function startOfDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate())
+}
+
 const isActive = ref(false)
 onActivated(() => { isActive.value = true })
 onDeactivated(() => { isActive.value = false })
@@ -68,9 +73,9 @@ const focusTasks = computed(() =>
 const upcomingTasks = computed(() =>
   taskStore.tasks.filter(t => {
     if (!t.dueDate || t.status === 'done' || t.status === 'cancelled') return false
-    const due = new Date(t.dueDate)
-    const now = new Date()
-    const diffDays = (due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+    const dueDay = startOfDay(new Date(t.dueDate))
+    const today = startOfDay(new Date())
+    const diffDays = (dueDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
     return diffDays <= 3 && diffDays >= -7 // include up to 7 days overdue
   })
     .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
@@ -86,7 +91,9 @@ const blockedTasks = computed(() =>
 const dueSoonTasks = computed(() =>
   taskStore.tasks.filter(t => {
     if (!t.dueDate || t.status === 'done' || t.status === 'cancelled') return false
-    const diffDays = (new Date(t.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+    const dueDay = startOfDay(new Date(t.dueDate))
+    const today = startOfDay(new Date())
+    const diffDays = (dueDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
     return diffDays >= 0 && diffDays <= 3
   })
 )

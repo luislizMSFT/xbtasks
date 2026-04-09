@@ -162,11 +162,12 @@ Plans:
 **Goal:** Redesign dashboard with Attention Bar, Upcoming section, richer task rows, and implement unified 3-zone header bar pattern across all 6 pages with shared SyncCluster component
 **Requirements**: P10-HEADER-01, P10-DASH-01
 **Depends on:** Phase 9
-**Plans:** 2/2 plans complete
+**Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 10-01-PLAN.md — Unified Header Bar: SyncCluster + AppShell 3-zone + view teleport migration
-- [ ] 10-02-PLAN.md — Dashboard Redesign: DashboardTaskRow + Attention Bar + Upcoming + Blocked
+- [x] 10-01-PLAN.md — Unified Header Bar: SyncCluster + AppShell 3-zone + view teleport migration
+- [x] 10-02-PLAN.md — Dashboard Redesign: DashboardTaskRow + Attention Bar + Upcoming + Blocked
+- [ ] 10-03-PLAN.md — Gap closure: SyncCluster composite loading state + dueSoonTasks date fix
 
 ### Phase 11: Integrate new task list into real app
 

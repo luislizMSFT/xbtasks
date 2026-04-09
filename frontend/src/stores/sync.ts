@@ -2,6 +2,8 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { toast } from 'vue-sonner'
 import { useTaskStore } from './tasks'
+import { useADOStore } from './ado'
+import { usePRStore } from './prs'
 import type { FieldDiff, SyncDiff, Conflict } from '@/types'
 import * as syncApi from '@/api/sync'
 import { Events } from '@wailsio/runtime'
@@ -18,8 +20,21 @@ export const useSyncStore = defineStore('sync', () => {
     const showConflictResolver = ref(false)
     const currentConflict = ref<Conflict | null>(null)
 
+    const taskStore = useTaskStore()
+    const adoStore = useADOStore()
+    const prStore = usePRStore()
+
     const hasConflicts = computed(() => conflicts.value.length > 0)
     const conflictCount = computed(() => conflicts.value.length)
+
+    // Composite loading state: true only when backend sync AND all frontend stores are idle
+    const isFullyLoaded = computed(() =>
+      !syncing.value &&
+      !taskStore.loading &&
+      !adoStore.loading &&
+      !adoStore.pipelinesLoading &&
+      !prStore.loading
+    )
 
     // Listen to backend sync lifecycle events so the UI stays in sync
     // even when the background goroutine triggers a pull.
@@ -40,7 +55,6 @@ export const useSyncStore = defineStore('sync', () => {
 
             // When a background sync finds updates, silently refresh task data
             if (data.trigger === 'background' && (data.updated > 0 || data.conflicts > 0)) {
-                const taskStore = useTaskStore()
                 taskStore.fetchTasks().catch(() => {})
 
                 if (data.conflicts > 0) {
@@ -61,7 +75,6 @@ export const useSyncStore = defineStore('sync', () => {
 
         Events.On('sync:conflict', () => {
             // Background conflict detected — refresh tasks to pick up any auto-merged changes
-            const taskStore = useTaskStore()
             taskStore.fetchTasks().catch(() => {})
         })
     }
@@ -141,7 +154,7 @@ export const useSyncStore = defineStore('sync', () => {
     return {
         syncing, lastSyncedAt, conflicts, pendingDiff, error,
         showConfirmDialog, showConflictResolver, currentConflict,
-        hasConflicts, conflictCount,
+        hasConflicts, conflictCount, isFullyLoaded,
         manualSync, generateOutboundDiff, confirmPush, resolveConflict, cancelPush,
         initEvents,
     }

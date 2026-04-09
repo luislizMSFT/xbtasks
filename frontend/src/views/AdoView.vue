@@ -75,12 +75,13 @@ const importChoiceOpen = ref(false)
 const importingAdoItem = ref<ADOWorkItem | null>(null)
 
 onMounted(async () => {
-  await Promise.all([
-    adoStore.fetchWorkItemTree(),
-    adoStore.fetchLinkedAdoIds(),
-    adoStore.fetchSavedQueries(),
-    prStore.fetchAll(),
-  ])
+  // Data is prefetched by App.vue on auth — only fetch if stores are empty
+  const fetches: Promise<void>[] = []
+  if (!adoStore.workItemTree.length) fetches.push(adoStore.fetchWorkItemTree())
+  if (!adoStore.linkedAdoIds.size) fetches.push(adoStore.fetchLinkedAdoIds())
+  if (!adoStore.savedQueries?.length) fetches.push(adoStore.fetchSavedQueries())
+  if (!prStore.myPRs.length && !prStore.reviewPRs.length) fetches.push(prStore.fetchAll())
+  if (fetches.length) await Promise.all(fetches)
 })
 
 // --- Type/state helpers ---

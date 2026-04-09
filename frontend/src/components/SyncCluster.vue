@@ -20,13 +20,13 @@ const pendingCount = computed(() => syncStore.conflicts.length)
         :class="adoStore.connected ? 'bg-green-500' : 'bg-red-500'" />
       <span :class="[
         !adoStore.connected ? 'text-red-500' :
-        syncStore.syncing ? 'text-muted-foreground' : 'text-green-600'
+        !syncStore.isFullyLoaded ? 'text-muted-foreground' : 'text-green-600'
       ]">
-        {{ !adoStore.connected ? 'Offline' : syncStore.syncing ? 'Syncing…' : 'Synced' }}
+        {{ !adoStore.connected ? 'Offline' : !syncStore.isFullyLoaded ? 'Syncing…' : 'Synced' }}
       </span>
     </span>
     <!-- Relative time (only when connected and not syncing) -->
-    <span v-if="syncStore.lastSyncedAt && adoStore.connected && !syncStore.syncing"
+    <span v-if="syncStore.lastSyncedAt && adoStore.connected && syncStore.isFullyLoaded"
       class="text-muted-foreground/50 tabular-nums">
       {{ relativeTime(syncStore.lastSyncedAt) }}
     </span>

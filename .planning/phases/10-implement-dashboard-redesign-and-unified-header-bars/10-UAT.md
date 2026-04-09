@@ -1,9 +1,9 @@
 ---
-status: complete
+status: diagnosed
 phase: 10-implement-dashboard-redesign-and-unified-header-bars
 source: [10-01-SUMMARY.md, 10-02-SUMMARY.md]
 started: 2026-04-09T00:30:54Z
-updated: 2026-04-09T00:50:29Z
+updated: 2026-04-09T00:52:00Z
 ---
 
 ## Current Test
@@ -72,17 +72,30 @@ skipped: 1
   reason: "User reported: synched is done but then prs appear if it's synched I expect everything to load. When I navigate to azure tab it loads again"
   severity: major
   test: 1
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "SyncCluster label only checks syncStore.syncing (backend sync) — has zero awareness of frontend data fetches (PRs, pipelines, work items). adoStore.connected flips true on first API success while other stores still loading. AdoView.vue unconditionally re-fetches all data on mount without emptiness guards."
+  artifacts:
+    - path: "frontend/src/components/SyncCluster.vue"
+      issue: "Label logic only checks syncStore.syncing, not whether all stores finished loading"
+    - path: "frontend/src/stores/sync.ts"
+      issue: "No concept of 'all data loaded' — only tracks backend sync lifecycle"
+    - path: "frontend/src/views/AdoView.vue"
+      issue: "onMounted unconditionally re-fetches data already prefetched by App.vue"
+  missing:
+    - "Add composite isFullyLoaded computed that aggregates loading states from all stores"
+    - "SyncCluster should show Syncing until composite signal indicates all data ready"
+    - "Guard AdoView onMounted fetches with emptiness checks like DashboardView does"
+  debug_session: ".planning/debug/sync-shows-done-but-data-loading.md"
 
 - truth: "Attention Bar shows urgency nudges when relevant data exists — due-soon tasks in amber, failed pipelines in red, merge-ready PRs in green"
   status: failed
   reason: "User reported: I put a date on a task and didn't show up"
   severity: major
   test: 6
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "dueSoonTasks computed uses diffDays >= 0 with timestamp-level comparison. new Date('YYYY-MM-DD') creates midnight UTC, so once local time passes midnight UTC, today's tasks get negative diffDays and are excluded. upcomingTasks uses diffDays >= -7 which is why Test 8 passed."
+  artifacts:
+    - path: "frontend/src/views/DashboardView.vue"
+      issue: "dueSoonTasks filter diffDays >= 0 compares at timestamp level instead of date level"
+  missing:
+    - "Normalize both due date and current date to start-of-day before computing diffDays"
+    - "Use existing startOfDay() helper from stores/tasks.ts"
+  debug_session: ".planning/debug/attention-bar-due-soon-missing.md"
