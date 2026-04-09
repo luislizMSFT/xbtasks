@@ -8,21 +8,21 @@ import { useProjectStore } from '@/stores/projects'
 import { useADOStore } from '@/stores/ado'
 import { useSyncStore } from '@/stores/sync'
 import { usePRStore } from '@/stores/prs'
+import { useAdoMeta } from '@/composables/useAdoMeta'
 import TaskDetail from '@/components/tasks/TaskDetail.vue'
 import ProjectDetail from '@/components/projects/ProjectDetail.vue'
-import TaskRow from '@/components/tasks/TaskRow.vue'
+import TreeTaskRow from '@/components/tasks/TreeTaskRow.vue'
 import FilterBar from '@/components/FilterBar.vue'
+import FilterCycleButton from '@/components/tasks/FilterCycleButton.vue'
+import QuickAddInput from '@/components/tasks/QuickAddInput.vue'
 import AzureDevOpsIcon from '@/components/icons/AzureDevOpsIcon.vue'
-import { adoTypeColor, adoTypeIcon, adoStateClasses, adoPriorityClasses } from '@/lib/styles'
-import {
-  ClipboardList, RefreshCw, ChevronRight, ChevronDown,
-} from 'lucide-vue-next'
+import { adoTypeColor, adoTypeIcon } from '@/lib/styles'
+import { ClipboardList, RefreshCw, ChevronRight, ChevronDown } from 'lucide-vue-next'
 import { Skeleton } from '@/components/ui/skeleton'
 import EmptyState from '@/components/EmptyState.vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Input } from '@/components/ui/input'
 
 const route = useRoute()
 const taskStore = useTaskStore()
@@ -30,13 +30,14 @@ const projectStore = useProjectStore()
 const adoStore = useADOStore()
 const syncStore = useSyncStore()
 const prStore = usePRStore()
+const adoMeta = useAdoMeta()
 
 const isActive = ref(false)
 onActivated(() => { isActive.value = true })
 onDeactivated(() => { isActive.value = false })
 onMounted(() => { isActive.value = true })
 
-const quickAddTitle = ref('')
+const showQuickAdd = ref(false)
 const expandedSubtasks = ref<Set<number>>(new Set())
 const expandedGroups = ref<Set<string>>(new Set())
 const selectedProjectId = ref<number | null>(null)
@@ -83,7 +84,7 @@ watch(() => route.query.create, (val) => {
   }
 }, { immediate: true })
 
-// Project name lookup for TaskRow
+// Project name lookup for TreeTaskRow
 const projectNameMap = computed(() => {
   const map: Record<number, string> = {}
   for (const p of projectStore.projects) {
@@ -135,13 +136,6 @@ function toggleSubtasks(taskId: number) {
   }
 }
 
-async function toggleSubtaskDone(taskId: number, subId: number) {
-  const sub = subtasksFor(taskId).find(s => s.id === subId)
-  if (!sub) return
-  const newStatus = sub.status === 'done' ? 'todo' : 'done'
-  await taskStore.setStatus(subId, newStatus)
-}
-
 // Grouped tasks for group-by mode
 const groupedTasks = computed(() => {
   if (!taskStore.groupBy) return {} as Record<string, Task[]>
@@ -187,11 +181,8 @@ async function toggleDone(task: Task) {
   await taskStore.setStatus(task.id, newStatus)
 }
 
-async function handleQuickAdd() {
-  const title = quickAddTitle.value.trim()
-  if (!title) return
-  await taskStore.quickAdd(title)
-  quickAddTitle.value = ''
+function handleQuickAdd(title: string) {
+  taskStore.quickAdd(title)
 }
 
 function selectTask(id: number) {
@@ -293,7 +284,7 @@ onMounted(async () => {
 
 <template>
   <div class="flex-1 flex overflow-hidden" @keydown.esc="onEscape" tabindex="-1">
-    <!-- Teleport status chips + sync to top bar (only when this page is active) -->
+    <!-- Teleport status chips + FilterCycleButton + sync to top bar (only when this page is active) -->
     <Teleport v-if="isActive" to="#topbar-actions">
       <div class="flex items-center gap-1">
         <Badge
@@ -305,6 +296,7 @@ onMounted(async () => {
         >
           {{ chip.label }}
         </Badge>
+        <FilterCycleButton v-model="taskStore.filterAdoLink" />
         <Button
           variant="ghost"
           size="icon"
@@ -317,7 +309,7 @@ onMounted(async () => {
       </div>
     </Teleport>
 
-    <!-- Left: Task list -->
+    <!-- LEFT: Task list panel -->
     <div class="flex-1 flex flex-col min-w-0 w-[55%]">
       <!-- FilterBar (dropdowns only, no status chips or sync) -->
       <FilterBar
@@ -365,13 +357,7 @@ onMounted(async () => {
 
         <!-- Quick-add input (always at top) -->
         <div class="px-4 py-2 border-b border-border/50">
-          <Input
-            v-model="quickAddTitle"
-            data-quick-add
-            placeholder="Quick add task — press Enter"
-            class="h-8 text-sm"
-            @keydown.enter="handleQuickAdd"
-          />
+          <QuickAddInput data-quick-add @add="handleQuickAdd" @cancel="() => {}" />
         </div>
 
         <!-- Grouped rendering -->
@@ -424,129 +410,90 @@ onMounted(async () => {
 
             <!-- Task rows in group -->
             <template v-if="expandedGroups.has(key)">
-              <div v-for="task in groupedTasks[key]" :key="task.id">
-                <TaskRow
-                  :task="task"
-                  :is-public="taskStore.isPublic(task.id)"
-                  :selected="taskStore.selectedTaskId === task.id"
-                  @select="selectTask"
-                  @toggle-status="(id) => { const t = taskStore.tasks.find(x => x.id === id); if (t) toggleDone(t) }"
-                />
-              </div>
+              <TreeTaskRow
+                v-for="task in groupedTasks[key]"
+                :key="task.id"
+                :task="task"
+                :is-public="taskStore.isPublic(task.id)"
+                :selected="taskStore.selectedTaskId === task.id"
+                :ado-meta="adoMeta.getAdoMeta(task.id)"
+                :project-name="task.projectId ? projectNameMap[task.projectId] : undefined"
+                :subtask-progress="subtaskProgress(task.id)"
+                @click="selectTask(task.id)"
+                @toggle-status="(id: number) => { const t = taskStore.tasks.find(x => x.id === id); if (t) toggleDone(t) }"
+              />
             </template>
           </div>
 
           <!-- Ungrouped tasks (no project) — flat list, no header -->
           <template v-if="groupedTasks['No Project']?.length">
-            <div v-for="task in groupedTasks['No Project']" :key="task.id">
-              <TaskRow
-                :task="task"
-                :is-public="taskStore.isPublic(task.id)"
-                :selected="taskStore.selectedTaskId === task.id"
-                @select="selectTask"
-                @toggle-status="(id) => { const t = taskStore.tasks.find(x => x.id === id); if (t) toggleDone(t) }"
-              />
-            </div>
+            <TreeTaskRow
+              v-for="task in groupedTasks['No Project']"
+              :key="task.id"
+              :task="task"
+              :is-public="taskStore.isPublic(task.id)"
+              :selected="taskStore.selectedTaskId === task.id"
+              :ado-meta="adoMeta.getAdoMeta(task.id)"
+              :project-name="undefined"
+              :subtask-progress="subtaskProgress(task.id)"
+              @click="selectTask(task.id)"
+              @toggle-status="(id: number) => { const t = taskStore.tasks.find(x => x.id === id); if (t) toggleDone(t) }"
+            />
           </template>
         </div>
 
-        <!-- Tree rendering (hierarchical parent → child nesting) -->
+        <!-- Tree rendering (hierarchical parent → child nesting via TreeTaskRow with indentLevel) -->
         <div v-else-if="hasAnyTasks && !taskStore.loading && treeView">
           <template v-for="task in rootTasks" :key="task.id">
-            <!-- Root node -->
-            <div
-              class="flex items-center gap-2 px-4 py-2.5 cursor-pointer hover:bg-muted/50 transition-colors"
-              :class="taskStore.selectedTaskId === task.id && 'bg-primary/5 border-l-2 border-l-primary'"
+            <!-- Root node (level 0) -->
+            <TreeTaskRow
+              :task="task"
+              :indent-level="0"
+              :selected="taskStore.selectedTaskId === task.id"
+              :expanded="expandedTreeNodes.has(task.id)"
+              :has-children="hasTreeChildren(task.id)"
+              :ado-meta="adoMeta.getAdoMeta(task.id)"
+              :project-name="task.projectId ? projectNameMap[task.projectId] : undefined"
+              :subtask-progress="treeSubtaskProgress(task.id)"
+              :is-public="taskStore.isPublic(task.id)"
               @click="selectTask(task.id)"
-            >
-              <button
-                v-if="hasTreeChildren(task.id)"
-                class="shrink-0 p-0.5 hover:bg-muted rounded"
-                @click.stop="toggleTreeNode(task.id)"
-              >
-                <component
-                  :is="expandedTreeNodes.has(task.id) ? ChevronDown : ChevronRight"
-                  :size="14" class="text-muted-foreground"
-                />
-              </button>
-              <span v-else class="w-5 shrink-0" />
-              <div class="flex-1 min-w-0">
-                <TaskRow
-                  :task="task"
-                  :is-public="taskStore.isPublic(task.id)"
-                  :selected="taskStore.selectedTaskId === task.id"
-                  :project-name="task.projectId ? projectNameMap[task.projectId] : undefined"
-                  @select="selectTask"
-                  @toggle-status="(id) => { const t = taskStore.tasks.find(x => x.id === id); if (t) toggleDone(t) }"
-                />
-              </div>
-              <template v-if="treeSubtaskProgress(task.id)">
-                <span class="text-[10px] text-muted-foreground tabular-nums shrink-0">
-                  {{ treeSubtaskProgress(task.id)!.done }}/{{ treeSubtaskProgress(task.id)!.total }}
-                </span>
-                <div class="w-10 h-1 bg-muted rounded-full overflow-hidden shrink-0">
-                  <div class="h-full bg-green-500 rounded-full" :style="{ width: treeSubtaskProgress(task.id)!.pct + '%' }" />
-                </div>
-              </template>
-            </div>
+              @toggle-expand="toggleTreeNode(task.id)"
+              @toggle-status="(id: number) => { const t = taskStore.tasks.find(x => x.id === id); if (t) toggleDone(t) }"
+            />
 
             <!-- Children (level 1) -->
             <template v-if="expandedTreeNodes.has(task.id)">
               <template v-for="child in treeChildren(task.id)" :key="child.id">
-                <div
-                  class="flex items-center gap-2 cursor-pointer hover:bg-muted/50 transition-colors border-l-2 border-l-muted-foreground/10"
-                  :class="taskStore.selectedTaskId === child.id && 'bg-primary/5'"
-                  :style="{ paddingLeft: '36px', paddingRight: '16px' }"
+                <TreeTaskRow
+                  :task="child"
+                  :indent-level="1"
+                  :selected="taskStore.selectedTaskId === child.id"
+                  :expanded="expandedTreeNodes.has(child.id)"
+                  :has-children="hasTreeChildren(child.id)"
+                  :ado-meta="adoMeta.getAdoMeta(child.id)"
+                  :project-name="child.projectId ? projectNameMap[child.projectId] : undefined"
+                  :subtask-progress="treeSubtaskProgress(child.id)"
+                  :is-public="taskStore.isPublic(child.id)"
                   @click="selectTask(child.id)"
-                >
-                  <button
-                    v-if="hasTreeChildren(child.id)"
-                    class="shrink-0 p-0.5 hover:bg-muted rounded"
-                    @click.stop="toggleTreeNode(child.id)"
-                  >
-                    <component
-                      :is="expandedTreeNodes.has(child.id) ? ChevronDown : ChevronRight"
-                      :size="14" class="text-muted-foreground"
-                    />
-                  </button>
-                  <span v-else class="w-5 shrink-0" />
-                  <div class="flex-1 min-w-0">
-                    <TaskRow
-                      :task="child"
-                      :is-public="taskStore.isPublic(child.id)"
-                      :selected="taskStore.selectedTaskId === child.id"
-                      @select="selectTask"
-                      @toggle-status="(id) => { const t = taskStore.tasks.find(x => x.id === id); if (t) toggleDone(t) }"
-                    />
-                  </div>
-                  <template v-if="treeSubtaskProgress(child.id)">
-                    <span class="text-[10px] text-muted-foreground tabular-nums shrink-0">
-                      {{ treeSubtaskProgress(child.id)!.done }}/{{ treeSubtaskProgress(child.id)!.total }}
-                    </span>
-                  </template>
-                </div>
+                  @toggle-expand="toggleTreeNode(child.id)"
+                  @toggle-status="(id: number) => { const t = taskStore.tasks.find(x => x.id === id); if (t) toggleDone(t) }"
+                />
 
                 <!-- Grandchildren (level 2) -->
                 <template v-if="expandedTreeNodes.has(child.id)">
-                  <div
-                    v-for="grandchild in treeChildren(child.id)"
-                    :key="grandchild.id"
-                    class="flex items-center gap-2 cursor-pointer hover:bg-muted/50 transition-colors border-l-2 border-l-muted-foreground/5"
-                    :class="taskStore.selectedTaskId === grandchild.id && 'bg-primary/5'"
-                    :style="{ paddingLeft: '60px', paddingRight: '16px' }"
-                    @click="selectTask(grandchild.id)"
-                  >
-                    <span class="w-5 shrink-0" />
-                    <div class="flex-1 min-w-0">
-                      <TaskRow
-                        :task="grandchild"
-                        :is-public="taskStore.isPublic(grandchild.id)"
-                        :selected="taskStore.selectedTaskId === grandchild.id"
-                        @select="selectTask"
-                        @toggle-status="(id) => { const t = taskStore.tasks.find(x => x.id === id); if (t) toggleDone(t) }"
-                      />
-                    </div>
-                  </div>
+                  <TreeTaskRow
+                    v-for="gc in treeChildren(child.id)"
+                    :key="gc.id"
+                    :task="gc"
+                    :indent-level="2"
+                    :selected="taskStore.selectedTaskId === gc.id"
+                    :ado-meta="adoMeta.getAdoMeta(gc.id)"
+                    :project-name="gc.projectId ? projectNameMap[gc.projectId] : undefined"
+                    :subtask-progress="subtaskProgress(gc.id)"
+                    :is-public="taskStore.isPublic(gc.id)"
+                    @click="selectTask(gc.id)"
+                    @toggle-status="(id: number) => { const t = taskStore.tasks.find(x => x.id === id); if (t) toggleDone(t) }"
+                  />
                 </template>
               </template>
             </template>
@@ -575,13 +522,15 @@ onMounted(async () => {
                 </svg>
               </div>
               <div class="flex-1 min-w-0">
-                <TaskRow
+                <TreeTaskRow
                   :task="task"
                   :is-public="taskStore.isPublic(task.id)"
                   :selected="taskStore.selectedTaskId === task.id"
+                  :ado-meta="adoMeta.getAdoMeta(task.id)"
                   :project-name="task.projectId ? projectNameMap[task.projectId] : undefined"
-                  @select="selectTask"
-                  @toggle-status="(id) => { const t = taskStore.tasks.find(x => x.id === id); if (t) toggleDone(t) }"
+                  :subtask-progress="subtaskProgress(task.id)"
+                  @click="selectTask(task.id)"
+                  @toggle-status="(id: number) => { const t = taskStore.tasks.find(x => x.id === id); if (t) toggleDone(t) }"
                 />
               </div>
             </div>
@@ -590,7 +539,7 @@ onMounted(async () => {
       </ScrollArea>
     </div>
 
-    <!-- Right: Detail panel (always visible) -->
+    <!-- RIGHT: Detail panel (permanent, not slide-out) -->
     <ProjectDetail
       v-if="selectedProjectId"
       :project-id="selectedProjectId"
