@@ -9,7 +9,8 @@ import type { PullRequest } from '@/stores/prs'
 import { useADOStore } from '@/stores/ado'
 import { useSyncStore } from '@/stores/sync'
 import type { ADOPipeline } from '@/stores/ado'
-import TaskRow from '@/components/tasks/TaskRow.vue'
+import TreeTaskRow from '@/components/tasks/TreeTaskRow.vue'
+import { useAdoMeta } from '@/composables/useAdoMeta'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import { Skeleton } from '@/components/ui/skeleton'
 import EmptyState from '@/components/EmptyState.vue'
@@ -28,6 +29,7 @@ const authStore = useAuthStore()
 const prStore = usePRStore()
 const adoStore = useADOStore()
 const syncStore = useSyncStore()
+const adoMeta = useAdoMeta()
 
 const isActive = ref(false)
 onActivated(() => { isActive.value = true })
@@ -237,11 +239,13 @@ async function openPipeline(p: ADOPipeline) {
                 v-if="focusTasks.length > 0"
                 class="rounded-lg overflow-hidden border border-border"
               >
-                <TaskRow
+                <TreeTaskRow
                   v-for="task in focusTasks"
                   :key="task.id"
                   :task="task"
-                  @select="(id) => { taskStore.selectTask(id); router.push('/tasks') }"
+                  :is-public="taskStore.isPublic(task.id)"
+                  :ado-meta="adoMeta.getAdoMeta(task.id)"
+                  @click="() => { taskStore.selectTask(task.id); router.push('/tasks') }"
                   @toggle-status="(id) => taskStore.setStatus(id, 'done')"
                 />
               </div>
@@ -284,11 +288,14 @@ async function openPipeline(p: ADOPipeline) {
               <div
                 class="rounded-lg overflow-hidden border border-border border-l-2 border-l-destructive"
               >
-                <TaskRow
+                <TreeTaskRow
                   v-for="task in blockedTasks"
                   :key="task.id"
                   :task="task"
-                  @select="(id) => { taskStore.selectTask(id); router.push('/tasks') }"
+                  :is-public="taskStore.isPublic(task.id)"
+                  :ado-meta="adoMeta.getAdoMeta(task.id)"
+                  @click="() => { taskStore.selectTask(task.id); router.push('/tasks') }"
+                  @toggle-status="(id) => { const t = taskStore.tasks.find(x => x.id === id); if (t) taskStore.setStatus(id, t.status === 'done' ? 'todo' : 'done') }"
                 />
               </div>
             </div>
