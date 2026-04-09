@@ -30,7 +30,7 @@ const searchText = ref('')
 const selectedItem = ref<ADOWorkItem | null>(null)
 
 const filteredItems = computed(() => {
-  const items = adoStore.workItems
+  const items = adoStore.workItemTree
   if (!items.length) return []
   if (!searchText.value) return items.slice(0, 30)
   const q = searchText.value.toLowerCase()
@@ -53,7 +53,7 @@ function confirmSelection() {
 
 watch(() => props.open, async (val) => {
   if (val) {
-    if (!adoStore.workItems.length) {
+    if (!adoStore.workItemTree.length) {
       await adoStore.fetchWorkItemTree()
     }
   } else {

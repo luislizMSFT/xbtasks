@@ -32,6 +32,7 @@ export const usePRStore = defineStore('prs', () => {
   const loading = ref(false)
   const connected = ref(false)
   const error = ref('')
+  const showDismissed = ref(false)
 
   let fetchInFlight = false
 
@@ -79,8 +80,25 @@ export const usePRStore = defineStore('prs', () => {
     }
   }
 
+  async function dismissPR(pr: PullRequest) {
+    await prsApi.dismissPR(pr.prNumber, pr.repo)
+    pr.dismissedAt = new Date().toISOString()
+  }
+
+  async function undismissPR(pr: PullRequest) {
+    await prsApi.undismissPR(pr.prNumber, pr.repo)
+    pr.dismissedAt = null
+  }
+
+  async function toggleWatchPR(pr: PullRequest) {
+    const newVal = !pr.watched
+    await prsApi.watchPR(pr.prNumber, pr.repo, newVal)
+    pr.watched = newVal
+  }
+
   return {
-    myPRs, reviewPRs, teamPRs, loading, connected, error,
+    myPRs, reviewPRs, teamPRs, loading, connected, error, showDismissed,
     fetchMyPRs, fetchReviewPRs, fetchTeamPRs, fetchAll,
+    dismissPR, undismissPR, toggleWatchPR,
   }
 })

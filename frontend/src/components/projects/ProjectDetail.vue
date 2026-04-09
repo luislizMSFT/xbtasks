@@ -10,11 +10,15 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog'
 import { statusBgColor, adoTypeColor, adoTypeIcon, priorityDotBgColor, statusIcon, adoStateClasses } from '@/lib/styles'
 import { cn } from '@/lib/utils'
 import { useAdoMeta } from '@/composables/useAdoMeta'
+import DOMPurify from 'dompurify'
 import {
-  X, Link2Off, Link2, ExternalLink, Folder, Pencil, Save,
+  X, Link2Off, Link2, ExternalLink, Folder, Pencil, Save, CheckCircle2, Archive, Trash2,
 } from 'lucide-vue-next'
 
 const props = defineProps<{ projectId: number }>()
@@ -79,13 +83,12 @@ function taskMeta(task: Task) {
   return adoMeta.getAdoMeta(task.id)
 }
 
-// Sanitize description HTML: replace broken <img> tags with alt text links
+// Sanitize description HTML
 function sanitizeHtml(html: string): string {
   if (!html) return ''
-  return html.replace(/<img\b[^>]*\bsrc=["']([^"']*)["'][^>]*\balt=["']([^"']*)["'][^>]*\/?>/gi, (_m, src, alt) => {
-    return `<a href="${src}" target="_blank" class="text-blue-500 underline text-xs">${alt || 'Image'}</a>`
-  }).replace(/<img\b[^>]*\bsrc=["']([^"']*)["'][^>]*\/?>/gi, (_m, src) => {
-    return `<a href="${src}" target="_blank" class="text-blue-500 underline text-xs">Image</a>`
+  return DOMPurify.sanitize(html, {
+    FORBID_TAGS: ['style', 'script', 'iframe', 'object', 'embed', 'link'],
+    FORBID_ATTR: ['style'],
   })
 }
 
@@ -152,8 +155,15 @@ async function save() {
   }
 }
 
+async function updateStatus(status: string) {
+  if (!project.value) return
+  await projectStore.updateProjectStatus(project.value.id, status)
+}
+
 // ADO link/unlink
 const pickerOpen = ref(false)
+const confirmDeleteOpen = ref(false)
+const confirmUnlinkOpen = ref(false)
 
 async function onAdoSelected(adoId: string) {
   pickerOpen.value = false
@@ -164,6 +174,13 @@ async function onAdoSelected(adoId: string) {
 async function unlinkAdo() {
   if (!link.value) return
   await projectStore.unlinkProject(props.projectId, link.value.adoId)
+  confirmUnlinkOpen.value = false
+}
+
+async function onDeleteProject() {
+  await projectStore.deleteProject(props.projectId)
+  confirmDeleteOpen.value = false
+  emit('close')
 }
 
 // Timestamps
@@ -232,7 +249,7 @@ onMounted(() => {
           <Button v-if="adoUrl" variant="ghost" size="sm" class="h-5 text-[9px] gap-0.5 px-1.5 text-blue-500 hover:text-blue-600" @click="openAdoLink">
             <ExternalLink :size="10" /> Open
           </Button>
-          <Button variant="ghost" size="sm" class="h-5 text-[9px] gap-0.5 px-1.5 text-red-400 hover:text-red-500 hover:bg-red-500/10" @click="unlinkAdo">
+          <Button variant="ghost" size="sm" class="h-5 text-[9px] gap-0.5 px-1.5 text-red-400 hover:text-red-500 hover:bg-red-500/10" @click="confirmUnlinkOpen = true">
             <Link2Off :size="10" />
           </Button>
         </div>
@@ -257,44 +274,41 @@ onMounted(() => {
             />
           </div>
         </div>
+
+        <!-- Status actions -->
+        <div class="flex items-center gap-1.5">
+          <Badge variant="outline" class="text-[10px] h-5 px-1.5 capitalize">{{ project.status }}</Badge>
+          <div class="flex-1" />
+          <template v-if="project.status === 'active'">
+            <Button variant="outline" size="sm" class="h-6 text-[10px] gap-1" @click="updateStatus('completed')">
+              <CheckCircle2 :size="11" /> Complete
+            </Button>
+            <Button variant="outline" size="sm" class="h-6 text-[10px] gap-1" @click="updateStatus('archived')">
+              <Archive :size="11" /> Archive
+            </Button>
+          </template>
+          <template v-else-if="project.status === 'completed'">
+            <Button variant="outline" size="sm" class="h-6 text-[10px] gap-1" @click="updateStatus('active')">Reopen</Button>
+            <Button variant="outline" size="sm" class="h-6 text-[10px] gap-1" @click="updateStatus('archived')">
+              <Archive :size="11" /> Archive
+            </Button>
+          </template>
+          <template v-else-if="project.status === 'archived'">
+            <Button variant="outline" size="sm" class="h-6 text-[10px] gap-1" @click="updateStatus('active')">Reopen</Button>
+          </template>
+          <template v-else>
+            <Button variant="outline" size="sm" class="h-6 text-[10px] gap-1" @click="updateStatus('active')">Activate</Button>
+          </template>
+          <Button variant="ghost" size="sm" class="h-6 text-[10px] gap-1 text-red-400 hover:text-red-500 hover:bg-red-500/10" @click="confirmDeleteOpen = true">
+            <Trash2 :size="11" />
+          </Button>
+        </div>
       </div>
 
       <!-- ─── Scrollable content ─── -->
       <ScrollArea class="flex-1 h-0 min-h-0">
         <div class="flex flex-col">
-          <!-- Description section (matches TaskDetail pattern) -->
-          <div class="border-b border-border px-4 py-3">
-            <div class="flex items-center justify-between mb-2">
-              <h3 class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Description</h3>
-              <button v-if="!descriptionOpen" class="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1" @click="descriptionOpen = true">
-                <Pencil :size="10" /> Edit
-              </button>
-              <div v-else class="flex items-center gap-1">
-                <button class="text-[10px] text-emerald-600 hover:text-emerald-700 flex items-center gap-0.5" @click="descriptionOpen = false; save()">
-                  <Save :size="10" /> Save
-                </button>
-                <button class="text-[10px] text-muted-foreground hover:text-foreground" @click="descriptionOpen = false">Cancel</button>
-              </div>
-            </div>
-            <Textarea
-              v-if="descriptionOpen"
-              v-model="editDescription"
-              @blur="save"
-              :rows="4"
-              class="resize-y text-xs"
-              placeholder="Add a description..."
-            />
-            <div v-else-if="editDescription"
-              class="text-xs text-foreground prose prose-sm max-w-none [&_*]:text-xs [&_*]:text-foreground cursor-pointer hover:bg-muted/30 rounded p-1 -m-1 transition-colors"
-              v-html="sanitizeHtml(editDescription)"
-              @click="descriptionOpen = true"
-            />
-            <p v-else class="text-[11px] text-muted-foreground/40 italic cursor-pointer hover:text-muted-foreground" @click="descriptionOpen = true">
-              Click to add description...
-            </p>
-          </div>
-
-          <!-- Child Tasks section (matches TaskDetail subtask style) -->
+          <!-- Child Tasks section (above description per user request) -->
           <div class="border-b border-border px-4 py-2">
             <div class="flex items-center justify-between mb-1.5">
               <div class="flex items-center gap-2">
@@ -347,6 +361,38 @@ onMounted(() => {
               </button>
             </div>
           </div>
+
+          <!-- Description section -->
+          <div class="border-b border-border px-4 py-3">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Description</h3>
+              <button v-if="!descriptionOpen" class="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1" @click="descriptionOpen = true">
+                <Pencil :size="10" /> Edit
+              </button>
+              <div v-else class="flex items-center gap-1">
+                <button class="text-[10px] text-emerald-600 hover:text-emerald-700 flex items-center gap-0.5" @click="descriptionOpen = false; save()">
+                  <Save :size="10" /> Save
+                </button>
+                <button class="text-[10px] text-muted-foreground hover:text-foreground" @click="descriptionOpen = false">Cancel</button>
+              </div>
+            </div>
+            <Textarea
+              v-if="descriptionOpen"
+              v-model="editDescription"
+              @blur="save"
+              :rows="4"
+              class="resize-y text-xs"
+              placeholder="Add a description..."
+            />
+            <div v-else-if="editDescription"
+              class="text-xs text-foreground prose prose-sm max-w-none [&_*]:text-xs [&_*]:text-foreground cursor-pointer hover:bg-muted/30 rounded p-1 -m-1 transition-colors"
+              v-html="sanitizeHtml(editDescription)"
+              @click="descriptionOpen = true"
+            />
+            <p v-else class="text-[11px] text-muted-foreground/40 italic cursor-pointer hover:text-muted-foreground" @click="descriptionOpen = true">
+              Click to add description...
+            </p>
+          </div>
         </div>
       </ScrollArea>
 
@@ -366,5 +412,37 @@ onMounted(() => {
         @update:open="pickerOpen = $event"
         @selected="(adoId) => onAdoSelected(adoId)"
       />
+
+      <!-- Delete confirmation -->
+      <Dialog v-model:open="confirmDeleteOpen">
+        <DialogContent class="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete project?</DialogTitle>
+            <DialogDescription>
+              "{{ project?.name }}" and all its data will be permanently deleted. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" size="sm" @click="confirmDeleteOpen = false">Cancel</Button>
+            <Button variant="destructive" size="sm" @click="onDeleteProject">Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <!-- Unlink confirmation -->
+      <Dialog v-model:open="confirmUnlinkOpen">
+        <DialogContent class="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Unlink from ADO?</DialogTitle>
+            <DialogDescription>
+              This will disconnect the project from ADO work item #{{ link?.adoId }}. The local project will be kept.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" size="sm" @click="confirmUnlinkOpen = false">Cancel</Button>
+            <Button variant="destructive" size="sm" @click="unlinkAdo">Unlink</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </aside>
 </template>

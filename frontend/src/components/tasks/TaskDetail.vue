@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted } from 'vue'
+import DOMPurify from 'dompurify'
 import { useTaskStore, type Task } from '@/stores/tasks'
 import { useNotify } from '@/composables/useNotify'
 import { useProjectStore } from '@/stores/projects'
@@ -21,9 +22,11 @@ import {
 import ExternalLinks from '@/components/tasks/ExternalLinks.vue'
 import CommentsSection from '@/components/tasks/CommentsSection.vue'
 import ADODiscussion from '@/components/ado/ADODiscussion.vue'
-import SyncConfirmDialog from '@/components/ado/SyncConfirmDialog.vue'
+import AdoItemPicker from '@/components/ado/AdoItemPicker.vue'
 import ConflictResolver from '@/components/ado/ConflictResolver.vue'
-import {useSyncStore } from '@/stores/sync'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog'
 import {
   X,
   Trash2,
@@ -31,10 +34,10 @@ import {
   ChevronRight,
   ExternalLink,
   GitPullRequest,
-  Upload,
   Folder,
   CalendarDays,
   Link2Off,
+  Link2,
   Loader2,
   User,
   Pencil,
@@ -57,7 +60,6 @@ import { useADOStore } from '@/stores/ado'
 const taskStore = useTaskStore()
 const projectStore = useProjectStore()
 const prStore = usePRStore()
-const syncStore = useSyncStore()
 const adoMeta = useAdoMeta()
 const adoStore = useADOStore()
 const emit = defineEmits<{ close: [] }>()
@@ -122,7 +124,7 @@ watch(selectedTask, (t, oldT) => {
     editProject.value = t.projectId ? String(t.projectId) : 'none'
     editTags.value = t.tags ? t.tags.split(',').map(s => s.trim()).filter(Boolean) : []
   }
-}, { immediate: true })
+}, { immediate: true, flush: 'sync' })
 
 // ── Save / delete ──
 let saving = false
@@ -173,10 +175,19 @@ async function onPriorityChange(priority: string) {
   await save()
 }
 
+const confirmDeleteOpen = ref(false)
+const confirmUnlinkOpen = ref(false)
+const linkPickerOpen = ref(false)
+
 async function onDeleteTask() {
   if (!task.value) return
-  await taskStore.deleteTask(task.value.id)
-  emit('close')
+  try {
+    await taskStore.deleteTask(task.value.id)
+    confirmDeleteOpen.value = false
+    emit('close')
+  } catch {
+    notify.error('Failed to delete task')
+  }
 }
 
 // ── Tags ──
@@ -204,10 +215,9 @@ async function openUrl(url: string) {
 
 function sanitizeHtml(html: string): string {
   if (!html) return ''
-  return html.replace(/<img\b[^>]*\bsrc=["']([^"']*)["'][^>]*\balt=["']([^"']*)["'][^>]*\/?>/gi, (_m, src, alt) => {
-    return `<a href="${src}" target="_blank" class="text-blue-500 underline text-xs">${alt || 'Image'}</a>`
-  }).replace(/<img\b[^>]*\bsrc=["']([^"']*)["'][^>]*\/?>/gi, (_m, src) => {
-    return `<a href="${src}" target="_blank" class="text-blue-500 underline text-xs">Image</a>`
+  return DOMPurify.sanitize(html, {
+    FORBID_TAGS: ['style', 'script', 'iframe', 'object', 'embed', 'link'],
+    FORBID_ATTR: ['style'],
   })
 }
 
@@ -258,17 +268,6 @@ function cycleSubtaskFilter() {
   const idx = order.indexOf(subtaskFilter.value)
   subtaskFilter.value = order[(idx + 1) % order.length]
 }
-
-// ── Dirty field tracking (ADO sync indicator) ──
-const pendingFieldCount = computed(() => {
-  if (!task.value?.adoId) return 0
-  let count = 0
-  if (task.value && editTitle.value !== task.value.title) count++
-  if (task.value && editDescription.value !== task.value.description) count++
-  if (task.value && editStatus.value !== task.value.status) count++
-  if (task.value && editPriority.value !== task.value.priority) count++
-  return count
-})
 
 async function toggleSubtask(id: number) {
   const st = subtasks.value.find(s => s.id === id)
@@ -398,12 +397,41 @@ async function unlinkFromADO() {
   if (!task.value?.adoId) return
   try {
     const { unlinkTask } = await import('@/api/links')
+    const { refreshADOMeta } = await import('@/api/adometa')
     await unlinkTask(task.value.id, task.value.adoId, false)
-    await taskStore.fetchTasks()
+    await Promise.all([
+      taskStore.fetchTasks(),
+      taskStore.fetchPublicTaskIds(),
+      refreshADOMeta(),
+    ])
+    adoMeta.refresh()
+    adoUrl.value = ''
+    lastAdoId.value = ''
+    confirmUnlinkOpen.value = false
     notify.info('Task unlinked from ADO')
   } catch (e) {
     console.warn('[TaskDetail] Failed to unlink:', e)
     notify.error('Failed to unlink')
+  }
+}
+
+async function onLinkSelected(adoId: string) {
+  if (!task.value) return
+  linkPickerOpen.value = false
+  try {
+    const { linkTask } = await import('@/api/links')
+    const { refreshADOMeta } = await import('@/api/adometa')
+    await linkTask(task.value.id, adoId)
+    await Promise.all([
+      taskStore.fetchTasks(),
+      taskStore.fetchPublicTaskIds(),
+      refreshADOMeta(),
+    ])
+    adoMeta.refresh()
+    lastAdoId.value = '' // force ADO URL refresh
+    notify.success('Linked to ADO')
+  } catch (e: any) {
+    notify.error(e?.message || 'Failed to link')
   }
 }
 
@@ -513,7 +541,7 @@ const projectName = computed(() => {
           variant="ghost"
           size="sm"
           class="h-5 text-[9px] text-red-500 hover:text-red-600 hover:bg-red-500/10 gap-0.5 ml-auto px-1.5"
-          @click="onDeleteTask"
+          @click="confirmDeleteOpen = true"
         >
           <Trash2 :size="10" /> Delete
         </Button>
@@ -536,38 +564,20 @@ const projectName = computed(() => {
       <div v-if="task?.adoId" class="flex items-center gap-2 px-2 py-1 rounded-md bg-blue-500/5 border border-blue-500/15">
         <AzureDevOpsIcon :size="12" class="text-blue-500 shrink-0" />
         <span class="text-[10px] text-blue-500 tabular-nums font-medium">{{ adoNumber(task.adoId) }}</span>
-        <span class="text-[9px] text-muted-foreground/50">·</span>
-        <!-- Sync status: honest dirty-field tracking -->
-        <template v-if="pendingFieldCount === 0">
-          <span class="text-[9px] text-emerald-600 flex items-center gap-0.5">
-            <CheckCircle2 :size="9" /> Synced
-          </span>
-        </template>
-        <template v-else>
-          <span class="text-[9px] text-amber-600 flex items-center gap-0.5">
-            <span class="size-1 rounded-full bg-amber-500" />
-            {{ pendingFieldCount }} pending
-          </span>
-        </template>
         <div class="flex-1" />
-        <Button
-          v-if="pendingFieldCount > 0"
-          variant="outline" size="sm"
-          class="h-5 text-[9px] gap-0.5 px-1.5 text-amber-600 border-amber-500/30 hover:bg-amber-500/10"
-          @click="task && syncStore.generateOutboundDiff(task.id)"
-        >
-          <Upload :size="10" /> Push {{ pendingFieldCount }}
-        </Button>
         <Button variant="ghost" size="sm" class="h-5 text-[9px] gap-0.5 px-1.5 text-blue-500 hover:text-blue-600" @click="openAdoLink">
           <ExternalLink :size="10" /> Open
         </Button>
-        <Button variant="ghost" size="sm" class="h-5 text-[9px] gap-0.5 px-1.5 text-red-400 hover:text-red-500 hover:bg-red-500/10" @click="unlinkFromADO">
+        <Button variant="ghost" size="sm" class="h-5 text-[9px] gap-0.5 px-1.5 text-red-400 hover:text-red-500 hover:bg-red-500/10" @click="confirmUnlinkOpen = true">
           <Link2Off :size="10" />
         </Button>
       </div>
       <div v-else class="flex items-center gap-2 px-2 py-1 rounded-md border border-dashed border-border/50">
         <User :size="12" class="text-muted-foreground/40 shrink-0" />
-        <span class="text-[10px] text-muted-foreground/60">Personal task — not linked to ADO</span>
+        <span class="text-[10px] text-muted-foreground/60 flex-1">Personal task — not linked to ADO</span>
+        <Button variant="outline" size="sm" class="h-5 text-[9px] gap-0.5 px-1.5" @click="linkPickerOpen = true">
+          <Link2 :size="10" /> Link
+        </Button>
       </div>
 
       <!-- Subtask progress bar (in header) -->
@@ -811,9 +821,47 @@ const projectName = computed(() => {
       </span>
     </div>
 
-    <!-- Sync Confirm Dialog (pushed changes preview) -->
-    <SyncConfirmDialog />
     <!-- Conflict Resolution Dialog (per-field local vs ADO picker) -->
     <ConflictResolver />
+
+    <!-- ADO Link Picker -->
+    <AdoItemPicker
+      :open="linkPickerOpen"
+      title="Link Task to ADO Work Item"
+      @update:open="linkPickerOpen = $event"
+      @selected="onLinkSelected"
+    />
+
+    <!-- Delete confirmation -->
+    <Dialog v-model:open="confirmDeleteOpen">
+      <DialogContent class="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Delete task?</DialogTitle>
+          <DialogDescription>
+            "{{ task?.title }}" will be permanently deleted. This cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" size="sm" @click="confirmDeleteOpen = false">Cancel</Button>
+          <Button variant="destructive" size="sm" @click="onDeleteTask">Delete</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <!-- Unlink confirmation -->
+    <Dialog v-model:open="confirmUnlinkOpen">
+      <DialogContent class="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Unlink from ADO?</DialogTitle>
+          <DialogDescription>
+            This will disconnect the task from ADO work item #{{ task?.adoId }}. The local task will be kept.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" size="sm" @click="confirmUnlinkOpen = false">Cancel</Button>
+          <Button variant="destructive" size="sm" @click="unlinkFromADO">Unlink</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </aside>
 </template>

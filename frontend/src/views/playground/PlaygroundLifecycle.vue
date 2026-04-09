@@ -143,7 +143,7 @@ const mockItems: LifecycleItem[] = [
       ]),
       sourceBranch: 'feature/token-refresh', targetBranch: 'main',
       votes: 10, createdBy: 'luisliz', createdAt: '2026-04-05T14:00:00Z',
-      updatedAt: '2026-04-07T09:00:00Z', mergedAt: null,
+      updatedAt: '2026-04-07T09:00:00Z', mergedAt: null, dismissedAt: null, watched: false,
     }],
     pipelines: [{
       id: 10, name: 'xbox-services-ci', status: 'succeeded', prId: 1,
@@ -176,7 +176,7 @@ const mockItems: LifecycleItem[] = [
       ]),
       sourceBranch: 'fix/rate-limit-batch', targetBranch: 'main',
       votes: 5, createdBy: 'luisliz', createdAt: '2026-04-06T11:00:00Z',
-      updatedAt: '2026-04-07T15:00:00Z', mergedAt: null,
+      updatedAt: '2026-04-07T15:00:00Z', mergedAt: null, dismissedAt: null, watched: false,
     }],
     pipelines: [
       { id: 20, name: 'xbox-services-ci', status: 'failed', prId: 2, branch: 'fix/rate-limit-batch', startedAt: '2026-04-07T15:01:00Z', finishedAt: '2026-04-07T15:06:00Z', duration: '5m 32s' },
@@ -204,7 +204,7 @@ const mockItems: LifecycleItem[] = [
       status: 'completed', reviewers: JSON.stringify([{ displayName: 'Alice Chen', uniqueName: 'alice@ms.com', vote: 10 }]),
       sourceBranch: 'feature/sync-telemetry', targetBranch: 'main',
       votes: 10, createdBy: 'luisliz', createdAt: '2026-04-03T09:00:00Z',
-      updatedAt: '2026-04-04T14:00:00Z', mergedAt: '2026-04-04T14:30:00Z',
+      updatedAt: '2026-04-04T14:00:00Z', mergedAt: '2026-04-04T14:30:00Z', dismissedAt: null, watched: false,
     }],
     pipelines: [{
       id: 30, name: 'xbox-services-ci', status: 'succeeded', prId: 3, branch: 'feature/sync-telemetry',
@@ -235,7 +235,7 @@ const mockItems: LifecycleItem[] = [
       status: 'draft', reviewers: '[]',
       sourceBranch: 'chore/go-1.23', targetBranch: 'main',
       votes: 0, createdBy: 'luisliz', createdAt: '2026-04-03T10:00:00Z',
-      updatedAt: '2026-04-03T10:00:00Z', mergedAt: null,
+      updatedAt: '2026-04-03T10:00:00Z', mergedAt: null, dismissedAt: null, watched: false,
     }],
     pipelines: [{
       id: 50, name: 'xbox-services-ci', status: 'cancelled', prId: 5, branch: 'chore/go-1.23',
@@ -265,7 +265,7 @@ const mockItems: LifecycleItem[] = [
       ]),
       sourceBranch: 'feature/settings-migration', targetBranch: 'main',
       votes: 0, createdBy: 'luisliz', createdAt: '2026-04-07T10:00:00Z',
-      updatedAt: '2026-04-08T11:00:00Z', mergedAt: null,
+      updatedAt: '2026-04-08T11:00:00Z', mergedAt: null, dismissedAt: null, watched: false,
     }],
     pipelines: [{
       id: 60, name: 'xbox-services-ci', status: 'succeeded', prId: 6, branch: 'feature/settings-migration',
@@ -310,7 +310,7 @@ const mockItems: LifecycleItem[] = [
       ]),
       sourceBranch: 'fix/sync-flaky-test', targetBranch: 'main',
       votes: 5, createdBy: 'luisliz', createdAt: '2026-04-08T10:00:00Z',
-      updatedAt: '2026-04-08T13:00:00Z', mergedAt: null,
+      updatedAt: '2026-04-08T13:00:00Z', mergedAt: null, dismissedAt: null, watched: false,
     }],
     pipelines: [{
       id: 80, name: 'xbox-services-ci', status: 'succeeded', prId: 8, branch: 'fix/sync-flaky-test',
@@ -332,7 +332,7 @@ const mockItems: LifecycleItem[] = [
       status: 'completed', reviewers: JSON.stringify([{ displayName: 'Bob Kim', uniqueName: 'bob@ms.com', vote: 10 }]),
       sourceBranch: 'feature/velocity-widget', targetBranch: 'main',
       votes: 10, createdBy: 'luisliz', createdAt: '2026-04-05T14:00:00Z',
-      updatedAt: '2026-04-06T15:30:00Z', mergedAt: '2026-04-06T15:45:00Z',
+      updatedAt: '2026-04-06T15:30:00Z', mergedAt: '2026-04-06T15:45:00Z', dismissedAt: null, watched: false,
     }],
     pipelines: [{
       id: 90, name: 'xb-tasks-ci', status: 'succeeded', prId: 9, branch: 'feature/velocity-widget',

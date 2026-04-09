@@ -20,4 +20,6 @@ type PullRequest struct {
 	CreatedAt    time.Time  `json:"createdAt"`
 	UpdatedAt    time.Time  `json:"updatedAt"`
 	MergedAt     *time.Time `json:"mergedAt"`
+	DismissedAt  *time.Time `json:"dismissedAt"` // hidden/seen — nil means visible
+	Watched      bool       `json:"watched"`      // pinned for attention
 }

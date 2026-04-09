@@ -58,10 +58,17 @@ export const useTaskStore = defineStore('tasks', () => {
     return tasks.value.filter(t => t.status === filterStatus.value)
   })
 
+  const hideCompleted = ref(false)
+
   // --- Enhanced filtered + sorted tasks ---
   const enhancedFilteredTasks = computed(() => {
     // Exclude subtasks — they render nested under their parent
     let result = tasks.value.filter(t => !t.parentId)
+
+    // Hide completed toggle (applied before status filter)
+    if (hideCompleted.value) {
+      result = result.filter(t => t.status !== 'done' && t.status !== 'cancelled')
+    }
 
     // Status filter
     if (filterStatus.value !== 'all') {
@@ -245,9 +252,14 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   async function deleteTask(id: number) {
-    await tasksApi.deleteTask(id)
-    tasks.value = tasks.value.filter(t => t.id !== id)
-    if (selectedTaskId.value === id) selectedTaskId.value = null
+    try {
+      await tasksApi.deleteTask(id)
+      tasks.value = tasks.value.filter(t => t.id !== id)
+      if (selectedTaskId.value === id) selectedTaskId.value = null
+    } catch (e) {
+      console.error('[TaskStore] deleteTask failed:', e)
+      throw e
+    }
   }
 
   async function reorderTasks(orderedIds: number[]) {
@@ -300,7 +312,7 @@ export const useTaskStore = defineStore('tasks', () => {
     getAllTags,
     // Phase 02 additions: personal→public model + enhanced filtering
     publicTaskIds, filterPriority, filterProject, filterDueDate, filterAdoLink,
-    sortBy, groupBy, enhancedFilteredTasks, groupedEnhanced,
+    sortBy, groupBy, hideCompleted, enhancedFilteredTasks, groupedEnhanced,
     fetchPublicTaskIds, isPublic, quickAdd,
   }
 })

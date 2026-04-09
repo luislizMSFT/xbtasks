@@ -46,6 +46,14 @@ export const useProjectStore = defineStore('projects', () => {
     projects.value = projects.value.filter(p => p.id !== id)
   }
 
+  async function updateProjectStatus(id: number, status: string) {
+    const p = projects.value.find(p => p.id === id)
+    if (!p) return
+    const updated = await projectsApi.updateProject(id, p.name, p.description, status) as Project
+    const idx = projects.value.findIndex(p => p.id === id)
+    if (idx !== -1) projects.value[idx] = updated
+  }
+
   async function pinProject(id: number, pinned: boolean) {
     try {
       await projectsApi.pinProject(id, pinned)
@@ -99,7 +107,7 @@ export const useProjectStore = defineStore('projects', () => {
     projects, loading, projectLinks, projectProgress,
     pinnedProjects, unpinnedProjects,
     isLinked,
-    fetchProjects, createProject, deleteProject,
+    fetchProjects, createProject, deleteProject, updateProjectStatus,
     pinProject, linkProjectToADO, unlinkProject,
     fetchProjectLink, fetchAllProjectLinks, fetchProjectProgress,
   }

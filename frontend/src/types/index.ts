@@ -120,6 +120,8 @@ export interface PullRequest {
   createdAt: string
   updatedAt: string
   mergedAt: string | null
+  dismissedAt: string | null // hidden/seen
+  watched: boolean            // pinned for attention
 }
 
 // ─── Projects ───────────────────────────────────────────────────────────────

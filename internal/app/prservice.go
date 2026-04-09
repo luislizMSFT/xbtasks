@@ -175,7 +175,14 @@ func (s *PRService) ListMyPRs() ([]domain.PullRequest, error) {
 	if err != nil {
 		return nil, fmt.Errorf("list my PRs: %w", err)
 	}
-	return prs, nil
+	// Filter out abandoned PRs — they are terminal and just clutter the list
+	filtered := make([]domain.PullRequest, 0, len(prs))
+	for _, pr := range prs {
+		if pr.Status != "abandoned" {
+			filtered = append(filtered, pr)
+		}
+	}
+	return filtered, nil
 }
 
 // ListReviewPRs returns active PRs where the current user is a reviewer.
@@ -241,4 +248,19 @@ func (s *PRService) SyncPRs() error {
 // GetCachedPRs returns pull requests from the SQLite cache.
 func (s *PRService) GetCachedPRs() ([]domain.PullRequest, error) {
 	return s.db.ListPullRequests()
+}
+
+// DismissPR hides a PR (mark as seen/dismissed).
+func (s *PRService) DismissPR(prNumber int, repo string) error {
+	return s.db.DismissPullRequest(prNumber, repo)
+}
+
+// UndismissPR makes a dismissed PR visible again.
+func (s *PRService) UndismissPR(prNumber int, repo string) error {
+	return s.db.UndismissPullRequest(prNumber, repo)
+}
+
+// WatchPR toggles the watched/pinned status of a PR.
+func (s *PRService) WatchPR(prNumber int, repo string, watched bool) error {
+	return s.db.SetPullRequestWatched(prNumber, repo, watched)
 }

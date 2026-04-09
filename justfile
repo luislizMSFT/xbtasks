@@ -29,10 +29,12 @@ package: build
     codesign --force --deep --sign - "{{bin_dir}}/{{app_name}}.app"
     @echo "✓ {{bin_dir}}/{{app_name}}.app ready"
 
-# Clean build artifacts
+# Clean build artifacts and WebView caches
 clean:
     rm -rf {{bin_dir}}/{{app_name}} {{bin_dir}}/{{app_name}}.app
     rm -rf frontend/dist frontend/bindings
+    rm -rf ~/Library/WebKit/com.xboxservices.teamadotool/WebsiteData
+    rm -rf ~/Library/Caches/com.xboxservices.teamadotool/WebKit
 
 # --- internal recipes ---
 

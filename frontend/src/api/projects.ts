@@ -37,3 +37,8 @@ export async function getProjectProgress(projectId: number) {
   const m = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/projectservice')
   return m.GetProjectProgress(projectId)
 }
+
+export async function updateProject(id: number, name: string, description: string, status: string) {
+  const m = await import('../../bindings/dev.azure.com/xbox/xb-tasks/internal/app/projectservice')
+  return m.Update(id, name, description, status)
+}

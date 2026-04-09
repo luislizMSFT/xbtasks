@@ -105,12 +105,12 @@ const AdoTreeNode = defineComponent({
           : h('div', { class: 'w-5 shrink-0' }),
 
         // Two-line content
-        h('div', { class: 'flex-1 min-w-0' }, [
+        h('div', { class: 'flex-1 min-w-0 overflow-hidden' }, [
           // Line 1: icon + title + state
-          h('div', { class: 'flex items-center gap-1.5' }, [
+          h('div', { class: 'flex items-center gap-1.5 min-w-0' }, [
             h(IconComp, { size: 14, class: `shrink-0 ${iconColorClass}` }),
             h('span', {
-              class: 'min-w-0 flex-1 truncate text-sm text-foreground',
+              class: 'flex-1 min-w-0 truncate text-sm text-foreground',
               title: item.title,
             }, item.title),
             h(Badge, {

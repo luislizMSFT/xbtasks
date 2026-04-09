@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onActivated, onDeactivated } from 'vue'
+import DOMPurify from 'dompurify'
 import type { AcceptableValue } from 'reka-ui'
 import { cn } from '@/lib/utils'
 import { adoTypeColor, adoTypeIcon, adoStateClasses, adoPriorityClasses, prStatusClasses } from '@/lib/styles'
@@ -48,6 +49,8 @@ import {
   FolderKanban,
   Target,
   Layers,
+  BellRing,
+  BellOff,
 } from 'lucide-vue-next'
 
 const adoStore = useADOStore()
@@ -101,38 +104,57 @@ async function onTreeImport(item: ADOWorkItem) {
 
 const notify = useNotify()
 
+const importing = ref(false)
+
 async function doImportAsTask() {
   if (!importingAdoItem.value) return
+  const itemTitle = importingAdoItem.value.title
+  importing.value = true
+  importChoiceOpen.value = false
+  notify.info(`Importing "${itemTitle}" as task...`)
   try {
     const { importWorkItem } = await import('@/api/links')
+    const { refreshADOMeta } = await import('@/api/adometa')
     await importWorkItem(importingAdoItem.value.adoId)
-    await Promise.all([adoStore.fetchLinkedAdoIds(), taskStore.fetchTasks()])
-    notify.success('Task imported from ADO')
+    await Promise.all([
+      adoStore.fetchLinkedAdoIds(),
+      taskStore.fetchTasks(),
+      taskStore.fetchPublicTaskIds(),
+      refreshADOMeta(),
+    ])
+    notify.success(`Task imported: ${itemTitle}`)
   } catch (e: any) {
     adoStore.error = e?.message || 'Import failed'
     notify.error(e?.message || 'Import failed')
   } finally {
-    importChoiceOpen.value = false
+    importing.value = false
     importingAdoItem.value = null
   }
 }
 
 async function doImportAsProject() {
   if (!importingAdoItem.value) return
+  const itemTitle = importingAdoItem.value.title
+  importing.value = true
+  importChoiceOpen.value = false
+  notify.info(`Importing "${itemTitle}" as project (this may take a moment)...`)
   try {
     const { importWorkItemAsProject } = await import('@/api/links')
+    const { refreshADOMeta } = await import('@/api/adometa')
     await importWorkItemAsProject(importingAdoItem.value.adoId)
     await Promise.all([
       adoStore.fetchLinkedAdoIds(),
       taskStore.fetchTasks(),
+      taskStore.fetchPublicTaskIds(),
       projectStore.fetchProjects(),
+      refreshADOMeta(),
     ])
-    notify.success('Project imported from ADO')
+    notify.success(`Project imported: ${itemTitle}`)
   } catch (e: any) {
     adoStore.error = e?.message || 'Import as project failed'
     notify.error(e?.message || 'Import failed')
   } finally {
-    importChoiceOpen.value = false
+    importing.value = false
     importingAdoItem.value = null
   }
 }
@@ -142,10 +164,16 @@ function onTreeLink(item: ADOWorkItem) {
   linkDialogOpen.value = true
 }
 
-function onLinked() {
+async function onLinked() {
   linkDialogOpen.value = false
   linkingAdoItem.value = null
-  Promise.all([adoStore.fetchLinkedAdoIds(), taskStore.fetchTasks()])
+  const { refreshADOMeta } = await import('@/api/adometa')
+  await Promise.all([
+    adoStore.fetchLinkedAdoIds(),
+    taskStore.fetchTasks(),
+    taskStore.fetchPublicTaskIds(),
+    refreshADOMeta(),
+  ])
 }
 
 // --- Saved query picker ---
@@ -174,11 +202,19 @@ async function openExternal(url: string) {
 // --- PR helpers ---
 
 const activeReviewPRs = computed(() =>
-  prStore.reviewPRs.filter(pr => pr.status === 'active')
+  prStore.reviewPRs.filter(pr => pr.status === 'active' && (prStore.showDismissed || !pr.dismissedAt))
+)
+
+const visibleMyPRs = computed(() =>
+  prStore.myPRs.filter(pr => prStore.showDismissed || !pr.dismissedAt)
+)
+
+const visibleTeamPRs = computed(() =>
+  prStore.teamPRs.filter(pr => prStore.showDismissed || !pr.dismissedAt)
 )
 
 const totalPRCount = computed(() =>
-  activeReviewPRs.value.length + prStore.myPRs.length + prStore.teamPRs.length
+  activeReviewPRs.value.length + visibleMyPRs.value.length + visibleTeamPRs.value.length
 )
 
 function openPR(pr: PullRequest) {
@@ -234,7 +270,7 @@ const pipelinesToShow = computed(() =>
 )
 
 const teamPRsToShow = computed(() =>
-  showAllTeamPRs.value ? prStore.teamPRs : prStore.teamPRs.slice(0, 5)
+  showAllTeamPRs.value ? visibleTeamPRs.value : visibleTeamPRs.value.slice(0, 5)
 )
 </script>
 
@@ -490,7 +526,7 @@ const teamPRsToShow = computed(() =>
                       <h3 class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Description</h3>
                       <div
                         class="text-xs text-foreground prose prose-sm max-w-none [&_*]:text-xs [&_*]:text-foreground"
-                        v-html="adoStore.selectedItem.description"
+                        v-html="DOMPurify.sanitize(adoStore.selectedItem.description, { FORBID_TAGS: ['style', 'script', 'iframe', 'object', 'embed'], FORBID_ATTR: ['style'] })"
                       />
                     </div>
                     <div v-else class="px-4 py-6 text-center">
@@ -514,13 +550,28 @@ const teamPRsToShow = computed(() =>
             <LoadingSpinner label="Loading pull requests..." />
           </div>
           <EmptyState
-            v-else-if="activeReviewPRs.length === 0 && prStore.myPRs.length === 0 && prStore.teamPRs.length === 0"
+            v-else-if="activeReviewPRs.length === 0 && visibleMyPRs.length === 0 && visibleTeamPRs.length === 0"
             :icon="GitPullRequest"
             title="No pull requests"
             description="No open pull requests found. Your PRs, reviews, and team activity will appear here."
           />
           <ScrollArea v-else class="h-full">
             <div class="px-4 py-3 space-y-4">
+
+              <!-- PR toolbar -->
+              <div class="flex items-center gap-2">
+                <div class="flex-1" />
+                <Button
+                  :variant="prStore.showDismissed ? 'default' : 'outline'"
+                  size="sm"
+                  class="h-6 text-[10px] gap-1"
+                  @click="prStore.showDismissed = !prStore.showDismissed"
+                >
+                  <Eye v-if="prStore.showDismissed" :size="11" />
+                  <EyeOff v-else :size="11" />
+                  {{ prStore.showDismissed ? 'Showing Hidden' : 'Show Hidden' }}
+                </Button>
+              </div>
 
               <!-- Needs Your Review -->
               <div>
@@ -533,11 +584,23 @@ const teamPRsToShow = computed(() =>
                     <div
                       v-for="pr in activeReviewPRs"
                       :key="pr.id"
-                      class="flex flex-col gap-1 px-3 py-2 cursor-pointer transition-colors hover:bg-muted/50 border-b border-border/50 last:border-b-0"
+                      class="group flex flex-col gap-1 px-3 py-2 cursor-pointer transition-colors hover:bg-muted/50 border-b border-border/50 last:border-b-0"
+                      :class="pr.dismissedAt && 'opacity-50'"
                       @click="openPR(pr)"
                     >
                       <div class="flex items-center gap-2">
+                        <BellRing v-if="pr.watched" :size="12" class="shrink-0 text-amber-500" />
                         <span class="text-sm text-foreground flex-1 truncate">{{ pr.title }}</span>
+                        <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                          <Button variant="ghost" size="sm" class="h-5 w-5 p-0" :title="pr.watched ? 'Unwatch' : 'Watch'" @click.stop="prStore.toggleWatchPR(pr)">
+                            <BellRing v-if="pr.watched" :size="10" class="text-amber-500" />
+                            <BellOff v-else :size="10" />
+                          </Button>
+                          <Button variant="ghost" size="sm" class="h-5 w-5 p-0" :title="pr.dismissedAt ? 'Show' : 'Hide'" @click.stop="pr.dismissedAt ? prStore.undismissPR(pr) : prStore.dismissPR(pr)">
+                            <Eye v-if="pr.dismissedAt" :size="10" />
+                            <EyeOff v-else :size="10" />
+                          </Button>
+                        </div>
                         <Badge variant="outline" :class="cn('text-[10px] px-1.5 py-0 capitalize shrink-0', prStatusClasses(pr.status))">{{ pr.status }}</Badge>
                       </div>
                       <div class="flex items-center gap-2 text-[10px] text-muted-foreground/60">
@@ -561,18 +624,30 @@ const teamPRsToShow = computed(() =>
               <div>
                 <div class="flex items-center gap-1.5 mb-1.5">
                   <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Your PRs</span>
-                  <Badge v-if="prStore.myPRs.length" variant="secondary" class="text-[10px] h-4 px-1">{{ prStore.myPRs.length }}</Badge>
+                  <Badge v-if="visibleMyPRs.length" variant="secondary" class="text-[10px] h-4 px-1">{{ visibleMyPRs.length }}</Badge>
                 </div>
-                <Card v-if="prStore.myPRs.length > 0" class="overflow-hidden">
+                <Card v-if="visibleMyPRs.length > 0" class="overflow-hidden">
                   <CardContent class="p-0">
                     <div
-                      v-for="pr in prStore.myPRs"
+                      v-for="pr in visibleMyPRs"
                       :key="pr.id"
-                      class="flex flex-col gap-1 px-3 py-2 cursor-pointer transition-colors hover:bg-muted/50 border-b border-border/50 last:border-b-0"
+                      class="group flex flex-col gap-1 px-3 py-2 cursor-pointer transition-colors hover:bg-muted/50 border-b border-border/50 last:border-b-0"
+                      :class="pr.dismissedAt && 'opacity-50'"
                       @click="openPR(pr)"
                     >
                       <div class="flex items-center gap-2">
+                        <BellRing v-if="pr.watched" :size="12" class="shrink-0 text-amber-500" />
                         <span class="text-sm text-foreground flex-1 truncate">{{ pr.title }}</span>
+                        <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                          <Button variant="ghost" size="sm" class="h-5 w-5 p-0" :title="pr.watched ? 'Unwatch' : 'Watch'" @click.stop="prStore.toggleWatchPR(pr)">
+                            <BellRing v-if="pr.watched" :size="10" class="text-amber-500" />
+                            <BellOff v-else :size="10" />
+                          </Button>
+                          <Button variant="ghost" size="sm" class="h-5 w-5 p-0" :title="pr.dismissedAt ? 'Show' : 'Hide'" @click.stop="pr.dismissedAt ? prStore.undismissPR(pr) : prStore.dismissPR(pr)">
+                            <Eye v-if="pr.dismissedAt" :size="10" />
+                            <EyeOff v-else :size="10" />
+                          </Button>
+                        </div>
                         <Badge variant="outline" :class="cn('text-[10px] px-1.5 py-0 capitalize shrink-0', prStatusClasses(pr.status))">{{ pr.status }}</Badge>
                       </div>
                       <div class="flex items-center gap-2 text-[10px] text-muted-foreground/60">
@@ -598,18 +673,30 @@ const teamPRsToShow = computed(() =>
               <div>
                 <div class="flex items-center gap-1.5 mb-1.5">
                   <span class="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Team Activity</span>
-                  <Badge v-if="prStore.teamPRs.length" variant="secondary" class="text-[10px] h-4 px-1">{{ prStore.teamPRs.length }}</Badge>
+                  <Badge v-if="visibleTeamPRs.length" variant="secondary" class="text-[10px] h-4 px-1">{{ visibleTeamPRs.length }}</Badge>
                 </div>
-                <Card v-if="prStore.teamPRs.length > 0" class="overflow-hidden">
+                <Card v-if="visibleTeamPRs.length > 0" class="overflow-hidden">
                   <CardContent class="p-0">
                     <div
                       v-for="pr in teamPRsToShow"
                       :key="pr.id"
-                      class="flex flex-col gap-1 px-3 py-2 cursor-pointer transition-colors hover:bg-muted/50 border-b border-border/50 last:border-b-0"
+                      class="group flex flex-col gap-1 px-3 py-2 cursor-pointer transition-colors hover:bg-muted/50 border-b border-border/50 last:border-b-0"
+                      :class="pr.dismissedAt && 'opacity-50'"
                       @click="openPR(pr)"
                     >
                       <div class="flex items-center gap-2">
+                        <BellRing v-if="pr.watched" :size="12" class="shrink-0 text-amber-500" />
                         <span class="text-sm text-foreground flex-1 truncate">{{ pr.title }}</span>
+                        <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                          <Button variant="ghost" size="sm" class="h-5 w-5 p-0" :title="pr.watched ? 'Unwatch' : 'Watch'" @click.stop="prStore.toggleWatchPR(pr)">
+                            <BellRing v-if="pr.watched" :size="10" class="text-amber-500" />
+                            <BellOff v-else :size="10" />
+                          </Button>
+                          <Button variant="ghost" size="sm" class="h-5 w-5 p-0" :title="pr.dismissedAt ? 'Show' : 'Hide'" @click.stop="pr.dismissedAt ? prStore.undismissPR(pr) : prStore.dismissPR(pr)">
+                            <Eye v-if="pr.dismissedAt" :size="10" />
+                            <EyeOff v-else :size="10" />
+                          </Button>
+                        </div>
                         <Badge variant="outline" :class="cn('text-[10px] px-1.5 py-0 capitalize shrink-0', prStatusClasses(pr.status))">{{ pr.status }}</Badge>
                       </div>
                       <div class="flex items-center gap-2 text-[10px] text-muted-foreground/60">
@@ -631,12 +718,12 @@ const teamPRsToShow = computed(() =>
                 </Card>
                 <p v-else class="text-[11px] text-muted-foreground/40 py-2 px-1">No team PRs found</p>
                 <Button
-                  v-if="prStore.teamPRs.length > 5 && !showAllTeamPRs"
+                  v-if="visibleTeamPRs.length > 5 && !showAllTeamPRs"
                   variant="ghost" size="sm"
                   class="w-full text-xs h-7 mt-1"
                   @click="showAllTeamPRs = true"
                 >
-                  Show all {{ prStore.teamPRs.length }} team PRs
+                  Show all {{ visibleTeamPRs.length }} team PRs
                 </Button>
               </div>
             </div>

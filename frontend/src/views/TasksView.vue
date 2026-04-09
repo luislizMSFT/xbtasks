@@ -16,7 +16,7 @@ import FilterCycleButton from '@/components/tasks/FilterCycleButton.vue'
 import QuickAddInput from '@/components/tasks/QuickAddInput.vue'
 import AzureDevOpsIcon from '@/components/icons/AzureDevOpsIcon.vue'
 import { adoTypeColor, adoTypeIcon, statusBgColor, priorityDotBgColor } from '@/lib/styles'
-import { ClipboardList, ChevronRight, ChevronDown, Folder } from 'lucide-vue-next'
+import { ClipboardList, ChevronRight, ChevronDown, Folder, EyeOff, Eye } from 'lucide-vue-next'
 import { Skeleton } from '@/components/ui/skeleton'
 import EmptyState from '@/components/EmptyState.vue'
 import { Button } from '@/components/ui/button'
@@ -346,6 +346,16 @@ onMounted(async () => {
           <button class="text-[10px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded hover:bg-muted"
             @click="collapseAll">Collapse All</button>
         </template>
+        <Button
+          :variant="taskStore.hideCompleted ? 'default' : 'outline'"
+          size="sm"
+          class="h-6 text-[10px] gap-1"
+          @click="taskStore.hideCompleted = !taskStore.hideCompleted"
+        >
+          <EyeOff v-if="taskStore.hideCompleted" :size="11" />
+          <Eye v-else :size="11" />
+          Hide Done
+        </Button>
         <FilterCycleButton v-model="taskStore.filterAdoLink" />
       </div>
 

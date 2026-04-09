@@ -197,4 +197,7 @@ var alterations = []string{
 	`ALTER TABLE ado_work_items ADD COLUMN changed_date DATETIME DEFAULT CURRENT_TIMESTAMP`,
 	// v0.2 → v0.3
 	`ALTER TABLE tasks ADD COLUMN sort_order INTEGER DEFAULT 0`,
+	// v0.3 → v0.4
+	`ALTER TABLE pull_requests ADD COLUMN dismissed_at DATETIME`,
+	`ALTER TABLE pull_requests ADD COLUMN watched INTEGER DEFAULT 0`,
 }
