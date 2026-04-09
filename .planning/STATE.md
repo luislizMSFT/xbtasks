@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Deep UI iteration — playgrounds built, real views being refined
-stopped_at: Phase 11 context gathered
-last_updated: "2026-04-08T23:16:57.003Z"
+stopped_at: Completed 11-01-PLAN.md
+last_updated: "2026-04-09T00:31:32.583Z"
 last_activity: 2026-04-03
 progress:
   total_phases: 12
   completed_phases: 2
-  total_plans: 16
-  completed_plans: 16
+  total_plans: 22
+  completed_plans: 17
   percent: 50
 ---
 
@@ -136,6 +136,7 @@ Progress: [█████░░░░░] 50%
 - [Phase 02]: Recursive render function component for tree nodes (defineComponent with h()) for same-file recursion
 - [Phase 02]: ListLinkedAdoIDs method added to LinkService for frontend linked status tracking (ADO IDs not task IDs)
 - [Phase 02]: Saved query picker uses sentinel value __my_assignments__ to revert to default tree fetch
+- [Phase 11]: ADOMetaCacheService uses DELETE+INSERT rebuild; useAdoMeta uses module-level refs for singleton shared state
 
 ### Roadmap Evolution
 
@@ -174,6 +175,6 @@ Progress: [█████░░░░░] 50%
 
 ## Session Continuity
 
-Last session: 2026-04-08T23:16:56.998Z
-Stopped at: Phase 11 context gathered
+Last session: 2026-04-09T00:31:32.577Z
+Stopped at: Completed 11-01-PLAN.md
 Resume: Continue refining shell header, then wire backend services
