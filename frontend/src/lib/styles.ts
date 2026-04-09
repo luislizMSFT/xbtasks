@@ -14,6 +14,11 @@ import {
   Trophy,
   ListChecks,
   Circle,
+  CircleDot,
+  Eye,
+  CheckCircle2,
+  Octagon,
+  XCircle,
 } from 'lucide-vue-next'
 
 /** Text color + hover for interactive status icons (e.g. task-row check buttons). */
@@ -162,5 +167,29 @@ export function linkTypeColor(type: string): string {
     case 'wiki': return 'text-purple-500'
     case 'url':
     default: return 'text-muted-foreground'
+  }
+}
+
+/** Maps task status to a Lucide icon component. Used by TreeTaskRow and anywhere status icons are needed. */
+export function statusIcon(status: string): Component {
+  switch (status) {
+    case 'todo': return Circle
+    case 'in_progress': return CircleDot
+    case 'in_review': return Eye
+    case 'done': return CheckCircle2
+    case 'blocked': return Octagon
+    case 'cancelled': return XCircle
+    default: return Circle
+  }
+}
+
+/** Maps P0-P3 priority to Tailwind bg class for small colored dots. */
+export function priorityDotBgColor(priority: string): string {
+  switch (priority) {
+    case 'P0': return 'bg-red-500'
+    case 'P1': return 'bg-orange-500'
+    case 'P2': return 'bg-amber-500'
+    case 'P3': return 'bg-zinc-400'
+    default: return 'bg-zinc-400'
   }
 }
