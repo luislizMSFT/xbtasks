@@ -2,10 +2,8 @@
 import { ref, watch } from 'vue'
 import DOMPurify from 'dompurify'
 import { relativeTime } from '@/lib/date'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
-import { Globe } from 'lucide-vue-next'
+import type { ADOComment } from '@/types'
 
 function sanitize(html: string): string {
   return DOMPurify.sanitize(html, {
@@ -20,12 +18,8 @@ const props = defineProps<{
   adoId: string
 }>()
 
-import type { ADOComment } from '@/types'
-
 const comments = ref<ADOComment[]>([])
 const loading = ref(false)
-const replyText = ref('')
-const replying = ref(false)
 
 async function fetchComments() {
   loading.value = true
@@ -39,19 +33,16 @@ async function fetchComments() {
   }
 }
 
-async function reply() {
-  const content = replyText.value.trim()
-  if (!content) return
-  replying.value = true
+defineExpose({ fetchComments, addReply })
+
+async function addReply(content: string) {
+  if (!content.trim()) return
   try {
     const { replyToADOComment } = await import('@/api/comments')
     const c = await replyToADOComment(props.taskId, content)
     if (c) comments.value.push(c as ADOComment)
-    replyText.value = ''
   } catch (e) {
     console.warn('[ADODiscussion] Failed to reply:', e)
-  } finally {
-    replying.value = false
   }
 }
 
@@ -60,39 +51,17 @@ watch(() => props.taskId, () => fetchComments(), { immediate: true })
 
 <template>
   <div class="space-y-2">
-    <!-- Reply input (on top) -->
-    <div class="space-y-1.5">
-      <Textarea
-        v-model="replyText"
-        placeholder="Reply on ADO..."
-        class="text-xs min-h-[40px] resize-none"
-        :rows="2"
-      />
-      <div class="flex justify-between items-center">
-        <span class="text-[9px] text-muted-foreground/50">Posted to ADO</span>
-        <Button
-          size="sm"
-          class="h-6 text-[10px] bg-blue-600 hover:bg-blue-700 text-white gap-1"
-          @click="reply"
-          :disabled="!replyText.trim() || replying"
-        >
-          <Globe :size="10" />
-          {{ replying ? 'Posting...' : 'Reply' }}
-        </Button>
-      </div>
-    </div>
-
     <!-- Loading -->
     <div v-if="loading" class="py-4">
       <LoadingSpinner size="sm" label="Loading ADO comments..." />
     </div>
 
-    <!-- Comments list (bubble style, left-aligned for ADO authors) -->
+    <!-- Comments list (full width bubbles) -->
     <div v-else-if="comments.length > 0" class="flex flex-col gap-2 max-h-60 overflow-y-auto">
       <div
         v-for="c in comments"
         :key="c.id"
-        class="rounded-lg px-3 py-2 max-w-[92%] self-start bg-blue-500/5 border border-blue-500/10"
+        class="rounded-lg px-3 py-2 bg-blue-500/5 border border-blue-500/10"
       >
         <div class="flex items-center gap-1.5 mb-1">
           <span class="font-medium text-[11px] text-blue-400">{{ c.createdBy }}</span>

@@ -3,15 +3,15 @@ status: testing
 phase: 11-integrate-new-task-list-into-real-app
 source: [11-01-SUMMARY.md, 11-02-SUMMARY.md, 11-03-SUMMARY.md, 11-04-SUMMARY.md]
 started: 2026-04-09T01:06:20Z
-updated: 2026-04-09T01:06:20Z
+updated: 2026-04-09T18:18:39Z
 ---
 
 ## Current Test
 
-number: 2
-name: Task Detail 3-Tab Structure
+number: 4
+name: Filter Cycle Button
 expected: |
-  Clicking a task shows detail pane with 3 tabs: Subtasks, PRs, Notes. Subtasks tab lists child tasks with status icons and add-subtask input. PRs tab shows linked pull requests. Notes tab renders comments section.
+  A small filter button in the toolbar cycles through All → ADO → Personal on each click. The task list filters accordingly — ADO shows only ADO-linked tasks, Personal shows only personal tasks. Active filter is visually highlighted.
 awaiting: user response
 
 ## Tests
@@ -31,7 +31,9 @@ severity: major
 
 ### 3. TreeTaskRow Display
 expected: Each task row shows: status icon (colored circle), ADO type icon (if linked), title, state badge, priority badge, and due date. Blocked tasks show a red blocked-reason banner. Tasks with subtasks show a progress indicator.
-result: [pending]
+result: issue
+reported: "wrong no dot projects show old view in the list"
+severity: major
 
 ### 4. Filter Cycle Button
 expected: A small filter button in the toolbar cycles through All → ADO → Personal on each click. The task list filters accordingly — ADO shows only ADO-linked tasks, Personal shows only personal tasks. Active filter is visually highlighted.
@@ -65,8 +67,8 @@ result: [pending]
 
 total: 10
 passed: 0
-issues: 2
-pending: 8
+issues: 3
+pending: 7
 skipped: 0
 
 ## Gaps
@@ -77,4 +79,20 @@ skipped: 0
   severity: major
   test: 1
   artifacts: [frontend/src/views/TasksView.vue]
+  missing: []
+
+- truth: "Clicking a task shows detail pane with 3 tabs: Subtasks, PRs, Notes"
+  status: failed
+  reason: "User reported: this does not match the playground UI"
+  severity: major
+  test: 2
+  artifacts: []
+  missing: []
+
+- truth: "Each task row shows status icon, ADO type icon, title, state badge, priority badge, due date with new TreeTaskRow styling"
+  status: failed
+  reason: "User reported: wrong no dot projects show old view in the list"
+  severity: major
+  test: 3
+  artifacts: []
   missing: []

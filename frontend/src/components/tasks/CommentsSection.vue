@@ -1,20 +1,15 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { relativeTime } from '@/lib/date'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Textarea } from '@/components/ui/textarea'
-import { Globe, Lock, Upload } from 'lucide-vue-next'
+import { Globe, Lock } from 'lucide-vue-next'
 import type { TaskComment } from '@/types'
 
 const props = defineProps<{
   taskId: number
-  isPublicTask: boolean // whether the task is linked to ADO
 }>()
 
 const comments = ref<TaskComment[]>([])
-const newComment = ref('')
-const pushing = ref<number | null>(null) // comment ID being pushed
 const loading = ref(false)
 
 async function fetchComments() {
@@ -29,30 +24,16 @@ async function fetchComments() {
   }
 }
 
-async function addComment() {
-  const content = newComment.value.trim()
-  if (!content) return
+defineExpose({ fetchComments, addComment })
+
+async function addComment(content: string) {
+  if (!content.trim()) return
   try {
     const { addComment: addCommentApi } = await import('@/api/comments')
     const c = (await addCommentApi(props.taskId, content)) as TaskComment
     comments.value.push(c)
-    newComment.value = ''
   } catch (e) {
     console.warn('[CommentsSection] Failed to add comment:', e)
-  }
-}
-
-async function pushToADO(commentId: number) {
-  pushing.value = commentId
-  try {
-    const { pushCommentToADO } = await import('@/api/comments')
-    await pushCommentToADO(commentId)
-    const idx = comments.value.findIndex(c => c.id === commentId)
-    if (idx !== -1) comments.value[idx].isPublic = true
-  } catch (e) {
-    console.warn('[CommentsSection] Failed to push comment to ADO:', e)
-  } finally {
-    pushing.value = null
   }
 }
 
@@ -61,35 +42,12 @@ watch(() => props.taskId, () => fetchComments(), { immediate: true })
 
 <template>
   <div class="space-y-2">
-    <!-- Add comment (on top) -->
-    <div class="space-y-1.5">
-      <Textarea
-        v-model="newComment"
-        placeholder="Add a note..."
-        class="text-xs min-h-[40px] resize-none"
-        :rows="2"
-        @keydown.meta.enter="addComment"
-        @keydown.ctrl.enter="addComment"
-      />
-      <div class="flex justify-between items-center">
-        <span class="text-[9px] text-muted-foreground/50">Private by default</span>
-        <Button
-          size="sm"
-          class="h-6 text-[10px]"
-          @click="addComment"
-          :disabled="!newComment.trim()"
-        >
-          Add
-        </Button>
-      </div>
-    </div>
-
-    <!-- Comments list (bubble style, newest first) -->
+    <!-- Comments list (full width bubbles) -->
     <div v-if="comments.length > 0" class="flex flex-col gap-2 max-h-60 overflow-y-auto">
       <div
         v-for="c in comments"
         :key="c.id"
-        class="rounded-lg px-3 py-2 max-w-[92%] self-end"
+        class="rounded-lg px-3 py-2"
         :class="c.isPublic
           ? 'bg-blue-500/10 border border-blue-500/20'
           : 'bg-muted/60 border border-border/50'"
@@ -114,18 +72,6 @@ watch(() => props.taskId, () => fetchComments(), { immediate: true })
           </span>
         </div>
         <div class="text-[13px] text-foreground whitespace-pre-wrap leading-relaxed">{{ c.content }}</div>
-        <div v-if="!c.isPublic && isPublicTask" class="mt-1.5 flex justify-end">
-          <Button
-            variant="ghost"
-            size="sm"
-            class="h-5 text-[9px] gap-0.5 px-1.5 text-blue-500 hover:text-blue-600"
-            @click="pushToADO(c.id)"
-            :disabled="pushing === c.id"
-          >
-            <Upload :size="10" />
-            {{ pushing === c.id ? 'Pushing...' : 'Push to ADO' }}
-          </Button>
-        </div>
       </div>
     </div>
 

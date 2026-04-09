@@ -63,6 +63,20 @@ const editDueDate = ref('')
 const editProject = ref('none')
 const newTag = ref('')
 const notesTab = ref<'notes' | 'ado'>('notes')
+const noteInput = ref('')
+const commentsRef = ref<InstanceType<typeof CommentsSection> | null>(null)
+const adoDiscussionRef = ref<InstanceType<typeof ADODiscussion> | null>(null)
+
+async function submitNote() {
+  const content = noteInput.value.trim()
+  if (!content) return
+  if (notesTab.value === 'ado' && adoDiscussionRef.value) {
+    await adoDiscussionRef.value.addReply(content)
+  } else if (commentsRef.value) {
+    await commentsRef.value.addComment(content)
+  }
+  noteInput.value = ''
+}
 
 const statuses = ['todo', 'in_progress', 'in_review', 'done', 'blocked', 'cancelled']
 const priorities = ['P0', 'P1', 'P2', 'P3']
@@ -615,9 +629,31 @@ const projectName = computed(() => {
               </button>
             </div>
           </div>
+
+          <!-- Shared add input -->
+          <div class="flex items-start gap-1.5 mb-2">
+            <Textarea
+              v-model="noteInput"
+              :placeholder="notesTab === 'ado' ? 'Reply on ADO...' : 'Add a note...'"
+              class="text-xs min-h-[36px] resize-none flex-1"
+              :rows="1"
+              @keydown.meta.enter="submitNote"
+              @keydown.ctrl.enter="submitNote"
+            />
+            <Button
+              size="sm"
+              class="h-[36px] text-[10px] shrink-0"
+              :class="notesTab === 'ado' && 'bg-blue-600 hover:bg-blue-700 text-white'"
+              @click="submitNote"
+              :disabled="!noteInput.trim()"
+            >
+              Add
+            </Button>
+          </div>
+
           <!-- Tab content -->
-          <ADODiscussion v-if="task?.adoId && notesTab === 'ado'" :task-id="task.id" :ado-id="task.adoId" />
-          <CommentsSection v-else-if="task" :task-id="task.id" :is-public-task="taskStore.isPublic(task.id)" />
+          <ADODiscussion v-if="task?.adoId && notesTab === 'ado'" ref="adoDiscussionRef" :task-id="task.id" :ado-id="task.adoId" />
+          <CommentsSection v-else-if="task" ref="commentsRef" :task-id="task.id" />
         </div>
 
       </div>
