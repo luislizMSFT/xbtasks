@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Phase 11 complete — task list integration shipped with UAT
-stopped_at: Phase 11 complete (all 7 plans + UAT gap fixes)
-last_updated: "2026-04-09T20:33:00.000Z"
+status: Phase 13 — building wiki playground
+stopped_at: Phase 13 UI-SPEC approved
+last_updated: "2026-04-09T20:55:00.000Z"
 last_activity: 2026-04-09
 progress:
-  total_phases: 12
+  total_phases: 13
   completed_phases: 4
   total_plans: 26
   completed_plans: 26
@@ -168,6 +168,7 @@ Progress: [█████░░░░░] 50%
 - Phase 10 added: Implement dashboard redesign and unified header bars
 - Phase 11 added: Integrate new task list into real app — extract shared components (TreeTaskRow, QuickAddInput, FilterCycleButton), wire stores, replace current TasksView
 - Phase 12 added: Backend and frontend normalization for ADO integration — batch ADO metadata, sync state API, PR-task linking, N+1 fixes, composable bridges
+- Phase 13 added: Wikis, Bookmarks & ADO Wiki Integration — personal wiki (Obsidian/Notion hybrid), project bookmarks, ADO wiki browse/import, FTS5 search
 
 ### Pending Todos
 
@@ -194,6 +195,6 @@ Progress: [█████░░░░░] 50%
 
 ## Session Continuity
 
-Last session: 2026-04-09T19:56:51.270Z
-Stopped at: Completed 11-06-PLAN.md
+Last session: 2026-04-09T20:55:00.000Z
+Stopped at: Phase 13 UI-SPEC approved
 Resume: Continue refining shell header, then wire backend services

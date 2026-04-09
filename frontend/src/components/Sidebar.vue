@@ -25,7 +25,6 @@ import {
   Settings,
   Sun,
   Moon,
-  Network,
   LogOut,
   FlaskConical,
 } from 'lucide-vue-next'
@@ -43,11 +42,12 @@ interface NavItem {
   label: string
 }
 
+const isDev = import.meta.env.DEV
+
 const navItems: NavItem[] = [
   { name: 'dashboard', icon: LayoutDashboard, path: '/dashboard', label: 'Dashboard' },
   { name: 'tasks', icon: CheckSquare, path: '/tasks', label: 'Tasks' },
   { name: 'ado', icon: AzureDevOpsIcon, path: '/ado', label: 'Azure DevOps' },
-  { name: 'dependencies', icon: Network, path: '/dependencies', label: 'Dependencies' },
 ]
 
 const playgroundItems = [
@@ -57,6 +57,7 @@ const playgroundItems = [
   { path: '/playground/dashboard-header', label: 'Dashboard Header' },
   { path: '/playground/task-tree', label: 'Task Tree' },
   { path: '/playground/task-styling', label: 'Task Styling' },
+  { path: '/playground/wiki', label: 'Wiki' },
 ]
 
 const isActive = (path: string) => route.path === path || route.path.startsWith(path + '/')
@@ -151,8 +152,8 @@ const isDark = computed(() => mode.value === 'dark')
           </TooltipContent>
         </Tooltip>
 
-        <!-- Playground dropdown -->
-        <DropdownMenu>
+        <!-- Playground dropdown (dev only) -->
+        <DropdownMenu v-if="isDev">
           <Tooltip>
             <TooltipTrigger as-child>
               <DropdownMenuTrigger as-child>

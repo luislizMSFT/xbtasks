@@ -196,3 +196,13 @@ Plans:
 
 Plans:
 - [ ] TBD (run /gsd-plan-phase 12 to break down)
+
+### Phase 13: Wikis, Bookmarks & ADO Wiki Integration
+
+**Goal:** Add a personal wiki system (Obsidian/Notion hybrid, no databases), project-level bookmarks, and ADO wiki browsing/importing with FTS5 full-text search
+**Requirements**: TBD
+**Depends on:** Phase 12
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 13 to break down)

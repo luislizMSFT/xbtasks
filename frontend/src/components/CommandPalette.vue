@@ -60,6 +60,7 @@ const devActions: Action[] = [
   { id: 'pg-dashboard', label: 'Dashboard Layouts', icon: FlaskConical, hint: 'Compare dashboards', action: () => router.push('/playground/dashboard-header') },
   { id: 'pg-detail', label: 'Detail Layouts', icon: FlaskConical, hint: 'Compare panels', action: () => router.push('/playground/task-detail') },
   { id: 'pg-tree', label: 'Tree Layouts', icon: FlaskConical, hint: 'Flat vs tree', action: () => router.push('/playground/task-tree') },
+  { id: 'pg-tree', label: 'Wiki', icon: FlaskConical, hint: 'Wiki', action: () => router.push('/playground/wiki') },
 ]
 
 const createActions: Action[] = [
