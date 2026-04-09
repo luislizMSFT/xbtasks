@@ -87,6 +87,8 @@ Phases execute in numeric order: 1 → 1.1 → 2 → 3
 | 1.1. UI Overhaul & Cleanup | 0/0 | Not started | - |
 | 2. ADO Integration & Sync Workflow | 0/10 | Planned | - |
 | 3. PR Monitoring & Team Views | 0/0 | Not started | - |
+| 10. Dashboard & Header Bars | 3/3 | Complete | ✓ |
+| 11. Integrate New Task List | 7/7 | Complete | ✓ |
 
 ### Phase 4: Work Item Lifecycle Tracking — PRs, Pipelines & Task Traceability
 
@@ -181,9 +183,9 @@ Plans:
 - [x] 11-02-PLAN.md — Extract shared components (TreeTaskRow, QuickAddInput, FilterCycleButton)
 - [x] 11-03-PLAN.md — Rebuild TaskDetail with 3 tabs + update DashboardView
 - [x] 11-04-PLAN.md — Rewrite TasksView with permanent 2-panel split layout
-- [ ] 11-05-PLAN.md — Gap closure: TasksView & FilterBar fixes (drag handle, adaptive group headers, task list header, expand/collapse, remove duplicate Scope)
-- [ ] 11-06-PLAN.md — Gap closure: TaskDetail feature parity (subtask filter cycle, ADO icons, pipeline status per PR, dirty-field sync indicators)
-- [ ] 11-07-PLAN.md — Gap closure: Dashboard TreeTaskRow swap + visual verification
+- [x] 11-05-PLAN.md — Gap closure: TasksView & FilterBar fixes (drag handle, adaptive group headers, task list header, expand/collapse, remove duplicate Scope)
+- [x] 11-06-PLAN.md — Gap closure: TaskDetail feature parity (subtask filter cycle, ADO icons, pipeline status per PR, dirty-field sync indicators)
+- [x] 11-07-PLAN.md — Gap closure: Dashboard TreeTaskRow swap + visual verification
 
 ### Phase 12: Backend and frontend normalization for ADO integration
 

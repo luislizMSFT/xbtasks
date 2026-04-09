@@ -104,15 +104,14 @@ watch(selectedTask, (t, oldT) => {
   if (t) {
     // Skip re-syncing edit fields when the same task ref changed due to our own save
     // (splice in updateTask replaces the object, triggering this watcher)
-    if (saving && oldT && t.id === oldT.id) {
+    if (saving && saveTaskId === t.id && oldT && t.id === oldT.id) {
       lastTask.value = t
       return
     }
-    // Show brief loading flash when switching to a different task
+    // Reset saving flag when switching to a different task
     if (oldT && t.id !== oldT.id) {
       saving = false
-      detailLoading.value = true
-      requestAnimationFrame(() => { detailLoading.value = false })
+      saveTaskId = null
     }
     lastTask.value = t
     editTitle.value = t.title
