@@ -310,7 +310,7 @@ onMounted(async () => {
     </Teleport>
 
     <!-- LEFT: Task list panel -->
-    <div class="flex-1 flex flex-col min-w-0 w-[55%]">
+    <div class="flex flex-col min-w-0 w-[55%]">
       <!-- FilterBar (dropdowns only, no status chips or sync) -->
       <FilterBar
         :filter-status="taskStore.filterStatus"
@@ -540,18 +540,20 @@ onMounted(async () => {
     </div>
 
     <!-- RIGHT: Detail panel (permanent, not slide-out) -->
-    <ProjectDetail
-      v-if="selectedProjectId"
-      :project-id="selectedProjectId"
-      @close="selectedProjectId = null"
-      @select-task="selectTask"
-    />
-    <TaskDetail
-      v-else-if="taskStore.selectedTask"
-      @close="closeDetail"
-    />
-    <div v-else class="w-[45%] shrink-0 border-l border-border flex items-center justify-center">
-      <p class="text-sm text-muted-foreground">Select a task or project</p>
+    <div class="w-[45%] shrink-0 border-l border-border flex flex-col min-h-0">
+      <ProjectDetail
+        v-if="selectedProjectId"
+        :project-id="selectedProjectId"
+        @close="selectedProjectId = null"
+        @select-task="selectTask"
+      />
+      <TaskDetail
+        v-else-if="taskStore.selectedTask"
+        @close="closeDetail"
+      />
+      <div v-else class="flex-1 flex items-center justify-center">
+        <p class="text-sm text-muted-foreground">Select a task or project</p>
+      </div>
     </div>
   </div>
 </template>
