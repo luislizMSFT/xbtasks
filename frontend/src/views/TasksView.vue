@@ -15,7 +15,7 @@ import FilterBar from '@/components/FilterBar.vue'
 import AzureDevOpsIcon from '@/components/icons/AzureDevOpsIcon.vue'
 import { adoTypeColor, adoTypeIcon, adoStateClasses, adoPriorityClasses } from '@/lib/styles'
 import {
-  ClipboardList, RefreshCw, ChevronRight, ChevronDown,
+  ClipboardList, ChevronRight, ChevronDown,
 } from 'lucide-vue-next'
 import { Skeleton } from '@/components/ui/skeleton'
 import EmptyState from '@/components/EmptyState.vue'
@@ -294,7 +294,7 @@ onMounted(async () => {
 <template>
   <div class="flex-1 flex overflow-hidden" @keydown.esc="onEscape" tabindex="-1">
     <!-- Teleport status chips + sync to top bar (only when this page is active) -->
-    <Teleport v-if="isActive" to="#topbar-actions">
+    <Teleport v-if="isActive" to="#topbar-center">
       <div class="flex items-center gap-1">
         <Badge
           v-for="chip in statusChips"
@@ -305,15 +305,6 @@ onMounted(async () => {
         >
           {{ chip.label }}
         </Badge>
-        <Button
-          variant="ghost"
-          size="icon"
-          class="h-6 w-6 ml-1"
-          title="Sync with ADO"
-          @click="syncStore.manualSync()"
-        >
-          <RefreshCw :size="12" :class="{ 'animate-spin': syncStore.syncing }" />
-        </Button>
       </div>
     </Teleport>
 

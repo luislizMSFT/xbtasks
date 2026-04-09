@@ -3,23 +3,24 @@ import { onMounted, onActivated, onDeactivated, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTaskStore } from '@/stores/tasks'
 import { useAuthStore } from '@/stores/auth'
-import { usePRStore, branchName, voteIcon } from '@/stores/prs'
+import { usePRStore, branchName, voteIcon, parseReviewers } from '@/stores/prs'
 import { relativeTime } from '@/lib/date'
 import type { PullRequest } from '@/stores/prs'
 import { useADOStore } from '@/stores/ado'
 import { useSyncStore } from '@/stores/sync'
 import type { ADOPipeline } from '@/stores/ado'
-import TaskRow from '@/components/tasks/TaskRow.vue'
+import DashboardTaskRow from '@/components/tasks/DashboardTaskRow.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import { Skeleton } from '@/components/ui/skeleton'
 import EmptyState from '@/components/EmptyState.vue'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
+import { priorityBgColor } from '@/lib/styles'
 import {
   Plus, GitPullRequest, Play, CheckCircle2, XCircle, Clock,
   ExternalLink, GitBranch, ClipboardList, Loader2,
-  RefreshCw,
+  CalendarDays, GitMerge,
 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -63,16 +64,61 @@ const focusTasks = computed(() =>
   taskStore.tasks.filter(t => t.status === 'in_progress' || t.status === 'in_review')
 )
 
-const recentTasks = computed(() =>
-  taskStore.tasks
-    .slice()
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-    .slice(0, 5)
+// Upcoming: tasks due within 3 days (replaces former recent-activity section)
+const upcomingTasks = computed(() =>
+  taskStore.tasks.filter(t => {
+    if (!t.dueDate || t.status === 'done' || t.status === 'cancelled') return false
+    const due = new Date(t.dueDate)
+    const now = new Date()
+    const diffDays = (due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+    return diffDays <= 3 && diffDays >= -7 // include up to 7 days overdue
+  })
+    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
 )
 
 const blockedTasks = computed(() =>
   taskStore.tasks.filter(t => t.status === 'blocked')
 )
+
+// --- Attention Bar nudge data ---
+
+// Due soon: tasks with due date within 3 days (not done/cancelled)
+const dueSoonTasks = computed(() =>
+  taskStore.tasks.filter(t => {
+    if (!t.dueDate || t.status === 'done' || t.status === 'cancelled') return false
+    const diffDays = (new Date(t.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+    return diffDays >= 0 && diffDays <= 3
+  })
+)
+
+// Failed pipeline: first failed pipeline (show one nudge)
+const failedPipeline = computed(() =>
+  adoStore.pipelines.find(p => p.result === 'failed') ?? null
+)
+
+// Merge-ready PRs: active PRs with 2+ reviewer approvals (vote >= 5)
+const mergeReadyPRs = computed(() =>
+  prStore.myPRs
+    .filter(pr => pr.status === 'active')
+    .map(pr => {
+      const reviewerList = parseReviewers(pr.reviewers)
+      const approvals = reviewerList.filter(r => r.vote >= 5).length
+      return { ...pr, approvals }
+    })
+    .filter(pr => pr.approvals >= 2)
+)
+
+// Master toggle for Attention Bar visibility
+const showAttentionBar = computed(() =>
+  dueSoonTasks.value.length > 0 ||
+  failedPipeline.value !== null ||
+  mergeReadyPRs.value.length > 0
+)
+
+function selectTask(taskId: number) {
+  taskStore.selectTask(taskId)
+  router.push('/tasks')
+}
 
 const statCards = computed(() => [
   { label: 'Total', value: taskStore.stats.total },
@@ -162,33 +208,64 @@ async function openPipeline(p: ADOPipeline) {
 <template>
   <ScrollArea class="flex-1 h-full">
     <!-- Dashboard top bar: summary stats -->
-    <Teleport v-if="isActive" to="#topbar-actions">
-      <div class="flex items-center gap-2 text-[11px]">
-        <!-- Task ratio -->
-        <span class="tabular-nums text-muted-foreground">{{ taskStore.stats.inProgress }}/{{ taskStore.stats.total }}</span>
-        <!-- Blocked alert dot -->
-        <span
-          v-if="taskStore.stats.blocked"
-          class="w-2 h-2 rounded-full bg-red-500 animate-pulse"
-          :title="`${taskStore.stats.blocked} blocked`"
-        />
-        <!-- ADO connection dot -->
-        <span
-          class="w-2 h-2 rounded-full"
-          :class="adoStore.connected ? 'bg-green-500' : 'bg-red-500'"
-          :title="adoStore.connected ? 'ADO connected' : 'ADO offline'"
-        />
-        <!-- Sync button -->
-        <Button variant="ghost" size="sm" class="h-6 w-6 p-0" @click="syncStore.manualSync()" :disabled="syncStore.syncing">
-          <component :is="syncStore.syncing ? Loader2 : RefreshCw" :size="12" :class="syncStore.syncing && 'animate-spin'" class="text-muted-foreground" />
-        </Button>
+    <Teleport v-if="isActive" to="#topbar-center">
+      <div class="flex items-center gap-2 text-[10px]">
+        <Badge variant="secondary" class="text-[9px] h-4 px-1.5">
+          {{ taskStore.stats.inProgress + taskStore.stats.inReview }} active
+        </Badge>
+        <Badge v-if="taskStore.stats.blocked" variant="destructive" class="text-[9px] h-4 px-1.5">
+          {{ taskStore.stats.blocked }} blocked
+        </Badge>
+        <span class="text-muted-foreground/40 tabular-nums">
+          {{ taskStore.stats.done }}/{{ taskStore.stats.total }} done
+        </span>
       </div>
     </Teleport>
     <div class="px-6 py-5">
       <!-- Greeting + summary -->
-      <div class="mb-6">
-        <h1 class="text-xl font-semibold text-foreground">{{ greeting }}</h1>
-        <p class="text-sm text-muted-foreground mt-1">{{ summaryLine }}</p>
+      <div class="mb-3">
+        <h1 class="text-lg font-semibold text-foreground">{{ greeting }}</h1>
+        <p v-if="summaryLine" class="text-sm text-muted-foreground mt-1">{{ summaryLine }}</p>
+      </div>
+
+      <!-- Attention Bar (conditional — shown only when urgency nudges exist) -->
+      <div v-if="showAttentionBar" class="flex gap-3 mb-5 overflow-x-auto pb-1">
+        <!-- Due soon nudge (amber) -->
+        <div v-if="dueSoonTasks.length > 0"
+          class="flex items-center gap-2 px-3 py-2 rounded-lg border shrink-0"
+          style="background: rgb(245 158 11 / 0.08); border-color: rgb(245 158 11 / 0.2);">
+          <CalendarDays :size="14" class="text-amber-600 dark:text-amber-400 shrink-0" />
+          <span class="text-sm text-amber-700 dark:text-amber-400">
+            <strong class="font-semibold">{{ dueSoonTasks.length }}</strong> due within 3 days
+          </span>
+          <div class="flex gap-1 ml-1">
+            <span v-for="t in dueSoonTasks.slice(0, 2)" :key="t.id"
+              class="text-[10px] px-1.5 py-0.5 rounded truncate max-w-[120px] text-amber-700 dark:text-amber-400"
+              style="background: rgb(245 158 11 / 0.1);">
+              {{ t.title }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Pipeline failure nudge (red) -->
+        <div v-if="failedPipeline"
+          class="flex items-center gap-2 px-3 py-2 rounded-lg border shrink-0"
+          style="background: rgb(239 68 68 / 0.08); border-color: rgb(239 68 68 / 0.2);">
+          <XCircle :size="14" class="text-red-500 shrink-0" />
+          <span class="text-sm text-red-600 dark:text-red-400">
+            <strong class="font-semibold">{{ failedPipeline.name }}</strong> failed on {{ failedPipeline.sourceBranch.replace('refs/heads/', '') }}
+          </span>
+        </div>
+
+        <!-- PR approval ready nudge (emerald) -->
+        <div v-for="pr in mergeReadyPRs.slice(0, 2)" :key="`merge-${pr.id}`"
+          class="flex items-center gap-2 px-3 py-2 rounded-lg border shrink-0"
+          style="background: rgb(16 185 129 / 0.08); border-color: rgb(16 185 129 / 0.2);">
+          <GitMerge :size="14" class="text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <span class="text-sm text-emerald-700 dark:text-emerald-400">
+            PR #{{ pr.prNumber }} has {{ pr.approvals }} approvals — ready to merge
+          </span>
+        </div>
       </div>
 
       <!-- Loading state -->
@@ -226,7 +303,7 @@ async function openPipeline(p: ADOPipeline) {
 
         <!-- Two-column layout: Tasks left, PRs + Pipelines right -->
         <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          <!-- Left column (3/5): Focus + Recent + Blocked -->
+          <!-- Left column (3/5): Focus + Upcoming + Blocked -->
           <div class="lg:col-span-3 space-y-6">
             <!-- Today's Focus -->
             <div>
@@ -237,42 +314,41 @@ async function openPipeline(p: ADOPipeline) {
                 v-if="focusTasks.length > 0"
                 class="rounded-lg overflow-hidden border border-border"
               >
-                <TaskRow
-                  v-for="task in focusTasks"
+                <DashboardTaskRow
+                  v-for="(task, idx) in focusTasks"
                   :key="task.id"
                   :task="task"
-                  @select="(id) => { taskStore.selectTask(id); router.push('/tasks') }"
-                  @toggle-status="(id) => taskStore.setStatus(id, 'done')"
+                  :is-personal="!taskStore.isPublic(task.id)"
+                  :class="idx < focusTasks.length - 1 ? 'border-b border-border' : ''"
+                  @click="selectTask"
                 />
               </div>
               <p v-else class="text-sm text-muted-foreground">
-                No tasks in progress — pick something to work on.
+                All caught up
               </p>
             </div>
 
-            <!-- Recent Activity -->
+            <!-- Upcoming -->
             <div>
               <h2 class="text-sm font-semibold text-foreground mb-3">
-                Recent Activity
+                Upcoming
               </h2>
               <div
-                v-if="recentTasks.length > 0"
+                v-if="upcomingTasks.length > 0"
                 class="rounded-lg overflow-hidden border border-border"
               >
-                <div
-                  v-for="(task, idx) in recentTasks"
+                <DashboardTaskRow
+                  v-for="(task, idx) in upcomingTasks"
                   :key="task.id"
-                  class="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-muted/50 transition-colors"
-                  :class="idx < recentTasks.length - 1 ? 'border-b border-border' : ''"
-                  @click="() => { taskStore.selectTask(task.id); router.push('/tasks') }"
-                >
-                  <StatusBadge :status="task.status" />
-                  <span class="text-sm flex-1 truncate text-foreground">{{ task.title }}</span>
-                  <span class="text-xs tabular-nums text-muted-foreground">{{ relativeTime(task.updatedAt) }}</span>
-                </div>
+                  :task="task"
+                  :is-personal="!taskStore.isPublic(task.id)"
+                  show-due-date
+                  :class="idx < upcomingTasks.length - 1 ? 'border-b border-border' : ''"
+                  @click="selectTask"
+                />
               </div>
               <p v-else class="text-sm text-muted-foreground">
-                No recent activity yet.
+                No tasks due soon
               </p>
             </div>
 
@@ -282,14 +358,24 @@ async function openPipeline(p: ADOPipeline) {
                 Blocked
               </h2>
               <div
-                class="rounded-lg overflow-hidden border border-border border-l-2 border-l-destructive"
+                class="rounded-lg overflow-hidden border border-border border-l-2 border-l-red-500"
               >
-                <TaskRow
-                  v-for="task in blockedTasks"
+                <div
+                  v-for="(task, idx) in blockedTasks"
                   :key="task.id"
-                  :task="task"
-                  @select="(id) => { taskStore.selectTask(id); router.push('/tasks') }"
-                />
+                  class="flex flex-col gap-1 px-4 py-2.5 cursor-pointer hover:bg-muted/50 transition-colors"
+                  :class="idx < blockedTasks.length - 1 ? 'border-b border-border' : ''"
+                  @click="selectTask(task.id)"
+                >
+                  <div class="flex items-center gap-2">
+                    <span :class="['size-2 rounded-full shrink-0', priorityBgColor(task.priority)]" />
+                    <span class="text-sm flex-1 truncate text-foreground">{{ task.title }}</span>
+                  </div>
+                  <p v-if="task.blockedReason"
+                    class="text-[11px] text-red-500/70 pl-4 italic">
+                    {{ task.blockedReason }}
+                  </p>
+                </div>
               </div>
             </div>
           </div>

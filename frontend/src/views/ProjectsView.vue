@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onActivated, onDeactivated, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProjectStore, type ProjectADOLink } from '@/stores/projects'
 import { useTaskStore, type Task } from '@/stores/tasks'
@@ -29,6 +29,19 @@ const newName = ref('')
 const newDescription = ref('')
 const selectedProjectId = ref<number | null>(null)
 const showLinkDialog = ref(false)
+
+const isActive = ref(false)
+onActivated(() => { isActive.value = true })
+onDeactivated(() => { isActive.value = false })
+
+const activeProjectCount = computed(() => {
+  const activeProjectIds = new Set(
+    taskStore.tasks
+      .filter(t => t.projectId && ['in_progress', 'in_review'].includes(t.status))
+      .map(t => t.projectId)
+  )
+  return activeProjectIds.size
+})
 
 // Handle ?create=1 query param from top bar "New" dropdown
 watch(() => route.query.create, (val) => {
@@ -105,6 +118,7 @@ watch(selectedProjectId, async (id) => {
 })
 
 onMounted(async () => {
+  isActive.value = true
   await Promise.all([
     projectStore.fetchProjects(),
     taskStore.fetchTasks(),
@@ -151,6 +165,14 @@ async function createProject() {
 </script>
 
 <template>
+  <Teleport v-if="isActive" to="#topbar-center">
+    <div class="flex items-center gap-2 text-[11px]">
+      <span class="text-muted-foreground tabular-nums">{{ projectStore.projects.length }} projects</span>
+      <Badge v-if="activeProjectCount > 0" variant="secondary" class="text-[9px] h-4 px-1.5">
+        {{ activeProjectCount }} active
+      </Badge>
+    </div>
+  </Teleport>
   <div class="p-6 space-y-4">
     <PageHeader>
       <template #left>

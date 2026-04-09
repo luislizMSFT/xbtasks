@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onActivated, onDeactivated } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTaskStore } from '@/stores/tasks'
 import { Button } from '@/components/ui/button'
@@ -238,7 +238,14 @@ async function loadAdoParents() {
   }
 }
 
-onMounted(loadGraph)
+const isActive = ref(false)
+onActivated(() => { isActive.value = true })
+onDeactivated(() => { isActive.value = false })
+
+onMounted(() => {
+  isActive.value = true
+  loadGraph()
+})
 
 // --- Build tree ---
 const allNodes = computed<GraphNode[]>(() => {
@@ -351,6 +358,28 @@ const stats = computed(() => {
     blocked: all.filter(n => n.status === 'blocked').length,
     inProgress: all.filter(n => n.status === 'in_progress').length,
   }
+})
+
+const edgeCount = computed(() => forceGraphEdges.value.length)
+
+const hasCycle = computed(() => {
+  const visited = new Set<number>()
+  const stack = new Set<number>()
+  function dfs(id: number): boolean {
+    if (stack.has(id)) return true
+    if (visited.has(id)) return false
+    visited.add(id)
+    stack.add(id)
+    const node = allNodes.value.find(n => n.id === id)
+    if (node) {
+      for (const depId of node.dependsOn) {
+        if (dfs(depId)) return true
+      }
+    }
+    stack.delete(id)
+    return false
+  }
+  return allNodes.value.some(n => dfs(n.id))
 })
 
 // --- Graph-mode data ---
@@ -470,6 +499,14 @@ function onGraphSelect(id: number) {
 </script>
 
 <template>
+  <Teleport v-if="isActive" to="#topbar-center">
+    <div class="flex items-center gap-2 text-[11px]">
+      <span class="text-muted-foreground tabular-nums">{{ stats.total }} nodes · {{ edgeCount }} edges</span>
+      <Badge v-if="hasCycle" variant="destructive" class="text-[9px] h-4 px-1.5">
+        cycle detected
+      </Badge>
+    </div>
+  </Teleport>
   <div class="flex h-full flex-col overflow-hidden">
     <!-- Top Bar -->
     <div class="flex-none border-b border-border bg-background px-4 py-2.5">

@@ -38,9 +38,6 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
-  RefreshCw,
-  Wifi,
-  WifiOff,
   Clock,
   GitMerge,
   Search,
@@ -243,56 +240,26 @@ const teamPRsToShow = computed(() =>
 <template>
   <div class="flex-1 flex flex-col overflow-hidden">
     <!-- Teleport tabs + sync to top bar (only when active) -->
-    <Teleport v-if="isActive" to="#topbar-actions">
-      <div class="flex items-center gap-2">
-        <RefreshCw v-if="adoStore.loading" :size="12" class="animate-spin text-muted-foreground shrink-0" />
-
-        <Tabs v-model="activeTab">
-          <TabsList class="h-7 bg-transparent p-0 gap-1">
-            <TabsTrigger value="browser" class="text-[11px] gap-1 px-2.5 h-6 data-[state=active]:bg-muted">
-              <CheckSquare :size="11" />
-              Browser
-              <Badge v-if="adoStore.workItemTree.length" variant="secondary" class="text-[9px] h-3.5 px-1">{{ adoStore.workItemTree.length }}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="pull-requests" class="text-[11px] gap-1 px-2.5 h-6 data-[state=active]:bg-muted">
-              <GitPullRequest :size="11" />
-              PRs
-              <Badge v-if="totalPRCount" variant="secondary" class="text-[9px] h-3.5 px-1">{{ totalPRCount }}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="pipelines" class="text-[11px] gap-1 px-2.5 h-6 data-[state=active]:bg-muted">
-              <GitMerge :size="11" />
-              Pipelines
-              <Badge v-if="adoStore.pipelines.length" variant="secondary" class="text-[9px] h-3.5 px-1">{{ adoStore.pipelines.length }}</Badge>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-
-        <span v-if="lastSyncLabel" class="text-[10px] text-muted-foreground">
-          {{ lastSyncLabel }}
-        </span>
-        <span
-          :class="cn(
-            'flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full',
-            adoStore.connected
-              ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
-              : 'text-muted-foreground bg-muted/50'
-          )"
-        >
-          <Wifi v-if="adoStore.connected" :size="10" />
-          <WifiOff v-else :size="10" />
-          {{ adoStore.connected ? 'Connected' : 'Offline' }}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          class="h-6 text-[10px] gap-1"
-          :disabled="adoStore.syncing"
-          @click="handleSync"
-        >
-          <RefreshCw :size="11" :class="adoStore.syncing && 'animate-spin'" />
-          Sync
-        </Button>
-      </div>
+    <Teleport v-if="isActive" to="#topbar-center">
+      <Tabs v-model="activeTab">
+        <TabsList class="h-7 bg-transparent p-0 gap-1">
+          <TabsTrigger value="browser" class="text-[11px] gap-1 px-2.5 h-6 data-[state=active]:bg-muted">
+            <CheckSquare :size="11" />
+            Browser
+            <Badge v-if="adoStore.workItemTree.length" variant="secondary" class="text-[9px] h-3.5 px-1">{{ adoStore.workItemTree.length }}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="pull-requests" class="text-[11px] gap-1 px-2.5 h-6 data-[state=active]:bg-muted">
+            <GitPullRequest :size="11" />
+            PRs
+            <Badge v-if="totalPRCount" variant="secondary" class="text-[9px] h-3.5 px-1">{{ totalPRCount }}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="pipelines" class="text-[11px] gap-1 px-2.5 h-6 data-[state=active]:bg-muted">
+            <GitMerge :size="11" />
+            Pipelines
+            <Badge v-if="adoStore.pipelines.length" variant="secondary" class="text-[9px] h-3.5 px-1">{{ adoStore.pipelines.length }}</Badge>
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
     </Teleport>
 
     <!-- Error banner -->

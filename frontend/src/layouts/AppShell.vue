@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import Sidebar from '@/components/Sidebar.vue'
 import CommandPalette from '@/components/CommandPalette.vue'
+import SyncCluster from '@/components/SyncCluster.vue'
 import { useTaskStore } from '@/stores/tasks'
 import { relativeTime } from '@/lib/date'
 import {
@@ -30,6 +31,7 @@ const breadcrumb = computed(() => {
     '/playground/dashboard': 'Dashboard Layouts',
     '/playground/detail': 'Detail Layouts',
     '/ado': 'Azure DevOps',
+    '/dependencies': 'Dependencies',
     '/playground/ado': 'ADO Playground',
   }
   return map[route.path] || 'Team ADO Tool'
@@ -80,19 +82,18 @@ function openSearch() {
     <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
       <!-- Top bar: breadcrumb + stats + actions -->
       <div class="h-[46px] flex items-center gap-2 px-4 border-b border-border titlebar-drag shrink-0" :style="{ backgroundColor: 'var(--color-bg-secondary, var(--surface-secondary))' }">
-        <!-- Breadcrumb -->
-        <span class="text-sm font-medium text-foreground titlebar-no-drag select-none shrink-0">
+        <!-- LEFT ZONE: page name + divider + sync cluster -->
+        <span class="text-sm font-semibold text-foreground titlebar-no-drag select-none shrink-0">
           {{ breadcrumb }}
         </span>
+        <span class="w-px h-4 bg-border mx-1 shrink-0" />
+        <SyncCluster class="titlebar-no-drag shrink-0" />
 
-        <!-- Teleport target for page-specific actions -->
-        <div id="topbar-actions" class="flex items-center gap-2 ml-3 titlebar-no-drag" />
+        <!-- CENTER ZONE: page-specific teleport target -->
+        <div id="topbar-center" class="flex-1 flex items-center justify-center gap-2 titlebar-no-drag" />
 
-        <!-- Spacer (draggable) -->
-        <div class="flex-1" />
-
-        <!-- Actions (not draggable) -->
-        <div v-if="showActions" class="flex items-center gap-2 titlebar-no-drag">
+        <!-- RIGHT ZONE: search + new + activity -->
+        <div v-if="showActions" class="flex items-center gap-2 titlebar-no-drag shrink-0">
           <Button variant="outline" size="sm" class="h-8 px-3 text-xs text-muted-foreground gap-2 min-w-[160px] justify-start" @click="openSearch">
             <Search :size="14" />
             <span class="flex-1 text-left">Search...</span>

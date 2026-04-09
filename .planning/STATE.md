@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Deep UI iteration — playgrounds built, real views being refined
-stopped_at: Phase 11 context gathered
-last_updated: "2026-04-08T23:16:57.003Z"
+stopped_at: Completed 10-02-PLAN.md
+last_updated: "2026-04-09T00:27:22.498Z"
 last_activity: 2026-04-03
 progress:
   total_phases: 12
-  completed_phases: 2
-  total_plans: 16
-  completed_plans: 16
+  completed_phases: 3
+  total_plans: 18
+  completed_plans: 18
   percent: 50
 ---
 
@@ -136,6 +136,11 @@ Progress: [█████░░░░░] 50%
 - [Phase 02]: Recursive render function component for tree nodes (defineComponent with h()) for same-file recursion
 - [Phase 02]: ListLinkedAdoIDs method added to LinkService for frontend linked status tracking (ADO IDs not task IDs)
 - [Phase 02]: Saved query picker uses sentinel value __my_assignments__ to revert to default tree fetch
+- [Phase 10]: 3-zone top bar: left (page name + divider + SyncCluster), center (#topbar-center), right (search+new+activity)
+- [Phase 10]: SyncCluster replaces per-page sync buttons - single shared component for all views
+- [Phase 10]: DashboardTaskRow is a separate component from TaskRow with dashboard-optimized layout (priority dot, ADO type icon, personal badge, status badge, due date)
+- [Phase 10]: Attention Bar uses inline rgb() styles for alpha-blended backgrounds, reliable across Tailwind v4 configs
+- [Phase 10]: Upcoming section replaces Recent Activity  shows tasks due within 3 days (and up to 7 days overdue)
 
 ### Roadmap Evolution
 
@@ -174,6 +179,6 @@ Progress: [█████░░░░░] 50%
 
 ## Session Continuity
 
-Last session: 2026-04-08T23:16:56.998Z
-Stopped at: Phase 11 context gathered
+Last session: 2026-04-09T00:22:46.579Z
+Stopped at: Completed 10-02-PLAN.md
 Resume: Continue refining shell header, then wire backend services

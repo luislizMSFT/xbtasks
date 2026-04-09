@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onActivated, onDeactivated } from 'vue'
 import { useRouter } from 'vue-router'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -16,6 +16,10 @@ import { Save, RotateCcw, FolderOpen, Database, Globe, Palette, Trash2, Plus, Re
 const router = useRouter()
 const { mode, toggle: toggleTheme } = useTheme()
 const authStore = useAuthStore()
+
+const isActive = ref(false)
+onActivated(() => { isActive.value = true })
+onDeactivated(() => { isActive.value = false })
 
 // ---- Org/Project Management ----
 
@@ -125,6 +129,7 @@ const saved = ref(false)
 const loading = ref(true)
 
 onMounted(async () => {
+  isActive.value = true
   try {
     const { getAll } = await import('@/api/config')
     const all = await getAll()
@@ -197,6 +202,9 @@ const authMethodLabel = {
 </script>
 
 <template>
+  <Teleport v-if="isActive" to="#topbar-center">
+    <span />
+  </Teleport>
   <ScrollArea class="flex-1 h-full">
     <div class="max-w-2xl mx-auto px-6 py-6 space-y-6">
       <!-- Header -->

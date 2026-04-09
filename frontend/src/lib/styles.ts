@@ -75,6 +75,17 @@ export function priorityColor(priority: string): string {
   }
 }
 
+/** Background color for priority dots (P0-P3). Used on dashboard task rows. */
+export function priorityBgColor(priority: string): string {
+  switch (priority) {
+    case 'P0': return 'bg-red-500'
+    case 'P1': return 'bg-orange-500'
+    case 'P2': return 'bg-amber-500'
+    case 'P3': return 'bg-zinc-400'
+    default: return 'bg-zinc-400'
+  }
+}
+
 /** Text color for ADO work-item types. Matches ADO's native color coding. */
 export function adoTypeColor(type: string): string {
   switch (type.toLowerCase()) {
