@@ -56,7 +56,8 @@ func main() {
 	authService := auth.NewAuthService(database, wailsApp)
 
 	// New Phase 2 services
-	syncService := app.NewSyncService(database, tokenProvider, configService, wailsApp)
+	adoMetaService := app.NewADOMetaCacheService(database)
+	syncService := app.NewSyncService(database, tokenProvider, configService, wailsApp, adoMetaService)
 	commentService := app.NewCommentService(database, tokenProvider, configService)
 	linksService := app.NewExternalLinksService(database)
 	browserService := app.NewBrowserService()
@@ -74,6 +75,7 @@ func main() {
 	wailsApp.RegisterService(application.NewService(commentService))
 	wailsApp.RegisterService(application.NewService(linksService))
 	wailsApp.RegisterService(application.NewService(browserService))
+	wailsApp.RegisterService(application.NewService(adoMetaService))
 
 	// System tray
 	tray := wailsApp.SystemTray.New()

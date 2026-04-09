@@ -9,8 +9,8 @@ last_activity: 2026-04-03
 progress:
   total_phases: 12
   completed_phases: 3
-  total_plans: 19
-  completed_plans: 19
+  total_plans: 22
+  completed_plans: 20
   percent: 50
 ---
 
@@ -143,6 +143,15 @@ Progress: [█████░░░░░] 50%
 - [Phase 10]: Upcoming section replaces Recent Activity  shows tasks due within 3 days (and up to 7 days overdue)
 - [Phase 10]: isFullyLoaded computed aggregates all store loading states for accurate SyncCluster label
 - [Phase 10]: startOfDay normalization for date-level due-soon comparisons (not timestamp-level)
+- [Phase 11]: ADOMetaCacheService uses DELETE+INSERT rebuild; useAdoMeta uses module-level refs for singleton shared state
+- [Phase 11]: TreeTaskRow uses formatDate from lib/date.ts; FilterCycleButton uses 'linked' value to match taskStore semantics
+- [Phase 11]: TaskDetail permanent panel (no Transition)  parent controls split sizing
+- [Phase 11]: Push to ADO consolidated into ADO dropdown menu alongside Open/Unlink
+- [Phase 11]: statusIcon/priorityDotBgColor from styles.ts for subtask rendering consistency
+- [Phase 11]: TasksView rewritten: TreeTaskRow replaces TaskRow in all rendering modes (flat/grouped/tree)
+- [Phase 11]: FilterCycleButton placed in topbar Teleport next to status chips for All/ADO/Personal cycling
+- [Phase 11]: QuickAddInput replaces raw Input; always visible with Add/Cancel buttons
+- [Phase 11]: adoMeta.getAdoMeta() passed to every TreeTaskRow for batch ADO metadata display
 
 ### Roadmap Evolution
 

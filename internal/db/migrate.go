@@ -155,6 +155,15 @@ CREATE TABLE IF NOT EXISTS task_comments (
 	updated_at     DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- ─── ADO metadata cache ───
+
+CREATE TABLE IF NOT EXISTS ado_meta_cache (
+	task_id   INTEGER PRIMARY KEY REFERENCES tasks(id) ON DELETE CASCADE,
+	ado_type  TEXT DEFAULT '',
+	ado_state TEXT DEFAULT '',
+	synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ─── Indexes (after all tables) ───
 
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
@@ -172,6 +181,7 @@ CREATE INDEX IF NOT EXISTS idx_task_ado_links_ado_id ON task_ado_links(ado_id);
 CREATE INDEX IF NOT EXISTS idx_sync_state_task_id ON sync_state(task_id);
 CREATE INDEX IF NOT EXISTS idx_task_links_task ON task_links(task_id);
 CREATE INDEX IF NOT EXISTS idx_task_comments_task ON task_comments(task_id);
+CREATE INDEX IF NOT EXISTS idx_ado_meta_cache_task ON ado_meta_cache(task_id);
 `
 
 // alterations are idempotent column additions for databases created before

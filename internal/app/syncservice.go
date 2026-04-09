@@ -20,17 +20,18 @@ import (
 // Inbound: auto-pulls ADO changes on a configurable timer (silent merge).
 // Outbound: generates preview diffs and pushes only after user confirmation.
 type SyncService struct {
-	db        *db.DB
-	tokenProv auth.TokenProvider
-	cfg       *config.ConfigService
-	app       *application.App
-	stopCh    chan struct{}
-	syncMu    sync.Mutex // serializes pullChanges between background and manual sync
+	db           *db.DB
+	tokenProv    auth.TokenProvider
+	cfg          *config.ConfigService
+	app          *application.App
+	adoMetaCache *ADOMetaCacheService
+	stopCh       chan struct{}
+	syncMu       sync.Mutex // serializes pullChanges between background and manual sync
 }
 
 // NewSyncService creates a SyncService with all required dependencies.
-func NewSyncService(database *db.DB, tokenProv auth.TokenProvider, cfg *config.ConfigService, app *application.App) *SyncService {
-	return &SyncService{db: database, tokenProv: tokenProv, cfg: cfg, app: app}
+func NewSyncService(database *db.DB, tokenProv auth.TokenProvider, cfg *config.ConfigService, app *application.App, adoMetaCache *ADOMetaCacheService) *SyncService {
+	return &SyncService{db: database, tokenProv: tokenProv, cfg: cfg, app: app, adoMetaCache: adoMetaCache}
 }
 
 // emitEvent sends a named event to the frontend if the app is available.
@@ -237,6 +238,13 @@ func (s *SyncService) pullChanges() ([]domain.SyncDiff, error) {
 			}
 		}
 		// localChanged && !remoteChanged → no action (outbound is manual)
+	}
+
+	// Refresh ADO metadata cache for fast frontend lookups
+	if s.adoMetaCache != nil {
+		if err := s.adoMetaCache.Refresh(); err != nil {
+			log.Printf("[sync] ado meta cache refresh error: %v", err)
+		}
 	}
 
 	return diffs, nil
