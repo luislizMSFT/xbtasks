@@ -10,7 +10,7 @@
  *
  * Selecting a task in the tree drives the detail pane.
  */
-import { ref, computed } from 'vue'
+import { ref, computed, reactive, nextTick } from 'vue'
 import type { Task } from '@/types'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -28,6 +28,7 @@ import {
   X, Trash2, Plus, ExternalLink, GitPullRequest, Folder,
   Upload, Download, Lock, Pencil, Save, Link2Off, Search,
   ListChecks, CirclePlay, CircleCheck, CircleX, Clock,
+  List, GitBranch,
 } from 'lucide-vue-next'
 import {
   statusColor, statusClasses, statusBgColor,
@@ -36,21 +37,42 @@ import {
 
 // ── ADO metadata per task ──
 interface AdoMeta { type: string; state: string; adoId: string }
-const adoMeta: Record<number, AdoMeta> = {
+const adoMeta = reactive<Record<number, AdoMeta>>({
   100: { type: 'Deliverable', state: 'Active', adoId: '50001' },
   101: { type: 'User Story', state: 'Active', adoId: '50010' },
   102: { type: 'Task', state: 'New', adoId: '' },
   103: { type: 'Task', state: 'Closed', adoId: '50011' },
   104: { type: 'Task', state: 'Active', adoId: '' },
+  105: { type: 'Task', state: 'New', adoId: '50012' },
   200: { type: 'Feature', state: 'Active', adoId: '60001' },
   201: { type: 'Task', state: 'Closed', adoId: '' },
   202: { type: 'Bug', state: 'Active', adoId: '60010' },
+  203: { type: 'Task', state: 'Active', adoId: '60011' },
+  204: { type: 'Task', state: 'New', adoId: '60012' },
   300: { type: '', state: '', adoId: '' },
   301: { type: '', state: '', adoId: '' },
-}
+  302: { type: '', state: '', adoId: '' },
+  303: { type: '', state: '', adoId: '' },
+  400: { type: 'Epic', state: 'Active', adoId: '70001' },
+  401: { type: 'User Story', state: 'Active', adoId: '70010' },
+  402: { type: 'Bug', state: 'New', adoId: '70011' },
+  403: { type: 'Task', state: 'Resolved', adoId: '70012' },
+  404: { type: 'Task', state: 'Active', adoId: '70013' },
+  500: { type: 'Feature', state: 'Active', adoId: '80001' },
+  501: { type: 'Task', state: 'New', adoId: '80010' },
+  502: { type: 'Bug', state: 'Resolved', adoId: '80011' },
+  600: { type: '', state: '', adoId: '' },
+  601: { type: '', state: '', adoId: '' },
+  602: { type: '', state: '', adoId: '' },
+  603: { type: '', state: '', adoId: '' },
+  700: { type: 'Scenario', state: 'Active', adoId: '90001' },
+  701: { type: 'Task', state: 'New', adoId: '90010' },
+  702: { type: 'Task', state: 'Active', adoId: '90011' },
+})
 
-// ── Mock task tree ──
-const mockTasks: Task[] = [
+// ── Mock task tree (reactive so we can add tasks) ──
+const mockTasks = ref<Task[]>([
+  // ═══ Project 1: Xbox Platform (ADO-imported) ═══
   {
     id: 100, title: 'Xbox Platform Services', description: 'Top-level deliverable for platform work',
     status: 'in_progress', priority: 'P0', category: '', projectId: 1, area: 'Platform',
@@ -87,6 +109,15 @@ const mockTasks: Task[] = [
     createdAt: '2026-04-04T10:00:00Z', updatedAt: '2026-04-07T10:00:00Z', completedAt: null,
   },
   {
+    id: 105, title: 'Configure CORS policies for staging', description: '',
+    status: 'todo', priority: 'P2', category: '', projectId: 1, area: 'Backend',
+    dueDate: '2026-04-12', adoId: '50012', tags: 'config', blockedReason: '', blockedBy: '',
+    parentId: 100, personalPriority: '', sortOrder: 2,
+    createdAt: '2026-04-05T10:00:00Z', updatedAt: '2026-04-07T10:00:00Z', completedAt: null,
+  },
+
+  // ═══ Project 2: Dashboard (ADO-imported) ═══
+  {
     id: 200, title: 'Dashboard Redesign', description: 'Revamp the dashboard layout and widgets',
     status: 'in_progress', priority: 'P1', category: '', projectId: 2, area: 'UI',
     dueDate: '2026-04-15', adoId: '60001', tags: 'frontend', blockedReason: '', blockedBy: '',
@@ -108,6 +139,22 @@ const mockTasks: Task[] = [
     createdAt: '2026-04-03T10:00:00Z', updatedAt: '2026-04-07T10:00:00Z', completedAt: null,
   },
   {
+    id: 203, title: 'Build activity feed component', description: 'Recent commits, PRs, deployments',
+    status: 'in_progress', priority: 'P2', category: '', projectId: 2, area: 'UI',
+    dueDate: '2026-04-14', adoId: '60011', tags: 'frontend', blockedReason: '', blockedBy: '',
+    parentId: 200, personalPriority: '', sortOrder: 2,
+    createdAt: '2026-04-04T10:00:00Z', updatedAt: '2026-04-07T10:00:00Z', completedAt: null,
+  },
+  {
+    id: 204, title: 'Add dark mode toggle persistence', description: '',
+    status: 'todo', priority: 'P3', category: '', projectId: 2, area: 'Settings',
+    dueDate: '', adoId: '60012', tags: '', blockedReason: '', blockedBy: '',
+    parentId: 200, personalPriority: '', sortOrder: 3,
+    createdAt: '2026-04-05T10:00:00Z', updatedAt: '2026-04-07T10:00:00Z', completedAt: null,
+  },
+
+  // ═══ Personal tasks (no ADO, no project) ═══
+  {
     id: 300, title: 'Fix CI pipeline timeout', description: 'Pipeline times out on large repos',
     status: 'todo', priority: 'P0', category: '', projectId: null, area: '',
     dueDate: '2026-04-08', adoId: '', tags: 'ci,urgent', blockedReason: '', blockedBy: '',
@@ -121,9 +168,136 @@ const mockTasks: Task[] = [
     parentId: null, personalPriority: '', sortOrder: 1,
     createdAt: '2026-04-06T10:00:00Z', updatedAt: '2026-04-07T10:00:00Z', completedAt: null,
   },
-]
+  {
+    id: 302, title: 'Prep slides for team sync', description: 'Monday standup presentation',
+    status: 'in_progress', priority: 'P1', category: '', projectId: null, area: '',
+    dueDate: '2026-04-09', adoId: '', tags: '', blockedReason: '', blockedBy: '',
+    parentId: null, personalPriority: '', sortOrder: 2,
+    createdAt: '2026-04-07T08:00:00Z', updatedAt: '2026-04-07T16:00:00Z', completedAt: null,
+  },
+  {
+    id: 303, title: 'Review PR feedback from Sarah', description: '',
+    status: 'done', priority: 'P2', category: '', projectId: null, area: '',
+    dueDate: '', adoId: '', tags: '', blockedReason: '', blockedBy: '',
+    parentId: null, personalPriority: '', sortOrder: 3,
+    createdAt: '2026-04-05T10:00:00Z', updatedAt: '2026-04-06T14:00:00Z', completedAt: '2026-04-06T14:00:00Z',
+  },
 
-const projectNames: Record<number, string> = { 1: 'Xbox Platform', 2: 'Dashboard' }
+  // ═══ Project 3: Infrastructure (ADO-imported, big tree) ═══
+  {
+    id: 400, title: 'Infrastructure Reliability Sprint', description: 'Q2 reliability improvements',
+    status: 'in_progress', priority: 'P0', category: '', projectId: 3, area: 'Infra',
+    dueDate: '2026-04-30', adoId: '70001', tags: 'infra', blockedReason: '', blockedBy: '',
+    parentId: null, personalPriority: '', sortOrder: 0,
+    createdAt: '2026-03-25T10:00:00Z', updatedAt: '2026-04-07T10:00:00Z', completedAt: null,
+  },
+  {
+    id: 401, title: 'Implement health check endpoints', description: 'Liveness + readiness probes',
+    status: 'in_progress', priority: 'P1', category: '', projectId: 3, area: 'Backend',
+    dueDate: '2026-04-12', adoId: '70010', tags: 'health', blockedReason: '', blockedBy: '',
+    parentId: 400, personalPriority: '', sortOrder: 0,
+    createdAt: '2026-03-28T10:00:00Z', updatedAt: '2026-04-07T10:00:00Z', completedAt: null,
+  },
+  {
+    id: 402, title: 'Fix memory leak in sync worker', description: 'OOM after 48h continuous run',
+    status: 'todo', priority: 'P0', category: '', projectId: 3, area: 'Backend',
+    dueDate: '2026-04-09', adoId: '70011', tags: 'bug,memory', blockedReason: '', blockedBy: '',
+    parentId: 400, personalPriority: '', sortOrder: 1,
+    createdAt: '2026-04-01T10:00:00Z', updatedAt: '2026-04-07T10:00:00Z', completedAt: null,
+  },
+  {
+    id: 403, title: 'Add Prometheus metrics exporter', description: '',
+    status: 'done', priority: 'P2', category: '', projectId: 3, area: 'Observability',
+    dueDate: '', adoId: '70012', tags: 'metrics', blockedReason: '', blockedBy: '',
+    parentId: 400, personalPriority: '', sortOrder: 2,
+    createdAt: '2026-03-28T10:00:00Z', updatedAt: '2026-04-03T10:00:00Z', completedAt: '2026-04-03T10:00:00Z',
+  },
+  {
+    id: 404, title: 'Configure alerting rules', description: 'PagerDuty integration for P0 alerts',
+    status: 'in_progress', priority: 'P1', category: '', projectId: 3, area: 'Observability',
+    dueDate: '2026-04-14', adoId: '70013', tags: 'alerts', blockedReason: '', blockedBy: '',
+    parentId: 400, personalPriority: '', sortOrder: 3,
+    createdAt: '2026-04-02T10:00:00Z', updatedAt: '2026-04-07T10:00:00Z', completedAt: null,
+  },
+
+  // ═══ Project 3: Non-imported tasks (project but no ADO link) ═══
+  {
+    id: 500, title: 'API v2 migration plan', description: 'Plan breaking changes for API v2',
+    status: 'in_progress', priority: 'P1', category: '', projectId: 3, area: 'API',
+    dueDate: '2026-04-18', adoId: '80001', tags: 'api', blockedReason: '', blockedBy: '',
+    parentId: null, personalPriority: '', sortOrder: 0,
+    createdAt: '2026-04-01T10:00:00Z', updatedAt: '2026-04-07T10:00:00Z', completedAt: null,
+  },
+  {
+    id: 501, title: 'Audit deprecated endpoints', description: '',
+    status: 'todo', priority: 'P2', category: '', projectId: 3, area: 'API',
+    dueDate: '', adoId: '80010', tags: '', blockedReason: '', blockedBy: '',
+    parentId: 500, personalPriority: '', sortOrder: 0,
+    createdAt: '2026-04-03T10:00:00Z', updatedAt: '2026-04-07T10:00:00Z', completedAt: null,
+  },
+  {
+    id: 502, title: 'Fix pagination offset bug', description: 'Off-by-one on page 2+',
+    status: 'done', priority: 'P1', category: '', projectId: 3, area: 'API',
+    dueDate: '', adoId: '80011', tags: 'bug', blockedReason: '', blockedBy: '',
+    parentId: 500, personalPriority: '', sortOrder: 1,
+    createdAt: '2026-04-02T10:00:00Z', updatedAt: '2026-04-05T10:00:00Z', completedAt: '2026-04-05T10:00:00Z',
+  },
+
+  // ═══ More personal tasks (no ADO, no project) ═══
+  {
+    id: 600, title: 'Read "Designing Data-Intensive Applications" ch. 7', description: '',
+    status: 'todo', priority: 'P3', category: '', projectId: null, area: '',
+    dueDate: '', adoId: '', tags: 'learning', blockedReason: '', blockedBy: '',
+    parentId: null, personalPriority: '', sortOrder: 4,
+    createdAt: '2026-04-01T10:00:00Z', updatedAt: '2026-04-01T10:00:00Z', completedAt: null,
+  },
+  {
+    id: 601, title: 'Update dev machine dotfiles', description: 'Sync zsh/nvim configs',
+    status: 'done', priority: 'P3', category: '', projectId: null, area: '',
+    dueDate: '', adoId: '', tags: 'tooling', blockedReason: '', blockedBy: '',
+    parentId: null, personalPriority: '', sortOrder: 5,
+    createdAt: '2026-03-30T10:00:00Z', updatedAt: '2026-04-02T10:00:00Z', completedAt: '2026-04-02T10:00:00Z',
+  },
+  {
+    id: 602, title: 'Draft 1:1 talking points', description: 'For manager sync on Wednesday',
+    status: 'todo', priority: 'P2', category: '', projectId: null, area: '',
+    dueDate: '2026-04-10', adoId: '', tags: '', blockedReason: '', blockedBy: '',
+    parentId: null, personalPriority: '', sortOrder: 6,
+    createdAt: '2026-04-07T08:00:00Z', updatedAt: '2026-04-07T08:00:00Z', completedAt: null,
+  },
+  {
+    id: 603, title: 'Expense report for conference travel', description: '',
+    status: 'in_progress', priority: 'P2', category: '', projectId: null, area: '',
+    dueDate: '2026-04-11', adoId: '', tags: 'admin', blockedReason: '', blockedBy: '',
+    parentId: null, personalPriority: '', sortOrder: 7,
+    createdAt: '2026-04-06T10:00:00Z', updatedAt: '2026-04-07T10:00:00Z', completedAt: null,
+  },
+
+  // ═══ ADO-imported (Scenario type) ═══
+  {
+    id: 700, title: 'E2E: User onboarding flow', description: 'Full scenario from signup to first task',
+    status: 'in_progress', priority: 'P1', category: '', projectId: 2, area: 'E2E',
+    dueDate: '2026-04-22', adoId: '90001', tags: 'e2e', blockedReason: '', blockedBy: '',
+    parentId: null, personalPriority: '', sortOrder: 0,
+    createdAt: '2026-04-01T10:00:00Z', updatedAt: '2026-04-07T10:00:00Z', completedAt: null,
+  },
+  {
+    id: 701, title: 'Setup test data seeding', description: '',
+    status: 'todo', priority: 'P2', category: '', projectId: 2, area: 'Testing',
+    dueDate: '', adoId: '90010', tags: 'test', blockedReason: '', blockedBy: '',
+    parentId: 700, personalPriority: '', sortOrder: 0,
+    createdAt: '2026-04-03T10:00:00Z', updatedAt: '2026-04-07T10:00:00Z', completedAt: null,
+  },
+  {
+    id: 702, title: 'Automate signup → dashboard flow', description: '',
+    status: 'in_progress', priority: 'P1', category: '', projectId: 2, area: 'E2E',
+    dueDate: '2026-04-16', adoId: '90011', tags: 'e2e', blockedReason: '', blockedBy: '',
+    parentId: 700, personalPriority: '', sortOrder: 1,
+    createdAt: '2026-04-04T10:00:00Z', updatedAt: '2026-04-07T10:00:00Z', completedAt: null,
+  },
+])
+
+const projectNames: Record<number, string> = { 1: 'Xbox Platform', 2: 'Dashboard', 3: 'Infrastructure' }
 const mockProjects = [
   { id: 1, name: 'Xbox Platform' },
   { id: 2, name: 'Dashboard' },
@@ -157,6 +331,8 @@ const taskDetails: Record<number, TaskDetail> = {
     subtasks: [
       { id: 101, title: 'Implement auth token refresh', status: 'in_progress', priority: 'P1', adoId: '50010', adoType: 'User Story', adoState: 'Active', assignedTo: 'Luis L.', syncStatus: 'synced', source: 'ado' },
       { id: 102, title: 'Add rate limiting middleware', status: 'todo', priority: 'P2', adoId: '', adoType: 'Task', adoState: 'New', assignedTo: '', syncStatus: 'synced', source: 'ado' },
+      { id: 105, title: 'Configure CORS policies for staging', status: 'todo', priority: 'P2', adoId: '50012', adoType: 'Task', adoState: 'New', assignedTo: 'Mike R.', syncStatus: 'not-pulled', source: 'ado' },
+      { id: 1001, title: 'Ask Mike about staging env access', status: 'todo', priority: 'P2', adoId: '', adoType: '', adoState: '', assignedTo: 'Luis L.', syncStatus: 'synced', source: 'personal' },
     ],
     prs: [],
     notes: [
@@ -170,6 +346,7 @@ const taskDetails: Record<number, TaskDetail> = {
       { id: 103, title: 'Write unit tests for auth module', status: 'done', priority: 'P1', adoId: '50011', adoType: 'Task', adoState: 'Closed', assignedTo: 'Luis L.', syncStatus: 'synced', source: 'ado' },
       { id: 104, title: 'Handle token expiry edge cases', status: 'in_progress', priority: 'P1', adoId: '', adoType: 'Task', adoState: 'Active', assignedTo: 'Sarah K.', syncStatus: 'pending', source: 'ado' },
       { id: 1010, title: 'Draft architecture diagram for team', status: 'todo', priority: 'P2', adoId: '', adoType: '', adoState: '', assignedTo: 'Luis L.', syncStatus: 'synced', source: 'personal' },
+      { id: 1011, title: 'Test SSO flow on staging with VPN', status: 'done', priority: 'P1', adoId: '', adoType: '', adoState: '', assignedTo: 'Luis L.', syncStatus: 'synced', source: 'personal' },
     ],
     prs: [
       { id: 100, title: 'feat: add Azure AD provider', prNumber: 342, repo: 'platform-api', status: 'active', sourceBranch: 'refs/heads/feat/auth-refresh' },
@@ -186,6 +363,9 @@ const taskDetails: Record<number, TaskDetail> = {
     subtasks: [
       { id: 201, title: 'Add stat cards row', status: 'done', priority: 'P2', adoId: '', adoType: 'Task', adoState: 'Closed', assignedTo: 'Luis L.', syncStatus: 'synced', source: 'ado' },
       { id: 202, title: 'Implement PR summary widget', status: 'blocked', priority: 'P1', adoId: '60010', adoType: 'Bug', adoState: 'Active', assignedTo: 'Mike R.', syncStatus: 'not-pulled', source: 'ado' },
+      { id: 203, title: 'Build activity feed component', status: 'in_progress', priority: 'P2', adoId: '60011', adoType: 'Task', adoState: 'Active', assignedTo: 'Luis L.', syncStatus: 'synced', source: 'ado' },
+      { id: 204, title: 'Add dark mode toggle persistence', status: 'todo', priority: 'P3', adoId: '60012', adoType: 'Task', adoState: 'New', assignedTo: '', syncStatus: 'synced', source: 'ado' },
+      { id: 2001, title: 'Sketch wireframe for new layout', status: 'done', priority: 'P2', adoId: '', adoType: '', adoState: '', assignedTo: 'Luis L.', syncStatus: 'synced', source: 'personal' },
     ],
     prs: [
       { id: 200, title: 'feat: dashboard stat cards', prNumber: 350, repo: 'xb-tasks', status: 'completed', sourceBranch: 'refs/heads/fix/dashboard-perf' },
@@ -197,10 +377,57 @@ const taskDetails: Record<number, TaskDetail> = {
   },
   300: {
     description: 'Pipeline times out on large repos. Investigate runner config and caching strategy.',
-    subtasks: [],
+    subtasks: [
+      { id: 3001, title: 'Check npm cache restore step', status: 'todo', priority: 'P1', adoId: '', adoType: '', adoState: '', assignedTo: '', syncStatus: 'synced', source: 'personal' },
+      { id: 3002, title: 'Test with --max-old-space-size=4096', status: 'todo', priority: 'P2', adoId: '', adoType: '', adoState: '', assignedTo: '', syncStatus: 'synced', source: 'personal' },
+    ],
     prs: [],
     notes: [
       { id: 5, text: 'Could be related to the npm cache not being restored correctly.', timestamp: '2026-04-07T14:00:00Z' },
+    ],
+    dirtyFields: [],
+  },
+  400: {
+    description: '<p>Q2 reliability sprint: health checks, memory leak fixes, metrics, and alerting.</p>',
+    subtasks: [
+      { id: 401, title: 'Implement health check endpoints', status: 'in_progress', priority: 'P1', adoId: '70010', adoType: 'User Story', adoState: 'Active', assignedTo: 'Luis L.', syncStatus: 'synced', source: 'ado' },
+      { id: 402, title: 'Fix memory leak in sync worker', status: 'todo', priority: 'P0', adoId: '70011', adoType: 'Bug', adoState: 'New', assignedTo: 'Sarah K.', syncStatus: 'pending', source: 'ado' },
+      { id: 403, title: 'Add Prometheus metrics exporter', status: 'done', priority: 'P2', adoId: '70012', adoType: 'Task', adoState: 'Resolved', assignedTo: 'Luis L.', syncStatus: 'synced', source: 'ado' },
+      { id: 404, title: 'Configure alerting rules', status: 'in_progress', priority: 'P1', adoId: '70013', adoType: 'Task', adoState: 'Active', assignedTo: 'Dana W.', syncStatus: 'synced', source: 'ado' },
+      { id: 4001, title: 'Read Prometheus docs on histogram buckets', status: 'done', priority: 'P3', adoId: '', adoType: '', adoState: '', assignedTo: 'Luis L.', syncStatus: 'synced', source: 'personal' },
+    ],
+    prs: [
+      { id: 400, title: 'feat: health check endpoints', prNumber: 360, repo: 'platform-api', status: 'active', sourceBranch: 'refs/heads/feat/health-checks' },
+      { id: 401, title: 'feat: prometheus metrics', prNumber: 358, repo: 'platform-api', status: 'completed', sourceBranch: 'refs/heads/feat/metrics' },
+    ],
+    notes: [
+      { id: 6, text: 'Memory leak suspected in goroutine pool — investigate with pprof.', timestamp: '2026-04-06T11:00:00Z' },
+      { id: 7, text: 'PagerDuty integration requires admin approval. Ticket filed.', timestamp: '2026-04-05T09:00:00Z' },
+    ],
+    dirtyFields: [],
+  },
+  500: {
+    description: '<p>Plan the API v2 migration. Identify breaking changes, deprecate old endpoints, build migration guide.</p>',
+    subtasks: [
+      { id: 501, title: 'Audit deprecated endpoints', status: 'todo', priority: 'P2', adoId: '80010', adoType: 'Task', adoState: 'New', assignedTo: '', syncStatus: 'synced', source: 'ado' },
+      { id: 502, title: 'Fix pagination offset bug', status: 'done', priority: 'P1', adoId: '80011', adoType: 'Bug', adoState: 'Resolved', assignedTo: 'Luis L.', syncStatus: 'synced', source: 'ado' },
+    ],
+    prs: [
+      { id: 500, title: 'fix: pagination off-by-one', prNumber: 355, repo: 'platform-api', status: 'completed', sourceBranch: 'refs/heads/fix/pagination' },
+    ],
+    notes: [],
+    dirtyFields: [],
+  },
+  700: {
+    description: 'End-to-end scenario: new user signs up, goes through onboarding, creates first task, sees dashboard.',
+    subtasks: [
+      { id: 701, title: 'Setup test data seeding', status: 'todo', priority: 'P2', adoId: '90010', adoType: 'Task', adoState: 'New', assignedTo: '', syncStatus: 'synced', source: 'ado' },
+      { id: 702, title: 'Automate signup → dashboard flow', status: 'in_progress', priority: 'P1', adoId: '90011', adoType: 'Task', adoState: 'Active', assignedTo: 'Luis L.', syncStatus: 'pending', source: 'ado' },
+      { id: 7001, title: 'Record demo video of happy path', status: 'todo', priority: 'P3', adoId: '', adoType: '', adoState: '', assignedTo: 'Luis L.', syncStatus: 'synced', source: 'personal' },
+    ],
+    prs: [],
+    notes: [
+      { id: 8, text: 'Playwright tests need auth bypass for CI. Use test cookie approach.', timestamp: '2026-04-07T16:00:00Z' },
     ],
     dirtyFields: [],
   },
@@ -236,7 +463,7 @@ function pipelineColor(p: MockPipeline) {
 // ── Tree helpers ──
 const childrenOf = computed(() => {
   const map: Record<number, Task[]> = {}
-  for (const t of mockTasks) {
+  for (const t of mockTasks.value) {
     if (t.parentId) {
       if (!map[t.parentId]) map[t.parentId] = []
       map[t.parentId].push(t)
@@ -244,7 +471,7 @@ const childrenOf = computed(() => {
   }
   return map
 })
-const rootTasks = computed(() => mockTasks.filter(t => !t.parentId))
+const allRootTasks = computed(() => mockTasks.value.filter(t => !t.parentId))
 function getChildren(id: number): Task[] { return childrenOf.value[id] || [] }
 function hasChildren(id: number): boolean { return (childrenOf.value[id]?.length ?? 0) > 0 }
 function subtaskProgress(id: number) {
@@ -254,20 +481,97 @@ function subtaskProgress(id: number) {
   return { done, total: ch.length, pct: Math.round((done / ch.length) * 100) }
 }
 
-const expandedNodes = ref<Set<number>>(new Set([100, 101, 200]))
+const expandedNodes = ref<Set<number>>(new Set([100, 101, 200, 400]))
 function toggleExpand(id: number) {
   if (expandedNodes.value.has(id)) expandedNodes.value.delete(id)
   else expandedNodes.value.add(id)
 }
 
+// ── Task list view mode & filter ──
+const listViewMode = ref<'tree' | 'flat'>('tree')
+const taskListFilter = ref<'all' | 'ado' | 'personal'>('all')
+
+function isAdoTask(t: Task): boolean { return !!t.adoId }
+function isPersonalTask(task: Task): boolean { return !task.adoId && !task.projectId }
+function hasAdoLink(t: Task): boolean { return !!t.adoId || !!t.projectId }
+
+// Filter all tasks (for flat view) — includes everything, filtered
+const filteredAllTasks = computed(() => {
+  const all = mockTasks.value
+  switch (taskListFilter.value) {
+    case 'ado': return all.filter(t => hasAdoLink(t))
+    case 'personal': return all.filter(t => isPersonalTask(t))
+    default: return all
+  }
+})
+
+// Filter root tasks (for tree view) — filter roots, children shown naturally
+const filteredRootTasks = computed(() => {
+  const roots = allRootTasks.value
+  switch (taskListFilter.value) {
+    case 'ado': return roots.filter(t => hasAdoLink(t))
+    case 'personal': return roots.filter(t => isPersonalTask(t))
+    default: return roots
+  }
+})
+
+function cycleTaskListFilter() {
+  const order: Array<'all' | 'ado' | 'personal'> = ['all', 'ado', 'personal']
+  const idx = order.indexOf(taskListFilter.value)
+  taskListFilter.value = order[(idx + 1) % order.length]
+}
+
+const taskListFilterLabel = computed(() => {
+  switch (taskListFilter.value) {
+    case 'ado': return 'ADO'
+    case 'personal': return 'Personal'
+    default: return 'All'
+  }
+})
+
+const taskListCount = computed(() => {
+  if (listViewMode.value === 'tree') {
+    return `${filteredRootTasks.value.length} roots · ${filteredAllTasks.value.length} tasks`
+  }
+  return `${filteredAllTasks.value.length} tasks`
+})
+
+// ── Quick-add task in list ──
+const addingTaskInList = ref(false)
+const newTaskTitle = ref('')
+const newTaskInputRef = ref<HTMLInputElement | null>(null)
+
+function startAddTask() {
+  addingTaskInList.value = true
+  newTaskTitle.value = ''
+  nextTick(() => newTaskInputRef.value?.focus())
+}
+
+function confirmAddTask() {
+  if (!newTaskTitle.value.trim()) return
+  const id = Date.now()
+  mockTasks.value.push({
+    id, title: newTaskTitle.value.trim(), description: '',
+    status: 'todo', priority: 'P2', category: '', projectId: null, area: '',
+    dueDate: '', adoId: '', tags: '', blockedReason: '', blockedBy: '',
+    parentId: null, personalPriority: '', sortOrder: mockTasks.value.length,
+    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), completedAt: null,
+  })
+  // Create empty detail entry
+  taskDetails[id] = { description: '', subtasks: [], prs: [], notes: [], dirtyFields: [] }
+  selectedId.value = id
+  showDetail.value = true
+  addingTaskInList.value = false
+  newTaskTitle.value = ''
+}
+
 // ── Selection ──
 const selectedId = ref<number>(101)
-const selectedTask = computed(() => mockTasks.find(t => t.id === selectedId.value)!)
+const selectedTask = computed(() => mockTasks.value.find(t => t.id === selectedId.value)!)
 const detail = computed(() => taskDetails[selectedId.value] || emptyDetail)
 
 // ── Detail helpers ──
 function meta(id: number): AdoMeta { return adoMeta[id] || { type: '', state: '', adoId: '' } }
-function isPersonalTask(task: Task): boolean { return !task.adoId && !task.projectId }
 
 function adoNumber(adoId: string): string {
   if (!adoId) return ''
@@ -384,216 +688,311 @@ const showDetail = ref(true)
       <span class="text-sm font-semibold">Playground: Integrated Task View</span>
       <Badge variant="secondary" class="text-[9px] h-4">Phase 8</Badge>
       <div class="flex-1" />
+      <div class="flex gap-1">
+        <Button :variant="listViewMode === 'tree' ? 'default' : 'outline'" size="sm" class="h-7 text-[10px] gap-1" @click="listViewMode = 'tree'">
+          <GitBranch :size="12" /> Tree
+        </Button>
+        <Button :variant="listViewMode === 'flat' ? 'default' : 'outline'" size="sm" class="h-7 text-[10px] gap-1" @click="listViewMode = 'flat'">
+          <List :size="12" /> Flat
+        </Button>
+      </div>
+      <span class="w-px h-5 bg-border" />
       <Button variant="outline" size="sm" class="h-7 text-xs" @click="showDetail = !showDetail">
         {{ showDetail ? 'Hide Detail' : 'Show Detail' }}
       </Button>
-      <Button variant="outline" size="sm" class="h-7 text-xs" @click="expandedNodes = new Set(mockTasks.map(t => t.id))">Expand All</Button>
-      <Button variant="outline" size="sm" class="h-7 text-xs" @click="expandedNodes = new Set()">Collapse All</Button>
+      <template v-if="listViewMode === 'tree'">
+        <Button variant="outline" size="sm" class="h-7 text-xs" @click="expandedNodes = new Set(mockTasks.map(t => t.id))">Expand All</Button>
+        <Button variant="outline" size="sm" class="h-7 text-xs" @click="expandedNodes = new Set()">Collapse All</Button>
+      </template>
     </div>
 
     <div class="flex-1 flex min-h-0">
-      <!-- ═══════ LEFT: ADO-styled task tree ═══════ -->
+      <!-- ═══════ LEFT: Task list ═══════ -->
       <div class="flex flex-col min-h-0 border-r border-border" :class="showDetail ? 'w-[420px] shrink-0' : 'flex-1'">
-        <div class="px-4 py-2 border-b border-border/50 text-xs font-semibold text-muted-foreground">
-          Task List ({{ rootTasks.length }} roots · {{ mockTasks.length }} total)
+        <!-- List header with filter + add -->
+        <div class="px-3 py-2 border-b border-border/50 flex items-center gap-2">
+          <span class="text-xs font-semibold text-muted-foreground flex-1">{{ taskListCount }}</span>
+          <button
+            class="text-[10px] flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors"
+            :class="taskListFilter !== 'all' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:text-foreground'"
+            @click="cycleTaskListFilter"
+            :title="`Filter: ${taskListFilter}`"
+          >
+            <component :is="taskListFilter === 'personal' ? User : taskListFilter === 'ado' ? Lock : ListChecks" :size="10" />
+            {{ taskListFilterLabel }}
+          </button>
+          <button class="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-muted" @click="startAddTask">
+            <Plus :size="11" /> Add
+          </button>
         </div>
+
         <ScrollArea class="flex-1 min-h-0">
-          <template v-for="task in rootTasks" :key="task.id">
-            <!-- Root node -->
-            <div
-              class="group cursor-pointer hover:bg-muted/50 transition-colors"
-              :class="selectedId === task.id ? 'bg-primary/5 border-l-2 border-l-primary' : 'border-l-2 border-l-transparent'"
-              @click="selectedId = task.id; showDetail = true"
-            >
-              <!-- Row 1: chevron + type icon + title + badges -->
-              <div class="flex items-center gap-2 px-3 pt-2.5 pb-0.5">
-                <button
-                  v-if="hasChildren(task.id)"
-                  class="shrink-0 p-0.5 hover:bg-muted rounded"
-                  @click.stop="toggleExpand(task.id)"
-                >
-                  <component :is="expandedNodes.has(task.id) ? ChevronDown : ChevronRight" :size="14" class="text-muted-foreground" />
-                </button>
-                <span v-else class="w-5 shrink-0" />
-
-                <component
-                  v-if="meta(task.id).type"
-                  :is="adoTypeIcon(meta(task.id).type)"
-                  :size="15"
-                  :class="adoTypeColor(meta(task.id).type)"
-                  class="shrink-0"
-                />
-                <User v-else-if="isPersonalTask(task)" :size="14" class="text-muted-foreground/60 shrink-0" />
-                <component v-else :is="statusIcon(task.status)" :size="15" :class="statusColor(task.status)" class="shrink-0" />
-
-                <span
-                  class="text-sm truncate flex-1 min-w-0"
-                  :class="[
-                    task.status === 'done' ? 'line-through text-muted-foreground' : 'text-foreground',
-                    hasChildren(task.id) ? 'font-medium' : '',
-                  ]"
-                >
-                  {{ task.title }}
-                </span>
-
-                <Badge variant="outline" class="text-[10px] h-4 px-1.5 shrink-0"
-                  :class="meta(task.id).state ? adoStateClasses(meta(task.id).state) : statusClasses(task.status)"
-                >
-                  {{ meta(task.id).state || statusLabel(task.status) }}
-                </Badge>
-
-                <template v-if="subtaskProgress(task.id)">
-                  <span class="text-[10px] text-muted-foreground tabular-nums shrink-0">
-                    {{ subtaskProgress(task.id)!.done }}/{{ subtaskProgress(task.id)!.total }}
-                  </span>
-                  <div class="w-12 h-1 bg-muted rounded-full overflow-hidden shrink-0">
-                    <div class="h-full bg-green-500 rounded-full transition-all" :style="{ width: subtaskProgress(task.id)!.pct + '%' }" />
-                  </div>
-                </template>
-              </div>
-
-              <!-- Row 2: metadata -->
-              <div class="flex items-center gap-2 pb-2 text-[11px]" :style="{ paddingLeft: '68px', paddingRight: '12px' }">
-                <span v-if="meta(task.id).adoId" class="text-muted-foreground/50 tabular-nums">{{ adoNumber(meta(task.id).adoId) }}</span>
-                <Badge v-if="isPersonalTask(task)" variant="outline" class="text-[9px] h-3.5 px-1 border-dashed text-muted-foreground/60">
-                  <User :size="8" class="mr-0.5" /> Personal
-                </Badge>
-                <span v-if="task.projectId && projectNames[task.projectId]" class="text-muted-foreground/40 truncate">
-                  {{ projectNames[task.projectId] }}
-                </span>
-                <span v-if="task.area" class="text-muted-foreground/30">{{ task.area }}</span>
-                <div class="flex-1" />
-                <span
-                  v-if="task.dueDate"
-                  class="inline-flex items-center gap-0.5 text-[10px] shrink-0"
-                  :class="new Date(task.dueDate) < new Date() ? 'text-red-500' : 'text-muted-foreground/50'"
-                >
-                  <CalendarDays :size="10" />
-                  {{ task.dueDate }}
-                </span>
-                <PriorityBadge :priority="task.priority" />
-              </div>
-
-              <!-- Blocked banner -->
+          <!-- ════ TREE VIEW ════ -->
+          <template v-if="listViewMode === 'tree'">
+            <template v-for="task in filteredRootTasks" :key="task.id">
+              <!-- Root node -->
               <div
-                v-if="task.status === 'blocked' && task.blockedReason"
-                class="pb-2 text-[10px] text-red-500/80 truncate"
-                :style="{ paddingLeft: '68px', paddingRight: '12px' }"
+                class="group cursor-pointer hover:bg-muted/50 transition-colors"
+                :class="selectedId === task.id ? 'bg-primary/5 border-l-2 border-l-primary' : 'border-l-2 border-l-transparent'"
+                @click="selectedId = task.id; showDetail = true"
               >
-                ⚠ {{ task.blockedReason }}
-              </div>
-            </div>
-
-            <!-- Children (level 1) -->
-            <template v-if="expandedNodes.has(task.id)">
-              <template v-for="child in getChildren(task.id)" :key="child.id">
-                <div
-                  class="group cursor-pointer hover:bg-muted/50 transition-colors border-l-2"
-                  :class="selectedId === child.id ? 'bg-primary/5 border-l-primary' : 'border-l-muted-foreground/10'"
-                  @click="selectedId = child.id; showDetail = true"
-                >
-                  <div class="flex items-center gap-2 pt-2 pb-0.5" :style="{ paddingLeft: '36px', paddingRight: '12px' }">
-                    <button
-                      v-if="hasChildren(child.id)"
-                      class="shrink-0 p-0.5 hover:bg-muted rounded"
-                      @click.stop="toggleExpand(child.id)"
-                    >
-                      <component :is="expandedNodes.has(child.id) ? ChevronDown : ChevronRight" :size="14" class="text-muted-foreground" />
-                    </button>
-                    <span v-else class="w-5 shrink-0" />
-
-                    <component
-                      v-if="meta(child.id).type"
-                      :is="adoTypeIcon(meta(child.id).type)"
-                      :size="14"
-                      :class="adoTypeColor(meta(child.id).type)"
-                      class="shrink-0"
-                    />
-                    <User v-else-if="isPersonalTask(child)" :size="13" class="text-muted-foreground/60 shrink-0" />
-                    <component v-else :is="statusIcon(child.status)" :size="14" :class="statusColor(child.status)" class="shrink-0" />
-
-                    <span class="text-sm truncate flex-1 min-w-0" :class="child.status === 'done' ? 'line-through text-muted-foreground' : 'text-foreground'">
-                      {{ child.title }}
-                    </span>
-
-                    <Badge variant="outline" class="text-[10px] h-4 px-1.5 shrink-0"
-                      :class="meta(child.id).state ? adoStateClasses(meta(child.id).state) : statusClasses(child.status)"
-                    >
-                      {{ meta(child.id).state || statusLabel(child.status) }}
-                    </Badge>
-
-                    <template v-if="subtaskProgress(child.id)">
-                      <span class="text-[10px] text-muted-foreground tabular-nums shrink-0">
-                        {{ subtaskProgress(child.id)!.done }}/{{ subtaskProgress(child.id)!.total }}
-                      </span>
-                    </template>
-                  </div>
-
-                  <div class="flex items-center gap-2 pb-1.5 text-[10px]" :style="{ paddingLeft: '80px', paddingRight: '12px' }">
-                    <span v-if="meta(child.id).adoId" class="text-muted-foreground/50 tabular-nums">{{ adoNumber(meta(child.id).adoId) }}</span>
-                    <Badge v-if="isPersonalTask(child)" variant="outline" class="text-[9px] h-3.5 px-1 border-dashed text-muted-foreground/60">
-                      <User :size="8" class="mr-0.5" /> Personal
-                    </Badge>
-                    <span v-if="child.area" class="text-muted-foreground/30">{{ child.area }}</span>
-                    <div class="flex-1" />
-                    <span
-                      v-if="child.dueDate"
-                      class="inline-flex items-center gap-0.5 text-[10px] shrink-0"
-                      :class="new Date(child.dueDate) < new Date() ? 'text-red-500' : 'text-muted-foreground/50'"
-                    >
-                      <CalendarDays :size="9" />
-                      {{ child.dueDate }}
-                    </span>
-                    <PriorityBadge :priority="child.priority" />
-                  </div>
-
-                  <div
-                    v-if="child.status === 'blocked' && child.blockedReason"
-                    class="pb-1.5 text-[10px] text-red-500/80 truncate"
-                    :style="{ paddingLeft: '80px', paddingRight: '12px' }"
+                <!-- Row 1: chevron + status + type icon + title + badges -->
+                <div class="flex items-center gap-2 px-3 pt-2.5 pb-0.5">
+                  <button
+                    v-if="hasChildren(task.id)"
+                    class="shrink-0 p-0.5 hover:bg-muted rounded"
+                    @click.stop="toggleExpand(task.id)"
                   >
-                    ⚠ {{ child.blockedReason }}
-                  </div>
+                    <component :is="expandedNodes.has(task.id) ? ChevronDown : ChevronRight" :size="14" class="text-muted-foreground" />
+                  </button>
+                  <span v-else class="w-5 shrink-0" />
+
+                  <!-- Status icon -->
+                  <button class="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full" :class="statusColor(task.status)">
+                    <component :is="statusIcon(task.status)" :size="16" :stroke-width="1.75" />
+                  </button>
+
+                  <!-- Type icon (ADO type or personal indicator) -->
+                  <component
+                    v-if="meta(task.id).type"
+                    :is="adoTypeIcon(meta(task.id).type)"
+                    :size="14"
+                    :class="adoTypeColor(meta(task.id).type)"
+                    class="shrink-0 -ml-1"
+                  />
+                  <User v-else-if="isPersonalTask(task)" :size="12" class="text-muted-foreground/40 shrink-0 -ml-1" />
+
+                  <span
+                    class="text-sm truncate flex-1 min-w-0"
+                    :class="[
+                      task.status === 'done' ? 'line-through text-muted-foreground' : 'text-foreground',
+                      hasChildren(task.id) ? 'font-medium' : '',
+                    ]"
+                  >
+                    {{ task.title }}
+                  </span>
+
+                  <Badge variant="outline" class="text-[10px] h-4 px-1.5 shrink-0"
+                    :class="meta(task.id).state ? adoStateClasses(meta(task.id).state) : statusClasses(task.status)"
+                  >
+                    {{ meta(task.id).state || statusLabel(task.status) }}
+                  </Badge>
+
+                  <template v-if="subtaskProgress(task.id)">
+                    <span class="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                      {{ subtaskProgress(task.id)!.done }}/{{ subtaskProgress(task.id)!.total }}
+                    </span>
+                    <div class="w-12 h-1 bg-muted rounded-full overflow-hidden shrink-0">
+                      <div class="h-full bg-green-500 rounded-full transition-all" :style="{ width: subtaskProgress(task.id)!.pct + '%' }" />
+                    </div>
+                  </template>
                 </div>
 
-                <!-- Grandchildren (level 2) -->
-                <template v-if="expandedNodes.has(child.id)">
-                  <div
-                    v-for="gc in getChildren(child.id)"
-                    :key="gc.id"
-                    class="group flex items-center gap-2 py-1.5 cursor-pointer hover:bg-muted/50 transition-colors border-l-2"
-                    :class="selectedId === gc.id ? 'bg-primary/5 border-l-primary' : 'border-l-muted-foreground/5'"
-                    :style="{ paddingLeft: '60px', paddingRight: '12px' }"
-                    @click="selectedId = gc.id; showDetail = true"
+                <!-- Row 2: metadata -->
+                <div class="flex items-center gap-2 pb-2 text-[11px]" :style="{ paddingLeft: '68px', paddingRight: '12px' }">
+                  <span v-if="meta(task.id).adoId" class="text-muted-foreground/50 tabular-nums">{{ adoNumber(meta(task.id).adoId) }}</span>
+                  <Badge v-if="isPersonalTask(task)" variant="outline" class="text-[9px] h-3.5 px-1 border-dashed text-muted-foreground/60">
+                    <User :size="8" class="mr-0.5" /> Personal
+                  </Badge>
+                  <span v-if="task.projectId && projectNames[task.projectId]" class="text-muted-foreground/40 truncate">
+                    {{ projectNames[task.projectId] }}
+                  </span>
+                  <span v-if="task.area" class="text-muted-foreground/30">{{ task.area }}</span>
+                  <div class="flex-1" />
+                  <span
+                    v-if="task.dueDate"
+                    class="inline-flex items-center gap-0.5 text-[10px] shrink-0"
+                    :class="new Date(task.dueDate) < new Date() ? 'text-red-500' : 'text-muted-foreground/50'"
                   >
-                    <span class="w-5 shrink-0" />
-                    <component
-                      v-if="meta(gc.id).type"
-                      :is="adoTypeIcon(meta(gc.id).type)"
-                      :size="12"
-                      :class="adoTypeColor(meta(gc.id).type)"
-                      class="shrink-0"
-                    />
-                    <User v-else-if="isPersonalTask(gc)" :size="12" class="text-muted-foreground/60 shrink-0" />
-                    <component v-else :is="statusIcon(gc.status)" :size="12" :class="statusColor(gc.status)" class="shrink-0" />
+                    <CalendarDays :size="10" />
+                    {{ task.dueDate }}
+                  </span>
+                  <PriorityBadge :priority="task.priority" />
+                </div>
 
-                    <span class="text-xs truncate flex-1 min-w-0" :class="gc.status === 'done' ? 'line-through text-muted-foreground' : 'text-foreground'">
-                      {{ gc.title }}
-                    </span>
+                <!-- Blocked banner -->
+                <div
+                  v-if="task.status === 'blocked' && task.blockedReason"
+                  class="pb-2 text-[10px] text-red-500/80 truncate"
+                  :style="{ paddingLeft: '68px', paddingRight: '12px' }"
+                >
+                  ⚠ {{ task.blockedReason }}
+                </div>
+              </div>
 
-                    <Badge variant="outline" class="text-[9px] h-3.5 px-1 shrink-0"
-                      :class="meta(gc.id).state ? adoStateClasses(meta(gc.id).state) : statusClasses(gc.status)"
+              <!-- Children (level 1) -->
+              <template v-if="expandedNodes.has(task.id)">
+                <template v-for="child in getChildren(task.id)" :key="child.id">
+                  <div
+                    class="group cursor-pointer hover:bg-muted/50 transition-colors border-l-2"
+                    :class="selectedId === child.id ? 'bg-primary/5 border-l-primary' : 'border-l-muted-foreground/10'"
+                    @click="selectedId = child.id; showDetail = true"
+                  >
+                    <div class="flex items-center gap-2 pt-2 pb-0.5" :style="{ paddingLeft: '36px', paddingRight: '12px' }">
+                      <button
+                        v-if="hasChildren(child.id)"
+                        class="shrink-0 p-0.5 hover:bg-muted rounded"
+                        @click.stop="toggleExpand(child.id)"
+                      >
+                        <component :is="expandedNodes.has(child.id) ? ChevronDown : ChevronRight" :size="14" class="text-muted-foreground" />
+                      </button>
+                      <span v-else class="w-5 shrink-0" />
+
+                      <button class="flex-shrink-0 w-4 h-4 flex items-center justify-center rounded-full" :class="statusColor(child.status)">
+                        <component :is="statusIcon(child.status)" :size="14" :stroke-width="1.75" />
+                      </button>
+
+                      <component
+                        v-if="meta(child.id).type"
+                        :is="adoTypeIcon(meta(child.id).type)"
+                        :size="13"
+                        :class="adoTypeColor(meta(child.id).type)"
+                        class="shrink-0 -ml-1"
+                      />
+                      <User v-else-if="isPersonalTask(child)" :size="11" class="text-muted-foreground/40 shrink-0 -ml-1" />
+
+                      <span class="text-sm truncate flex-1 min-w-0" :class="child.status === 'done' ? 'line-through text-muted-foreground' : 'text-foreground'">
+                        {{ child.title }}
+                      </span>
+
+                      <Badge variant="outline" class="text-[10px] h-4 px-1.5 shrink-0"
+                        :class="meta(child.id).state ? adoStateClasses(meta(child.id).state) : statusClasses(child.status)"
+                      >
+                        {{ meta(child.id).state || statusLabel(child.status) }}
+                      </Badge>
+
+                      <template v-if="subtaskProgress(child.id)">
+                        <span class="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                          {{ subtaskProgress(child.id)!.done }}/{{ subtaskProgress(child.id)!.total }}
+                        </span>
+                      </template>
+                    </div>
+
+                    <div class="flex items-center gap-2 pb-1.5 text-[10px]" :style="{ paddingLeft: '80px', paddingRight: '12px' }">
+                      <span v-if="meta(child.id).adoId" class="text-muted-foreground/50 tabular-nums">{{ adoNumber(meta(child.id).adoId) }}</span>
+                      <Badge v-if="isPersonalTask(child)" variant="outline" class="text-[9px] h-3.5 px-1 border-dashed text-muted-foreground/60">
+                        <User :size="8" class="mr-0.5" /> Personal
+                      </Badge>
+                      <span v-if="child.area" class="text-muted-foreground/30">{{ child.area }}</span>
+                      <div class="flex-1" />
+                      <span
+                        v-if="child.dueDate"
+                        class="inline-flex items-center gap-0.5 text-[10px] shrink-0"
+                        :class="new Date(child.dueDate) < new Date() ? 'text-red-500' : 'text-muted-foreground/50'"
+                      >
+                        <CalendarDays :size="9" />
+                        {{ child.dueDate }}
+                      </span>
+                      <PriorityBadge :priority="child.priority" />
+                    </div>
+
+                    <div
+                      v-if="child.status === 'blocked' && child.blockedReason"
+                      class="pb-1.5 text-[10px] text-red-500/80 truncate"
+                      :style="{ paddingLeft: '80px', paddingRight: '12px' }"
                     >
-                      {{ meta(gc.id).state || statusLabel(gc.status) }}
-                    </Badge>
-                    <span v-if="meta(gc.id).adoId" class="text-[9px] text-muted-foreground/40 tabular-nums shrink-0">
-                      {{ adoNumber(meta(gc.id).adoId) }}
-                    </span>
+                      ⚠ {{ child.blockedReason }}
+                    </div>
                   </div>
+
+                  <!-- Grandchildren (level 2) -->
+                  <template v-if="expandedNodes.has(child.id)">
+                    <div
+                      v-for="gc in getChildren(child.id)"
+                      :key="gc.id"
+                      class="group flex items-center gap-2 py-1.5 cursor-pointer hover:bg-muted/50 transition-colors border-l-2"
+                      :class="selectedId === gc.id ? 'bg-primary/5 border-l-primary' : 'border-l-muted-foreground/5'"
+                      :style="{ paddingLeft: '60px', paddingRight: '12px' }"
+                      @click="selectedId = gc.id; showDetail = true"
+                    >
+                      <span class="w-5 shrink-0" />
+
+                      <button class="flex-shrink-0 w-3.5 h-3.5 flex items-center justify-center rounded-full" :class="statusColor(gc.status)">
+                        <component :is="statusIcon(gc.status)" :size="12" :stroke-width="1.75" />
+                      </button>
+
+                      <component
+                        v-if="meta(gc.id).type"
+                        :is="adoTypeIcon(meta(gc.id).type)"
+                        :size="11"
+                        :class="adoTypeColor(meta(gc.id).type)"
+                        class="shrink-0 -ml-1"
+                      />
+
+                      <span class="text-xs truncate flex-1 min-w-0" :class="gc.status === 'done' ? 'line-through text-muted-foreground' : 'text-foreground'">
+                        {{ gc.title }}
+                      </span>
+
+                      <Badge variant="outline" class="text-[9px] h-3.5 px-1 shrink-0"
+                        :class="meta(gc.id).state ? adoStateClasses(meta(gc.id).state) : statusClasses(gc.status)"
+                      >
+                        {{ meta(gc.id).state || statusLabel(gc.status) }}
+                      </Badge>
+                      <span v-if="meta(gc.id).adoId" class="text-[9px] text-muted-foreground/40 tabular-nums shrink-0">
+                        {{ adoNumber(meta(gc.id).adoId) }}
+                      </span>
+                    </div>
+                  </template>
                 </template>
               </template>
             </template>
           </template>
+
+          <!-- ════ FLAT VIEW ════ -->
+          <template v-else>
+            <div
+              v-for="task in filteredAllTasks"
+              :key="task.id"
+              class="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-muted/50 transition-colors border-b border-border/20"
+              :class="selectedId === task.id && 'bg-primary/5'"
+              @click="selectedId = task.id; showDetail = true"
+            >
+              <button class="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full" :class="statusColor(task.status)">
+                <component :is="statusIcon(task.status)" :size="16" :stroke-width="1.75" />
+              </button>
+
+              <component
+                v-if="meta(task.id).type"
+                :is="adoTypeIcon(meta(task.id).type)"
+                :size="13"
+                :class="adoTypeColor(meta(task.id).type)"
+                class="shrink-0 -ml-1"
+              />
+              <User v-else-if="isPersonalTask(task)" :size="12" class="text-muted-foreground/40 shrink-0 -ml-1" />
+
+              <span class="text-sm truncate flex-1" :class="task.status === 'done' ? 'line-through text-muted-foreground' : ''">
+                {{ task.title }}
+              </span>
+
+              <Badge v-if="task.adoId" variant="outline" class="text-[9px] h-4 px-1 text-blue-500 border-blue-500/30 shrink-0">
+                {{ adoNumber(task.adoId) }}
+              </Badge>
+              <Badge v-else-if="isPersonalTask(task)" variant="outline" class="text-[9px] h-4 px-1 border-dashed text-muted-foreground/50 shrink-0">
+                <User :size="8" class="mr-0.5" /> Personal
+              </Badge>
+              <Badge variant="outline" class="text-[10px] h-4 px-1.5 shrink-0"
+                :class="meta(task.id).state ? adoStateClasses(meta(task.id).state) : statusClasses(task.status)"
+              >
+                {{ meta(task.id).state || statusLabel(task.status) }}
+              </Badge>
+              <PriorityBadge :priority="task.priority" />
+            </div>
+          </template>
+
+          <!-- Quick-add task input at bottom of list -->
+          <div v-if="addingTaskInList" class="flex items-center gap-2 px-3 py-2 border-t border-border/30">
+            <Circle :size="16" class="text-zinc-400 shrink-0" />
+            <input
+              ref="newTaskInputRef"
+              v-model="newTaskTitle"
+              placeholder="New task title… (Enter to add, Esc to cancel)"
+              class="flex-1 text-sm bg-transparent border-none outline-none placeholder:text-muted-foreground/40"
+              @keydown.enter="confirmAddTask"
+              @keydown.escape="addingTaskInList = false"
+            />
+            <Button variant="outline" size="sm" class="h-7 px-2 text-[10px] shrink-0" @click="confirmAddTask" :disabled="!newTaskTitle.trim()">Add</Button>
+            <Button variant="ghost" size="sm" class="h-7 px-1.5 text-[10px]" @click="addingTaskInList = false">Cancel</Button>
+          </div>
         </ScrollArea>
       </div>
 
@@ -704,14 +1103,15 @@ const showDetail = ref(true)
             <div class="flex flex-col">
 
               <!-- Subtasks -->
-              <div v-if="detail.subtasks.length > 0 || addingSubtask" class="border-b border-border px-4 py-2">
+              <div class="border-b border-border px-4 py-2">
                 <div class="flex items-center justify-between mb-1.5">
                   <div class="flex items-center gap-2">
                     <h3 class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Subtasks</h3>
-                    <Badge variant="secondary" class="h-4 text-[10px] px-1.5">{{ detailSubtaskProgress.done }}/{{ detailSubtaskProgress.total }}</Badge>
+                    <Badge v-if="detail.subtasks.length > 0" variant="secondary" class="h-4 text-[10px] px-1.5">{{ detailSubtaskProgress.done }}/{{ detailSubtaskProgress.total }}</Badge>
                   </div>
                   <div class="flex items-center gap-2">
                     <button
+                      v-if="detail.subtasks.length > 0"
                       class="text-[10px] flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors"
                       :class="subtaskFilter !== 'all' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:text-foreground'"
                       @click="cycleSubtaskFilter"
@@ -817,7 +1217,7 @@ const showDetail = ref(true)
                   <Button variant="ghost" size="sm" class="h-7 px-1.5 text-[10px]" @click="addingSubtask = false">Cancel</Button>
                 </div>
                 <p v-if="filteredSubtasks.length === 0 && !addingSubtask" class="text-[11px] text-muted-foreground/40 italic py-2 text-center">
-                  {{ subtaskFilter === 'mine' ? 'No subtasks assigned to you' : subtaskFilter === 'personal' ? 'No personal subtasks' : subtaskFilter === 'ado' ? 'No ADO subtasks' : 'No subtasks' }}
+                  {{ subtaskFilter === 'mine' ? 'No subtasks assigned to you' : subtaskFilter === 'personal' ? 'No personal subtasks' : subtaskFilter === 'ado' ? 'No ADO subtasks' : 'No subtasks — click Add to create one' }}
                 </p>
               </div>
 
@@ -943,11 +1343,11 @@ const showDetail = ref(true)
 
     <!-- Footer legend -->
     <div class="shrink-0 border-t border-border px-4 py-1.5 flex items-center gap-4 text-[10px] text-muted-foreground">
-      <span><strong>Left:</strong> ADO-styled hierarchical tree</span>
+      <span><strong>Left:</strong> {{ listViewMode === 'tree' ? 'Hierarchical tree' : 'Flat list' }} · Filter: {{ taskListFilterLabel }}</span>
       <span>|</span>
-      <span><strong>Right:</strong> ADO-style detail pane with subtasks, PRs, notes, sync status</span>
+      <span><strong>Right:</strong> Detail pane with subtasks, PRs, notes, sync status</span>
       <span>|</span>
-      <span>{{ rootTasks.length }} roots · {{ mockTasks.length }} total</span>
+      <span>{{ taskListCount }}</span>
     </div>
   </div>
 </template>

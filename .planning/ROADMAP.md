@@ -170,13 +170,16 @@ Plans:
 
 ### Phase 11: Integrate new task list into real app
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Replace TasksView with playground's 2-panel tree+detail layout, extract shared components (TreeTaskRow, QuickAddInput, FilterCycleButton), add backend ADO metadata cache, rebuild TaskDetail with 3-tab structure, and update DashboardView
+**Requirements**: P11-BACKEND-01, P11-FOUNDATION-01, P11-EXTRACT-01, P11-DETAIL-01, P11-DASHBOARD-01, P11-TASKLIST-01
 **Depends on:** Phase 10
-**Plans:** 0 plans
+**Plans:** 4 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 11 to break down)
+- [ ] 11-01-PLAN.md — Backend ADO metadata cache + frontend foundation (styles, composable)
+- [ ] 11-02-PLAN.md — Extract shared components (TreeTaskRow, QuickAddInput, FilterCycleButton)
+- [ ] 11-03-PLAN.md — Rebuild TaskDetail with 3 tabs + update DashboardView
+- [ ] 11-04-PLAN.md — Rewrite TasksView with permanent 2-panel split layout
 
 ### Phase 12: Backend and frontend normalization for ADO integration
 
