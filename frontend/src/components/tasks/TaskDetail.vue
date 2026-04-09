@@ -39,11 +39,19 @@ import {
   User,
   Pencil,
   Save,
+  ListChecks,
+  Lock,
+  CheckCircle2,
+  CirclePlay,
+  CircleCheck,
+  CircleX,
+  Clock,
 } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
-import { statusBgColor, statusIcon, priorityDotBgColor, prStatusClasses, adoTypeIcon, adoTypeColor } from '@/lib/styles'
+import { statusBgColor, statusIcon, priorityDotBgColor, prStatusClasses, adoTypeIcon, adoTypeColor, adoStateClasses } from '@/lib/styles'
 import { branchName } from '@/stores/prs'
 import { useAdoMeta } from '@/composables/useAdoMeta'
+import { useADOStore } from '@/stores/ado'
 
 // ── Store & emits ──
 const taskStore = useTaskStore()
@@ -51,13 +59,14 @@ const projectStore = useProjectStore()
 const prStore = usePRStore()
 const syncStore = useSyncStore()
 const adoMeta = useAdoMeta()
+const adoStore = useADOStore()
 const emit = defineEmits<{ close: [] }>()
 
 // ── Editable fields ──
 const editTitle = ref('')
 const editDescription = ref('')
-const editStatus = ref('')
-const editPriority = ref('')
+const editStatus = ref('todo')
+const editPriority = ref('P2')
 const editTags = ref<string[]>([])
 const editDueDate = ref('')
 const editProject = ref('none')
@@ -93,6 +102,12 @@ const taskAdoMeta = computed(() => task.value ? adoMeta.getAdoMeta(task.value.id
 
 watch(selectedTask, (t, oldT) => {
   if (t) {
+    // Skip re-syncing edit fields when the same task ref changed due to our own save
+    // (splice in updateTask replaces the object, triggering this watcher)
+    if (saving && oldT && t.id === oldT.id) {
+      lastTask.value = t
+      return
+    }
     // Show brief loading flash when switching to a different task
     if (oldT && t.id !== oldT.id) {
       saving = false
@@ -101,9 +116,9 @@ watch(selectedTask, (t, oldT) => {
     }
     lastTask.value = t
     editTitle.value = t.title
-    editDescription.value = t.description.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-    editStatus.value = t.status
-    editPriority.value = t.priority
+    editDescription.value = t.description
+    editStatus.value = t.status || 'todo'
+    editPriority.value = t.priority || 'P2'
     editDueDate.value = t.dueDate
     editProject.value = t.projectId ? String(t.projectId) : 'none'
     editTags.value = t.tags ? t.tags.split(',').map(s => s.trim()).filter(Boolean) : []
@@ -188,6 +203,15 @@ async function openUrl(url: string) {
   } catch { window.open(url, '_blank') }
 }
 
+function sanitizeHtml(html: string): string {
+  if (!html) return ''
+  return html.replace(/<img\b[^>]*\bsrc=["']([^"']*)["'][^>]*\balt=["']([^"']*)["'][^>]*\/?>/gi, (_m, src, alt) => {
+    return `<a href="${src}" target="_blank" class="text-blue-500 underline text-xs">${alt || 'Image'}</a>`
+  }).replace(/<img\b[^>]*\bsrc=["']([^"']*)["'][^>]*\/?>/gi, (_m, src) => {
+    return `<a href="${src}" target="_blank" class="text-blue-500 underline text-xs">Image</a>`
+  })
+}
+
 // ── Subtasks (real) ──
 const subtasks = ref<Task[]>([])
 const newSubtaskTitle = ref('')
@@ -206,6 +230,45 @@ const subtaskProgress = computed(() => {
   const total = subtasks.value.length
   const done = subtasks.value.filter(s => s.status === 'done').length
   return { done, total, percent: total ? (done / total) * 100 : 0 }
+})
+
+// ── Subtask filter (playground parity) ──
+const subtaskFilter = ref<'all' | 'ado' | 'personal' | 'mine'>('all')
+
+function isPersonalSubtask(st: Task): boolean {
+  return !st.adoId
+}
+
+function isOtherPerson(_st: Task): boolean {
+  // assignedTo not yet on Task type — future-proof
+  return false
+}
+
+const filteredSubtasks = computed(() => {
+  const subs = subtasks.value
+  switch (subtaskFilter.value) {
+    case 'ado': return subs.filter(st => !!st.adoId)
+    case 'personal': return subs.filter(st => !st.adoId)
+    case 'mine': return subs  // all are mine for now
+    default: return subs
+  }
+})
+
+function cycleSubtaskFilter() {
+  const order: Array<'all' | 'mine' | 'ado' | 'personal'> = ['all', 'mine', 'ado', 'personal']
+  const idx = order.indexOf(subtaskFilter.value)
+  subtaskFilter.value = order[(idx + 1) % order.length]
+}
+
+// ── Dirty field tracking (ADO sync indicator) ──
+const pendingFieldCount = computed(() => {
+  if (!task.value?.adoId) return 0
+  let count = 0
+  if (task.value && editTitle.value !== task.value.title) count++
+  if (task.value && editDescription.value !== task.value.description) count++
+  if (task.value && editStatus.value !== task.value.status) count++
+  if (task.value && editPriority.value !== task.value.priority) count++
+  return count
 })
 
 async function toggleSubtask(id: number) {
@@ -258,9 +321,30 @@ function prStatusLabel(status: string) {
   return status
 }
 
+// ── Pipeline status helpers (playground parity) ──
+function pipelineIcon(p: { result: string; status: string }) {
+  if (p.result === 'succeeded') return CircleCheck
+  if (p.result === 'failed') return CircleX
+  if (p.status === 'inprogress') return CirclePlay
+  return Clock
+}
+
+function pipelineColor(p: { result: string; status: string }) {
+  if (p.result === 'succeeded') return 'text-emerald-500'
+  if (p.result === 'failed') return 'text-red-500'
+  if (p.status === 'inprogress') return 'text-blue-500'
+  return 'text-amber-500'
+}
+
+function pipelinesForPr(sourceBranch: string) {
+  const branch = sourceBranch.replace('refs/heads/', '')
+  return adoStore.pipelines.filter(p => p.sourceBranch === branch || p.sourceBranch.replace('refs/heads/', '') === branch)
+}
+
 onMounted(() => {
   projectStore.fetchProjects()
   prStore.fetchAll()
+  if (!adoStore.pipelines.length) adoStore.fetchPipelines()
 })
 
 // ── Description ──
@@ -398,6 +482,7 @@ const projectName = computed(() => {
           <SelectTrigger class="inline-flex items-center gap-1 text-[10px] font-medium h-5 px-1.5 rounded-full border-border shadow-none [&_svg.lucide-chevron-down]:size-2.5">
             <span :class="cn('size-1.5 rounded-full mr-0.5', statusBgColor(editStatus))" />
             <span>{{ statusLabelMap[editStatus] ?? editStatus }}</span>
+            <span v-if="task?.adoId && editStatus !== task.status" class="size-1 rounded-full bg-amber-500 ml-0.5" title="Modified locally" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem v-for="s in statuses" :key="s" :value="s">
@@ -409,6 +494,7 @@ const projectName = computed(() => {
           <SelectTrigger class="inline-flex items-center gap-1 text-[10px] font-medium h-5 px-1.5 rounded-full border-border shadow-none [&_svg.lucide-chevron-down]:size-2.5">
             <span :class="cn('size-1.5 rounded-full mr-0.5', priorityDotBgColor(editPriority))" />
             <span>{{ editPriority }}</span>
+            <span v-if="task?.adoId && editPriority !== task.priority" class="size-1 rounded-full bg-amber-500 ml-0.5" title="Modified locally" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem v-for="p in priorities" :key="p" :value="p">{{ p }}</SelectItem>
@@ -452,14 +538,26 @@ const projectName = computed(() => {
         <AzureDevOpsIcon :size="12" class="text-blue-500 shrink-0" />
         <span class="text-[10px] text-blue-500 tabular-nums font-medium">{{ adoNumber(task.adoId) }}</span>
         <span class="text-[9px] text-muted-foreground/50">·</span>
-        <span class="text-[9px] text-emerald-600 flex items-center gap-0.5">Synced</span>
+        <!-- Sync status: honest dirty-field tracking -->
+        <template v-if="pendingFieldCount === 0">
+          <span class="text-[9px] text-emerald-600 flex items-center gap-0.5">
+            <CheckCircle2 :size="9" /> Synced
+          </span>
+        </template>
+        <template v-else>
+          <span class="text-[9px] text-amber-600 flex items-center gap-0.5">
+            <span class="size-1 rounded-full bg-amber-500" />
+            {{ pendingFieldCount }} pending
+          </span>
+        </template>
         <div class="flex-1" />
         <Button
+          v-if="pendingFieldCount > 0"
           variant="outline" size="sm"
           class="h-5 text-[9px] gap-0.5 px-1.5 text-amber-600 border-amber-500/30 hover:bg-amber-500/10"
           @click="task && syncStore.generateOutboundDiff(task.id)"
         >
-          <Upload :size="10" /> Push
+          <Upload :size="10" /> Push {{ pendingFieldCount }}
         </Button>
         <Button variant="ghost" size="sm" class="h-5 text-[9px] gap-0.5 px-1.5 text-blue-500 hover:text-blue-600" @click="openAdoLink">
           <ExternalLink :size="10" /> Open
@@ -485,7 +583,7 @@ const projectName = computed(() => {
     <ScrollArea class="flex-1 min-h-0">
       <div class="flex flex-col">
 
-        <!-- Subtasks section -->
+        <!-- Subtasks section (playground-parity) -->
         <div class="border-b border-border px-4 py-2">
           <div class="flex items-center justify-between mb-1.5">
             <div class="flex items-center gap-2">
@@ -494,29 +592,69 @@ const projectName = computed(() => {
                 {{ subtaskProgress.done }}/{{ subtaskProgress.total }}
               </Badge>
             </div>
-            <button class="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1" @click="newSubtaskTitle = ' '">
-              <Plus :size="11" /> Add
-            </button>
+            <div class="flex items-center gap-1.5">
+              <button
+                v-if="subtasks.length > 0"
+                class="text-[10px] flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors"
+                :class="subtaskFilter !== 'all' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:text-foreground'"
+                @click="cycleSubtaskFilter"
+                :title="`Filter: ${subtaskFilter}`"
+              >
+                <component :is="subtaskFilter === 'personal' ? ListChecks : subtaskFilter === 'ado' ? Lock : User" :size="10" />
+                {{ subtaskFilter === 'all' ? 'All' : subtaskFilter === 'mine' ? 'Mine' : subtaskFilter === 'ado' ? 'ADO' : 'Personal' }}
+              </button>
+              <button class="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1" @click="newSubtaskTitle = ' '">
+                <Plus :size="11" /> Add
+              </button>
+            </div>
           </div>
 
-          <!-- Subtask list -->
-          <div v-if="subtasks.length > 0" class="flex flex-col gap-px">
+          <!-- Subtask list (playground-parity) -->
+          <div v-if="filteredSubtasks.length > 0" class="flex flex-col gap-px">
             <button
-              v-for="st in subtasks"
+              v-for="st in filteredSubtasks"
               :key="st.id"
               class="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/50 transition-colors group"
               @click="toggleSubtask(st.id)"
             >
-              <component
-                :is="statusIcon(st.status)"
-                :size="14"
-                :class="st.status === 'done' ? 'text-emerald-500' : 'text-muted-foreground'"
-                class="shrink-0"
-              />
+              <!-- Icon: ADO type icon for ADO subtasks, checkbox for personal -->
+              <template v-if="st.adoId">
+                <component
+                  :is="adoTypeIcon((st as any).category || 'Task')"
+                  :size="14"
+                  :class="adoTypeColor((st as any).category || 'Task')"
+                  class="shrink-0"
+                />
+              </template>
+              <template v-else>
+                <component
+                  :is="statusIcon(st.status)"
+                  :size="14"
+                  :class="st.status === 'done' ? 'text-emerald-500' : 'text-muted-foreground'"
+                  class="shrink-0"
+                />
+              </template>
+              <!-- Title -->
               <span :class="cn('text-xs truncate flex-1', st.status === 'done' && 'line-through text-muted-foreground')">
                 {{ st.title }}
               </span>
+              <!-- Personal badge -->
+              <span v-if="isPersonalSubtask(st)" class="text-[8px] px-1 py-0.5 rounded bg-primary/8 text-primary/70 shrink-0 border border-primary/10">personal</span>
+              <!-- ADO state badge (when available) -->
+              <Badge v-if="st.adoId && (st as any).adoState" variant="outline" :class="adoStateClasses((st as any).adoState)" class="text-[8px] h-4 px-1">
+                {{ (st as any).adoState }}
+              </Badge>
+              <!-- Sync status indicator (when available) -->
+              <span v-if="(st as any).syncStatus === 'pending'" class="size-1.5 rounded-full bg-amber-500 shrink-0" title="Pending sync" />
+              <span v-if="(st as any).syncStatus === 'not-pulled'" class="text-[8px] text-amber-600 shrink-0">not-pulled</span>
+              <!-- Assigned-to badge (when available and assigned to someone else) -->
+              <span v-if="(st as any).assignedTo && isOtherPerson(st)" class="text-[8px] px-1 py-0.5 rounded bg-orange-500/10 text-orange-600 shrink-0 border border-orange-500/15">
+                {{ (st as any).assignedTo }}
+              </span>
+              <!-- Priority dot -->
               <span :class="cn('size-1.5 rounded-full shrink-0', priorityDotBgColor(st.priority))" />
+              <!-- ADO ID -->
+              <span v-if="st.adoId" class="text-[9px] text-blue-500/60 tabular-nums shrink-0">#{{ st.adoId }}</span>
             </button>
           </div>
 
@@ -534,8 +672,8 @@ const projectName = computed(() => {
             <Button variant="ghost" size="sm" class="h-7 px-1.5 text-[10px]" @click="newSubtaskTitle = ''">Cancel</Button>
           </div>
 
-          <p v-if="subtasks.length === 0 && !newSubtaskTitle" class="text-[11px] text-muted-foreground/40 italic py-2 text-center">
-            No subtasks — click Add to create one
+          <p v-if="filteredSubtasks.length === 0 && !newSubtaskTitle" class="text-[11px] text-muted-foreground/40 italic py-2 text-center">
+            {{ subtaskFilter === 'mine' ? 'No subtasks assigned to you' : subtaskFilter === 'personal' ? 'No personal subtasks' : subtaskFilter === 'ado' ? 'No ADO subtasks' : 'No subtasks — click Add to create one' }}
           </p>
         </div>
 
@@ -563,10 +701,11 @@ const projectName = computed(() => {
             class="resize-y text-xs"
             placeholder="Add a description..."
           />
-          <p v-else-if="editDescription"
-            class="text-xs text-foreground cursor-pointer hover:bg-muted/30 rounded p-1 -m-1 transition-colors whitespace-pre-wrap"
+          <div v-else-if="editDescription"
+            class="text-xs text-foreground prose prose-sm max-w-none [&_*]:text-xs [&_*]:text-foreground cursor-pointer hover:bg-muted/30 rounded p-1 -m-1 transition-colors"
+            v-html="sanitizeHtml(editDescription)"
             @click="descriptionOpen = true"
-          >{{ editDescription }}</p>
+          />
           <p v-else class="text-[11px] text-muted-foreground/40 italic cursor-pointer hover:text-muted-foreground" @click="descriptionOpen = true">
             Click to add description...
           </p>
@@ -597,6 +736,13 @@ const projectName = computed(() => {
                 <Badge variant="outline" :class="cn('text-[10px] capitalize shrink-0 h-4 px-1.5', prStatusClasses(pr.status))">
                   {{ prStatusLabel(pr.status) }}
                 </Badge>
+              </div>
+              <!-- Pipeline status for this PR -->
+              <div v-if="pipelinesForPr(pr.sourceBranch).length > 0" class="flex items-center gap-3 pl-6 pb-1.5">
+                <div v-for="pipe in pipelinesForPr(pr.sourceBranch)" :key="pipe.id" class="flex items-center gap-1 text-[9px]">
+                  <component :is="pipelineIcon(pipe)" :size="10" :class="pipelineColor(pipe)" />
+                  <span class="text-muted-foreground">{{ pipe.name }}</span>
+                </div>
               </div>
             </div>
             <p v-if="taskPRs.length === 0" class="text-xs text-muted-foreground italic py-1 px-1">No linked PRs</p>

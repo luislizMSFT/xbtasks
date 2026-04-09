@@ -9,14 +9,15 @@ import type { PullRequest } from '@/stores/prs'
 import { useADOStore } from '@/stores/ado'
 import { useSyncStore } from '@/stores/sync'
 import type { ADOPipeline } from '@/stores/ado'
-import DashboardTaskRow from '@/components/tasks/DashboardTaskRow.vue'
+import { useAdoMeta } from '@/composables/useAdoMeta'
+import { useProjectStore } from '@/stores/projects'
+import TreeTaskRow from '@/components/tasks/TreeTaskRow.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import { Skeleton } from '@/components/ui/skeleton'
 import EmptyState from '@/components/EmptyState.vue'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
-import { priorityBgColor } from '@/lib/styles'
 import {
   Plus, GitPullRequest, Play, CheckCircle2, XCircle, Clock,
   ExternalLink, GitBranch, ClipboardList, Loader2,
@@ -29,6 +30,39 @@ const authStore = useAuthStore()
 const prStore = usePRStore()
 const adoStore = useADOStore()
 const syncStore = useSyncStore()
+const adoMeta = useAdoMeta()
+const projectStore = useProjectStore()
+
+// Subtask counts for TreeTaskRow
+const subtaskCounts = computed(() => {
+  const counts: Record<number, { done: number; total: number; pct: number }> = {}
+  for (const t of taskStore.tasks) {
+    if (t.parentId) {
+      if (!counts[t.parentId]) counts[t.parentId] = { done: 0, total: 0, pct: 0 }
+      counts[t.parentId].total++
+      if (t.status === 'done') counts[t.parentId].done++
+    }
+  }
+  // Compute pct
+  for (const k of Object.keys(counts)) {
+    const c = counts[Number(k)]
+    c.pct = c.total > 0 ? Math.round((c.done / c.total) * 100) : 0
+  }
+  return counts
+})
+
+function subtaskProgress(taskId: number) {
+  return subtaskCounts.value[taskId] ?? null
+}
+
+// Project name lookup
+const projectNameMap = computed(() => {
+  const map: Record<number, string> = {}
+  for (const p of projectStore.projects) {
+    map[p.id] = p.name
+  }
+  return map
+})
 
 // Normalize a Date to midnight local time for day-level comparisons
 function startOfDay(d: Date): Date {
@@ -63,6 +97,7 @@ onMounted(() => {
   if (!taskStore.tasks.length) taskStore.fetchTasks()
   if (!prStore.myPRs.length && !prStore.reviewPRs.length) prStore.fetchAll()
   if (!adoStore.pipelines.length) adoStore.fetchPipelines()
+  if (!projectStore.projects.length) projectStore.fetchProjects()
 })
 
 const focusTasks = computed(() =>
@@ -321,13 +356,17 @@ async function openPipeline(p: ADOPipeline) {
                 v-if="focusTasks.length > 0"
                 class="rounded-lg overflow-hidden border border-border"
               >
-                <DashboardTaskRow
+                <TreeTaskRow
                   v-for="(task, idx) in focusTasks"
                   :key="task.id"
                   :task="task"
-                  :is-personal="!taskStore.isPublic(task.id)"
+                  :is-public="taskStore.isPublic(task.id)"
+                  :ado-meta="adoMeta.getAdoMeta(task.id)"
+                  :project-name="task.projectId ? projectNameMap[task.projectId] : undefined"
+                  :subtask-progress="subtaskProgress(task.id)"
                   :class="idx < focusTasks.length - 1 ? 'border-b border-border' : ''"
-                  @click="selectTask"
+                  @click="selectTask(task.id)"
+                  @toggle-status="(id: number) => taskStore.setStatus(id, taskStore.tasks.find(t => t.id === id)?.status === 'done' ? 'todo' : 'done')"
                 />
               </div>
               <p v-else class="text-sm text-muted-foreground">
@@ -344,14 +383,17 @@ async function openPipeline(p: ADOPipeline) {
                 v-if="upcomingTasks.length > 0"
                 class="rounded-lg overflow-hidden border border-border"
               >
-                <DashboardTaskRow
+                <TreeTaskRow
                   v-for="(task, idx) in upcomingTasks"
                   :key="task.id"
                   :task="task"
-                  :is-personal="!taskStore.isPublic(task.id)"
-                  show-due-date
+                  :is-public="taskStore.isPublic(task.id)"
+                  :ado-meta="adoMeta.getAdoMeta(task.id)"
+                  :project-name="task.projectId ? projectNameMap[task.projectId] : undefined"
+                  :subtask-progress="subtaskProgress(task.id)"
                   :class="idx < upcomingTasks.length - 1 ? 'border-b border-border' : ''"
-                  @click="selectTask"
+                  @click="selectTask(task.id)"
+                  @toggle-status="(id: number) => taskStore.setStatus(id, taskStore.tasks.find(t => t.id === id)?.status === 'done' ? 'todo' : 'done')"
                 />
               </div>
               <p v-else class="text-sm text-muted-foreground">
@@ -367,22 +409,18 @@ async function openPipeline(p: ADOPipeline) {
               <div
                 class="rounded-lg overflow-hidden border border-border border-l-2 border-l-red-500"
               >
-                <div
+                <TreeTaskRow
                   v-for="(task, idx) in blockedTasks"
                   :key="task.id"
-                  class="flex flex-col gap-1 px-4 py-2.5 cursor-pointer hover:bg-muted/50 transition-colors"
+                  :task="task"
+                  :is-public="taskStore.isPublic(task.id)"
+                  :ado-meta="adoMeta.getAdoMeta(task.id)"
+                  :project-name="task.projectId ? projectNameMap[task.projectId] : undefined"
+                  :subtask-progress="subtaskProgress(task.id)"
                   :class="idx < blockedTasks.length - 1 ? 'border-b border-border' : ''"
                   @click="selectTask(task.id)"
-                >
-                  <div class="flex items-center gap-2">
-                    <span :class="['size-2 rounded-full shrink-0', priorityBgColor(task.priority)]" />
-                    <span class="text-sm flex-1 truncate text-foreground">{{ task.title }}</span>
-                  </div>
-                  <p v-if="task.blockedReason"
-                    class="text-[11px] text-red-500/70 pl-4 italic">
-                    {{ task.blockedReason }}
-                  </p>
-                </div>
+                  @toggle-status="(id: number) => taskStore.setStatus(id, taskStore.tasks.find(t => t.id === id)?.status === 'done' ? 'todo' : 'done')"
+                />
               </div>
             </div>
           </div>

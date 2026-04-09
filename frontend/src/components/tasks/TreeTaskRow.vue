@@ -97,7 +97,7 @@ function onExpandClick(e: Event) {
       >
         <component :is="expanded ? ChevronDown : ChevronRight" :size="14" class="text-muted-foreground" />
       </button>
-      <span v-else class="w-5 shrink-0" />
+      <span v-else class="w-[18px] shrink-0" />
 
       <!-- Status icon -->
       <button

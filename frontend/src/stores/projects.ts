@@ -80,6 +80,12 @@ export const useProjectStore = defineStore('projects', () => {
     }
   }
 
+  async function fetchAllProjectLinks() {
+    for (const p of projects.value) {
+      await fetchProjectLink(p.id)
+    }
+  }
+
   async function fetchProjectProgress(projectId: number) {
     try {
       const progress = await projectsApi.getProjectProgress(projectId) as ProjectProgress
@@ -95,6 +101,6 @@ export const useProjectStore = defineStore('projects', () => {
     isLinked,
     fetchProjects, createProject, deleteProject,
     pinProject, linkProjectToADO, unlinkProject,
-    fetchProjectLink, fetchProjectProgress,
+    fetchProjectLink, fetchAllProjectLinks, fetchProjectProgress,
   }
 })

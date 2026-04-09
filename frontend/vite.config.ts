@@ -12,4 +12,12 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  server: {
+    // Force dependency re-optimization on every dev server start
+    force: true,
+  },
+  optimizeDeps: {
+    // Don't cache pre-bundled deps between restarts
+    force: true,
+  },
 });

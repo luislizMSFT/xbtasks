@@ -21,7 +21,6 @@ const props = defineProps<{
   filterPriority: string
   filterProject: number | null
   filterDueDate: string
-  filterAdoLink: string
   sortBy: string
   groupBy: string | null
   treeView: boolean
@@ -34,7 +33,6 @@ const emit = defineEmits<{
   'update:filterPriority': [value: string]
   'update:filterProject': [value: number | null]
   'update:filterDueDate': [value: string]
-  'update:filterAdoLink': [value: string]
   'update:sortBy': [value: string]
   'update:groupBy': [value: string | null]
   'update:treeView': [value: boolean]
@@ -48,7 +46,6 @@ const activeFilterCount = computed(() => {
   if (props.filterPriority !== 'all') count++
   if (props.filterProject !== null) count++
   if (props.filterDueDate !== 'all') count++
-  if (props.filterAdoLink !== 'all') count++
   return count
 })
 
@@ -63,10 +60,6 @@ function handleProjectChange(value: AcceptableValue) {
 
 function handleDueDateChange(value: AcceptableValue) {
   emit('update:filterDueDate', String(value))
-}
-
-function handleAdoLinkChange(value: AcceptableValue) {
-  emit('update:filterAdoLink', String(value))
 }
 
 function handleSortByChange(value: AcceptableValue) {
@@ -133,21 +126,6 @@ function handleGroupByChange(value: AcceptableValue) {
           <SelectItem value="today">Today</SelectItem>
           <SelectItem value="week">Week</SelectItem>
           <SelectItem value="none">No Date</SelectItem>
-        </SelectContent>
-      </Select>
-
-      <span class="text-[10px] text-muted-foreground shrink-0">Scope</span>
-      <Select
-        :model-value="filterAdoLink"
-        @update:model-value="handleAdoLinkChange"
-      >
-        <SelectTrigger size="sm" class="h-6 text-[10px] gap-0.5 w-[60px] px-1.5">
-          <SelectValue placeholder="All" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All</SelectItem>
-          <SelectItem value="linked">Public</SelectItem>
-          <SelectItem value="personal">Private</SelectItem>
         </SelectContent>
       </Select>
 

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Deep UI iteration — playgrounds built, real views being refined
-stopped_at: Completed 10-03-PLAN.md
-last_updated: "2026-04-09T16:45:05.928Z"
+stopped_at: Completed 11-06-PLAN.md
+last_updated: "2026-04-09T19:56:51.275Z"
 last_activity: 2026-04-03
 progress:
   total_phases: 12
   completed_phases: 3
-  total_plans: 22
-  completed_plans: 20
+  total_plans: 26
+  completed_plans: 25
   percent: 50
 ---
 
@@ -152,6 +152,10 @@ Progress: [█████░░░░░] 50%
 - [Phase 11]: FilterCycleButton placed in topbar Teleport next to status chips for All/ADO/Personal cycling
 - [Phase 11]: QuickAddInput replaces raw Input; always visible with Add/Cancel buttons
 - [Phase 11]: adoMeta.getAdoMeta() passed to every TreeTaskRow for batch ADO metadata display
+- [Phase 11]: Group headers adapt based on groupBy mode: status dots, priority dots, or project ADO icons
+- [Phase 11]: Scope dropdown removed from FilterBar  ADO/Personal filter exclusively via FilterCycleButton
+- [Phase 11-06]: Subtask filter uses optional chaining for future ADO fields (syncStatus, source, assignedTo)  forward-proofs for ADO subtask sync
+- [Phase 11-06]: pendingFieldCount computed compares edit refs against stored task values for honest ADO sync indicator
 
 ### Roadmap Evolution
 
@@ -190,6 +194,6 @@ Progress: [█████░░░░░] 50%
 
 ## Session Continuity
 
-Last session: 2026-04-09T16:38:05.598Z
-Stopped at: Completed 10-03-PLAN.md
+Last session: 2026-04-09T19:56:51.270Z
+Stopped at: Completed 11-06-PLAN.md
 Resume: Continue refining shell header, then wire backend services

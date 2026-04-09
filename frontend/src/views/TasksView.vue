@@ -2,7 +2,6 @@
 import { ref, onMounted, onActivated, onDeactivated, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useMagicKeys, whenever } from '@vueuse/core'
-import draggable from 'vuedraggable'
 import { useTaskStore, type Task } from '@/stores/tasks'
 import { useProjectStore } from '@/stores/projects'
 import { useADOStore } from '@/stores/ado'
@@ -16,8 +15,8 @@ import FilterBar from '@/components/FilterBar.vue'
 import FilterCycleButton from '@/components/tasks/FilterCycleButton.vue'
 import QuickAddInput from '@/components/tasks/QuickAddInput.vue'
 import AzureDevOpsIcon from '@/components/icons/AzureDevOpsIcon.vue'
-import { adoTypeColor, adoTypeIcon } from '@/lib/styles'
-import { ClipboardList, ChevronRight, ChevronDown } from 'lucide-vue-next'
+import { adoTypeColor, adoTypeIcon, statusBgColor, priorityDotBgColor } from '@/lib/styles'
+import { ClipboardList, ChevronRight, ChevronDown, Folder } from 'lucide-vue-next'
 import { Skeleton } from '@/components/ui/skeleton'
 import EmptyState from '@/components/EmptyState.vue'
 import { Button } from '@/components/ui/button'
@@ -162,6 +161,13 @@ const groupKeys = computed(() => {
   })
 })
 
+// Auto-expand all groups when groupBy changes or groups load for the first time
+watch([() => taskStore.groupBy, groupKeys], () => {
+  if (taskStore.groupBy && groupKeys.value.length > 0) {
+    expandedGroups.value = new Set(groupKeys.value)
+  }
+}, { immediate: true })
+
 // Resolve group label (project IDs to names)
 function groupLabel(key: string): string {
   if (taskStore.groupBy === 'project' && key !== 'No Project') {
@@ -253,23 +259,31 @@ function treeSubtaskProgress(taskId: number) {
   return { done, total: children.length, pct: Math.round((done / children.length) * 100) }
 }
 
-// Writable list for drag & drop — syncs back to store on reorder
-const draggableList = computed({
-  get: () => taskStore.enhancedFilteredTasks,
-  set: (val: Task[]) => {
-    // Update local order immediately
-    const ids = val.map(t => t.id)
-    // Apply new sortOrder to the underlying store tasks
-    for (let i = 0; i < val.length; i++) {
-      const idx = taskStore.tasks.findIndex(t => t.id === val[i].id)
-      if (idx !== -1) taskStore.tasks[idx].sortOrder = i
-    }
-    // Persist to backend
-    taskStore.reorderTasks(ids)
-  },
+// Task list header count
+const taskListCount = computed(() => {
+  if (treeView.value) {
+    const roots = rootTasks.value.length
+    const total = taskStore.enhancedFilteredTasks.length
+    return `${roots} roots · ${total} tasks`
+  }
+  return `${taskStore.enhancedFilteredTasks.length} tasks`
 })
 
-const isDragging = ref(false)
+function expandAll() {
+  if (treeView.value) {
+    expandedTreeNodes.value = new Set(taskStore.enhancedFilteredTasks.map(t => t.id))
+  } else if (taskStore.groupBy) {
+    expandedGroups.value = new Set(groupKeys.value)
+  }
+}
+
+function collapseAll() {
+  if (treeView.value) {
+    expandedTreeNodes.value = new Set()
+  } else if (taskStore.groupBy) {
+    expandedGroups.value = new Set()
+  }
+}
 
 onMounted(async () => {
   // Data is fetched by App.vue on auth — only fetch if stores are empty
@@ -308,7 +322,6 @@ onMounted(async () => {
         :filter-priority="taskStore.filterPriority"
         :filter-project="taskStore.filterProject"
         :filter-due-date="taskStore.filterDueDate"
-        :filter-ado-link="taskStore.filterAdoLink"
         :sort-by="taskStore.sortBy"
         :group-by="taskStore.groupBy"
         :tree-view="treeView"
@@ -318,12 +331,23 @@ onMounted(async () => {
         @update:filter-priority="taskStore.filterPriority = $event"
         @update:filter-project="taskStore.filterProject = $event"
         @update:filter-due-date="taskStore.filterDueDate = $event"
-        @update:filter-ado-link="taskStore.filterAdoLink = $event"
         @update:sort-by="taskStore.sortBy = $event"
         @update:group-by="taskStore.groupBy = $event"
         @update:tree-view="treeView = $event"
         @sync="syncStore.manualSync()"
       />
+
+      <!-- Task list header bar -->
+      <div class="px-3 py-2 border-b border-border/50 flex items-center gap-2">
+        <span class="text-xs font-semibold text-muted-foreground flex-1">{{ taskListCount }}</span>
+        <template v-if="taskStore.groupBy || treeView">
+          <button class="text-[10px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded hover:bg-muted"
+            @click="expandAll">Expand All</button>
+          <button class="text-[10px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded hover:bg-muted"
+            @click="collapseAll">Collapse All</button>
+        </template>
+        <FilterCycleButton v-model="taskStore.filterAdoLink" />
+      </div>
 
       <ScrollArea class="flex-1 h-full">
         <!-- Loading skeleton -->
@@ -353,46 +377,90 @@ onMounted(async () => {
 
         <!-- Grouped rendering -->
         <div v-if="hasAnyTasks && !taskStore.loading && taskStore.groupBy && !treeView">
-          <!-- Project groups (with headers) -->
-          <div v-for="key in groupKeys.filter(k => k !== 'No Project')" :key="key">
-            <!-- Project group header -->
+          <!-- Group sections -->
+          <div v-for="key in groupKeys" :key="key">
+            <!-- Project group header — matches TreeTaskRow styling -->
             <div
-              class="flex items-center gap-2.5 px-4 py-2.5 cursor-pointer select-none border-b border-border/30 hover:bg-muted/30 transition-colors"
-              :class="selectedProjectId === Number(key) && 'bg-primary/5 border-l-2 border-l-primary'"
-              @click.self="selectProject(key)"
+              v-if="taskStore.groupBy === 'project'"
+              class="group cursor-pointer hover:bg-muted/50 transition-colors border-b border-border/30"
+              :class="selectedProjectId === Number(key) && key !== 'No Project' ? 'bg-primary/5 border-l-2 border-l-primary' : 'border-l-2 border-l-transparent'"
+              @click="selectProject(key)"
             >
-              <button
-                class="shrink-0 p-0.5 hover:bg-muted rounded"
-                @click.stop="expandedGroups.has(key) ? expandedGroups.delete(key) : expandedGroups.add(key)"
-              >
+              <div class="flex items-center gap-2 px-3 py-2.5">
+                <button
+                  class="shrink-0 p-0.5 hover:bg-muted rounded"
+                  @click.stop="expandedGroups.has(key) ? expandedGroups.delete(key) : expandedGroups.add(key)"
+                >
+                  <component
+                    :is="expandedGroups.has(key) ? ChevronDown : ChevronRight"
+                    :size="14"
+                    class="text-muted-foreground"
+                  />
+                </button>
+
+                <!-- ADO type icon or folder icon -->
+                <component
+                  v-if="key !== 'No Project' && projectAdoLookup.get(Number(key))?.type"
+                  :is="typeIcon(projectAdoLookup.get(Number(key))!.type)"
+                  :size="16"
+                  :class="adoTypeColor(projectAdoLookup.get(Number(key))!.type)"
+                  class="shrink-0"
+                />
+                <Folder v-else :size="14" class="text-muted-foreground/50 shrink-0" />
+
+                <!-- Project name -->
+                <span class="text-sm font-medium text-foreground truncate">
+                  {{ groupLabel(key) }}
+                </span>
+
+                <!-- ADO ID badge -->
+                <Badge
+                  v-if="key !== 'No Project' && projectAdoLookup.get(Number(key))?.number"
+                  variant="outline"
+                  class="text-[10px] px-1.5 py-0 h-4 font-mono text-blue-500 border-blue-500/30 shrink-0"
+                >
+                  {{ projectAdoLookup.get(Number(key))!.number }}
+                </Badge>
+
+                <span class="flex-1" />
+
+                <!-- Task count -->
+                <Badge variant="secondary" class="text-[10px] px-1.5 py-0 h-4 shrink-0">
+                  {{ groupedTasks[key]?.length ?? 0 }} {{ (groupedTasks[key]?.length ?? 0) === 1 ? 'task' : 'tasks' }}
+                </Badge>
+              </div>
+            </div>
+
+            <!-- Status/priority group header -->
+            <div
+              v-else
+              class="flex items-center gap-2.5 px-4 py-2.5 cursor-pointer select-none border-b border-border/30 hover:bg-muted/30 transition-colors"
+              @click="expandedGroups.has(key) ? expandedGroups.delete(key) : expandedGroups.add(key)"
+            >
+              <button class="shrink-0 p-0.5 hover:bg-muted rounded">
                 <component
                   :is="expandedGroups.has(key) ? ChevronDown : ChevronRight"
                   :size="14"
                   class="text-muted-foreground"
                 />
               </button>
-              <component
-                v-if="taskStore.groupBy === 'project' && projectAdoLookup.get(Number(key))?.type"
-                :is="typeIcon(projectAdoLookup.get(Number(key))!.type)"
-                :size="14"
-                :class="adoTypeColor(projectAdoLookup.get(Number(key))!.type)"
-                class="shrink-0"
-              />
-              <span class="text-sm font-medium text-foreground truncate flex-1" @click="selectProject(key)">
-                {{ groupLabel(key) }}
-              </span>
+
+              <!-- Status dot -->
               <span
-                v-if="taskStore.groupBy === 'project' && projectStore.isLinked(Number(key))"
-                class="inline-flex items-center gap-1 text-[10px] text-blue-500 shrink-0"
-              >
-                <component
-                  v-if="projectAdoLookup.get(Number(key))?.type"
-                  :is="typeIcon(projectAdoLookup.get(Number(key))!.type)"
-                  :size="12"
-                  :class="adoTypeColor(projectAdoLookup.get(Number(key))!.type)"
-                />
-                <AzureDevOpsIcon v-else :size="12" />
-                <span class="tabular-nums">{{ projectAdoLookup.get(Number(key))?.number ?? '' }}</span>
+                v-if="taskStore.groupBy === 'status'"
+                class="shrink-0 inline-block w-2.5 h-2.5 rounded-full"
+                :class="statusBgColor(key)"
+              />
+
+              <!-- Priority dot -->
+              <span
+                v-if="taskStore.groupBy === 'priority'"
+                class="shrink-0 inline-block w-2.5 h-2.5 rounded-full"
+                :class="priorityDotBgColor(key)"
+              />
+
+              <span class="text-sm font-medium text-foreground truncate flex-1">
+                {{ groupLabel(key) }}
               </span>
               <span class="text-[11px] text-muted-foreground tabular-nums shrink-0">
                 {{ groupedTasks[key]?.length ?? 0 }}
@@ -415,22 +483,6 @@ onMounted(async () => {
               />
             </template>
           </div>
-
-          <!-- Ungrouped tasks (no project) — flat list, no header -->
-          <template v-if="groupedTasks['No Project']?.length">
-            <TreeTaskRow
-              v-for="task in groupedTasks['No Project']"
-              :key="task.id"
-              :task="task"
-              :is-public="taskStore.isPublic(task.id)"
-              :selected="taskStore.selectedTaskId === task.id"
-              :ado-meta="adoMeta.getAdoMeta(task.id)"
-              :project-name="undefined"
-              :subtask-progress="subtaskProgress(task.id)"
-              @click="selectTask(task.id)"
-              @toggle-status="(id: number) => { const t = taskStore.tasks.find(x => x.id === id); if (t) toggleDone(t) }"
-            />
-          </template>
         </div>
 
         <!-- Tree rendering (hierarchical parent → child nesting via TreeTaskRow with indentLevel) -->
@@ -492,41 +544,20 @@ onMounted(async () => {
         </div>
 
         <!-- Non-grouped flat rendering (enhanced filtered + sorted, drag & drop) -->
-        <draggable
-          v-else-if="hasAnyTasks && !taskStore.loading && !treeView"
-          v-model="draggableList"
-          item-key="id"
-          handle=".drag-handle"
-          ghost-class="opacity-30"
-          :animation="150"
-          @start="isDragging = true"
-          @end="isDragging = false"
-        >
-          <template #item="{ element: task }">
-            <div class="flex items-center">
-              <!-- Drag handle -->
-              <div class="drag-handle cursor-grab active:cursor-grabbing shrink-0 pl-2 text-muted-foreground/0 hover:text-muted-foreground/30 transition-colors">
-                <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor">
-                  <circle cx="2" cy="2" r="1.5" /><circle cx="8" cy="2" r="1.5" />
-                  <circle cx="2" cy="7" r="1.5" /><circle cx="8" cy="7" r="1.5" />
-                  <circle cx="2" cy="12" r="1.5" /><circle cx="8" cy="12" r="1.5" />
-                </svg>
-              </div>
-              <div class="flex-1 min-w-0">
-                <TreeTaskRow
-                  :task="task"
-                  :is-public="taskStore.isPublic(task.id)"
-                  :selected="taskStore.selectedTaskId === task.id"
-                  :ado-meta="adoMeta.getAdoMeta(task.id)"
-                  :project-name="task.projectId ? projectNameMap[task.projectId] : undefined"
-                  :subtask-progress="subtaskProgress(task.id)"
-                  @click="selectTask(task.id)"
-                  @toggle-status="(id: number) => { const t = taskStore.tasks.find(x => x.id === id); if (t) toggleDone(t) }"
-                />
-              </div>
-            </div>
-          </template>
-        </draggable>
+        <div v-else-if="hasAnyTasks && !taskStore.loading && !treeView">
+          <TreeTaskRow
+            v-for="task in taskStore.enhancedFilteredTasks"
+            :key="task.id"
+            :task="task"
+            :is-public="taskStore.isPublic(task.id)"
+            :selected="taskStore.selectedTaskId === task.id"
+            :ado-meta="adoMeta.getAdoMeta(task.id)"
+            :project-name="task.projectId ? projectNameMap[task.projectId] : undefined"
+            :subtask-progress="subtaskProgress(task.id)"
+            @click="selectTask(task.id)"
+            @toggle-status="(id: number) => { const t = taskStore.tasks.find(x => x.id === id); if (t) toggleDone(t) }"
+          />
+        </div>
       </ScrollArea>
     </div>
 

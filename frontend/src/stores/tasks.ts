@@ -41,7 +41,7 @@ export const useTaskStore = defineStore('tasks', () => {
   const filterDueDate = ref<string>('all')    // 'all', 'overdue', 'today', 'week', 'none'
   const filterAdoLink = ref<string>('all')    // 'all', 'linked', 'personal'
   const sortBy = ref<string>('priority')      // 'priority', 'dueDate', 'title', 'status'
-  const groupBy = ref<string | null>('project')    // null, 'status', 'priority', 'project'
+  const groupBy = ref<string | null>('project')   // null, 'status', 'priority', 'project'
 
   const selectedTask = computed(() =>
     tasks.value.find(t => t.id === selectedTaskId.value) ?? null
@@ -117,7 +117,7 @@ export const useTaskStore = defineStore('tasks', () => {
       result = result.filter(t => !publicTaskIds.value.has(t.id))
     }
 
-    // Sort — default: priority then due date
+    // Sort by selected criterion
     result = [...result].sort((a, b) => {
       if (sortBy.value === 'priority') {
         const pa = priorityOrder[a.priority] ?? 2

@@ -49,7 +49,7 @@ watch(() => authStore.isAuthenticated, (authed) => {
     // Fire all fetches in parallel — don't block on any single one
     Promise.allSettled([
       taskStore.fetchTasks(),
-      projectStore.fetchProjects(),
+      projectStore.fetchProjects().then(() => projectStore.fetchAllProjectLinks()),
       prStore.fetchAll(),
       adoStore.fetchWorkItemTree(),
       adoStore.fetchLinkedAdoIds(),
