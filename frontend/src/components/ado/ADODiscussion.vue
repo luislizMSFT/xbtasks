@@ -4,7 +4,6 @@ import DOMPurify from 'dompurify'
 import { relativeTime } from '@/lib/date'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -64,14 +63,14 @@ watch(() => props.taskId, () => fetchComments(), { immediate: true })
 <template>
   <div class="border border-blue-500/20 rounded-lg bg-blue-50/5">
     <!-- Header -->
-    <div class="flex items-center gap-2 px-3 py-2 border-b border-blue-500/20">
-      <Globe :size="14" class="text-blue-500" />
-      <span class="font-semibold text-xs text-blue-500">ADO Discussion</span>
+    <div class="flex items-center gap-2 px-3 py-1.5 border-b border-blue-500/20">
+      <Globe :size="13" class="text-blue-500" />
+      <span class="font-semibold text-[11px] text-blue-500">ADO Discussion</span>
       <Badge v-if="comments.length > 0" variant="secondary" class="h-4 text-[10px] px-1.5 ml-auto">
         {{ comments.length }}
       </Badge>
-      <Button variant="ghost" size="icon" class="h-6 w-6 shrink-0" :class="loading && 'animate-spin'" @click="fetchComments" title="Refresh">
-        <RefreshCw :size="12" class="text-blue-500" />
+      <Button variant="ghost" size="icon" class="h-5 w-5 shrink-0" :class="loading && 'animate-spin'" @click="fetchComments" title="Refresh">
+        <RefreshCw :size="11" class="text-blue-500" />
       </Button>
     </div>
 
@@ -85,45 +84,42 @@ watch(() => props.taskId, () => fetchComments(), { immediate: true })
       v-else-if="comments.length === 0"
       :icon="Globe"
       title="No ADO discussion yet"
-      description="Comments from the linked ADO work item will appear here."
-      class="py-6"
+      description="Comments from the linked work item appear here."
+      class="py-4"
     />
 
-    <!-- Comments list -->
-    <ScrollArea v-else class="max-h-72">
-      <div class="px-3 py-2 space-y-3">
-        <div
-          v-for="c in comments"
-          :key="c.id"
-          class="pb-3 border-b border-border/50 last:border-0 last:pb-0"
-        >
-          <div class="flex items-baseline gap-2 mb-0.5">
-            <span class="font-medium text-[13px]">{{ c.createdBy }}</span>
-            <span class="text-muted-foreground text-[10px]">{{ relativeTime(c.createdDate) }}</span>
-          </div>
-          <!-- Render HTML content with basic sanitization -->
-          <div class="text-[13px] text-muted-foreground prose prose-sm max-w-none [&_*]:text-[13px] [&_*]:text-muted-foreground" v-html="sanitize(c.text)" />
+    <!-- Comments list (bubble style, left-aligned for ADO authors) -->
+    <div v-else class="px-3 py-2 flex flex-col gap-2 max-h-72 overflow-y-auto">
+      <div
+        v-for="c in comments"
+        :key="c.id"
+        class="rounded-lg px-3 py-2 max-w-[92%] self-start bg-blue-500/5 border border-blue-500/10"
+      >
+        <div class="flex items-center gap-1.5 mb-1">
+          <span class="font-medium text-[11px] text-blue-400">{{ c.createdBy }}</span>
+          <span class="text-[9px] text-muted-foreground/50 ml-auto tabular-nums">{{ relativeTime(c.createdDate) }}</span>
         </div>
+        <div class="text-[13px] text-muted-foreground leading-relaxed prose prose-sm max-w-none [&_*]:text-[13px] [&_*]:text-muted-foreground" v-html="sanitize(c.text)" />
       </div>
-    </ScrollArea>
+    </div>
 
     <!-- Reply input -->
     <div class="px-3 py-2 border-t border-blue-500/20">
       <Textarea
         v-model="replyText"
         placeholder="Reply on ADO..."
-        class="text-xs min-h-[50px] resize-none mb-2"
+        class="text-xs min-h-[40px] resize-none mb-1.5"
         :rows="2"
       />
       <div class="flex justify-between items-center">
-        <span class="text-[10px] text-muted-foreground">This reply will be posted to ADO</span>
+        <span class="text-[9px] text-muted-foreground/50">Posted to ADO</span>
         <Button
           size="sm"
-          class="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1"
+          class="h-6 text-[10px] bg-blue-600 hover:bg-blue-700 text-white gap-1"
           @click="reply"
           :disabled="!replyText.trim() || replying"
         >
-          <Globe :size="12" />
+          <Globe :size="10" />
           {{ replying ? 'Posting...' : 'Reply on ADO' }}
         </Button>
       </div>

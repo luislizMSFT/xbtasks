@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select'
 import ExternalLinks from '@/components/tasks/ExternalLinks.vue'
 import CommentsSection from '@/components/tasks/CommentsSection.vue'
+import ADODiscussion from '@/components/ado/ADODiscussion.vue'
 import SyncConfirmDialog from '@/components/ado/SyncConfirmDialog.vue'
 import ConflictResolver from '@/components/ado/ConflictResolver.vue'
 import {useSyncStore } from '@/stores/sync'
@@ -592,6 +593,9 @@ const projectName = computed(() => {
           <div class="flex items-center gap-2 mb-2">
             <h3 class="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Notes</h3>
           </div>
+          <!-- ADO Discussion (only for linked tasks) -->
+          <ADODiscussion v-if="task?.adoId" :task-id="task.id" :ado-id="task.adoId" class="mb-3" />
+          <!-- Local comments -->
           <CommentsSection v-if="task" :task-id="task.id" :is-public-task="taskStore.isPublic(task.id)" />
         </div>
 
